@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import circleImage from "../../assets/image3.webp";
-import logo from "../../assets/logo.jfif"; // <- your actual logo
+import logo from "../../assets/logo.jfif";
 
 interface BusinessUnitScreenProps {
   onClose: () => void;
@@ -12,112 +12,41 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
   const options = [
     { id: "personal", title: "Personal", description: "Chat Now" },
     { id: "business", title: "Business", description: "Chat Now" },
-    { id: "saving", title: " Investment", description: "Chat Now" },
+    { id: "saving", title: "Investment", description: "Chat Now" },
   ];
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 50,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: "#ffffff",
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          borderBottomLeftRadius: 16,
-          borderBottomRightRadius: 16,
-          boxShadow: "0 10px 15px rgba(0,0,0,0.1)",
-          width: 380,
-          height: 560,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      <div className="bg-white rounded-tl-[32px] rounded-tr-[32px] rounded-bl-2xl rounded-br-2xl shadow-lg w-[380px] h-[560px] flex flex-col overflow-hidden relative">
+
         {/* Header */}
-        <div
-          style={{
-            height: 220,
-            position: "relative",
-            borderBottomLeftRadius: 40,
-            borderBottomRightRadius: 40,
-            background: "linear-gradient(to right, #166534, #22c55e, #4ade80)",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: 20,
-              left: 20,
-              width: 56,
-              height: 56,
-              backgroundColor: "#fff",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Replace OM text with actual logo */}
+        <div className="h-[220px] relative rounded-b-[40px] bg-gradient-to-r from-green-800 via-green-500 to-green-400">
+          
+          <div className="absolute top-5 left-5 w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md overflow-hidden">
             <img
               src={logo}
               alt="Logo"
-              style={{ width: "80%", height: "80%", objectFit: "contain" }}
+              className="w-[80%] h-[80%] object-contain"
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", paddingTop: 80, paddingLeft: 24 }}>
-            <div style={{ color: "#fff", fontWeight: "bold", fontSize: 24, marginBottom: 6 }}>
+          <div className="flex flex-col pt-20 pl-6">
+            <div className="text-white font-bold text-2xl mb-1.5">
               Old Mutual
             </div>
-            <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 14 }}>
+            <div className="text-white/95 text-sm">
               Hey! How can we help you today
             </div>
           </div>
         </div>
 
-        {/* Center chat button - overlapping header and cards */}
-        <div
-          style={{
-            position: "absolute",
-            top: 180,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-          }}
-        >
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              backgroundColor: "#ffffff",
-              borderRadius: 8,
-              padding: "12px 15px",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-              color: "#16a34a",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: "pointer",
-              border: "none",
-            }}
-          >
-            {/* Green chat box icon */}
+        {/* Center Chat Button */}
+        <div className="absolute top-[180px] left-1/2 -translate-x-1/2 z-10">
+          <button className="flex items-center gap-1 bg-white rounded-md px-2.5 py-1.5 shadow-md text-green-600 font-semibold text-xs border-none">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               fill="#16a34a"
               viewBox="0 0 16 16"
             >
@@ -128,54 +57,30 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
         </div>
 
         {/* Cards */}
-        <div style={{ flex: 1, backgroundColor: "#ffffff", padding: 16, marginTop: 16 }}>
-          <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+        <div className="flex-1 bg-white p-4 mt-4">
+          <div className="flex flex-row justify-between gap-2">
             {options.map((option) => {
               const isActive = activeCard === option.id;
+
               return (
                 <div
                   key={option.id}
                   onClick={() => setActiveCard(option.id)}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    padding: 8,
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    border: "1px solid",
-                    borderColor: isActive ? "#16a34a" : "#bbf7d0",
-                    backgroundColor: isActive ? "#16a34a" : "#bbf7d0",
-                    boxShadow: isActive ? "0 4px 12px rgba(0,0,0,0.2)" : "0 2px 6px rgba(0,0,0,0.1)",
-                    transform: isActive ? "scale(1.05)" : "scale(1)",
-                    transition: "all 0.2s",
-                  }}
+                  className={`flex-1 min-w-0 flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200
+                    ${isActive ? "border-green-600 bg-green-600 shadow-lg scale-105" : "border-green-200 bg-green-200 shadow-md scale-100"}
+                  border`}
                 >
                   <div
+                    className="w-16 h-16 rounded-full shadow-sm border-2 border-white bg-cover bg-center mb-2"
                     style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: "50%",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                      border: "2px solid #fff",
                       backgroundImage: `url(${circleImage})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      marginBottom: 8,
                     }}
-                  ></div>
+                  />
 
                   <div
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 14,
-                      marginBottom: 4,
-                      textAlign: "center",
-                      color: isActive ? "#ffffff" : "#1f2937",
-                      whiteSpace: "nowrap",
-                    }}
+                    className={`font-semibold text-sm mb-2 text-center whitespace-nowrap ${
+                      isActive ? "text-white" : "text-gray-800"
+                    }`}
                   >
                     {option.title}
                   </div>
@@ -184,14 +89,10 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
                     style={{
                       backgroundColor: isActive ? "#ffffff" : "#16a34a",
                       color: isActive ? "#16a34a" : "#ffffff",
-                      fontWeight: 600,
-                      fontSize: 10,
-                      padding: "4px 8px",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      boxShadow: isActive ? "0 2px 4px rgba(0,0,0,0.1)" : "0 2px 4px rgba(0,0,0,0.2)",
-                      outline: "none",
+                      fontSize: "10px",
+                      padding: "4px 8px"
                     }}
+                    className="font-semibold rounded cursor-pointer shadow-sm outline-none border-none"
                   >
                     {option.description}
                   </button>
@@ -201,51 +102,22 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Bottom menu */}
-        <div
-          style={{
-            backgroundColor: "#f9fafb",
-            borderTopLeftRadius: 32,
-            borderTopRightRadius: 32,
-            borderTop: "1px solid #e5e7eb",
-            padding: 16,
-            marginTop: 8,
-            position: "relative",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#16a34a", cursor: "pointer" }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  transition: "background-color 0.2s",
-                }}
-              >
-                <svg style={{ width: 20, height: 20 }} fill="currentColor" viewBox="0 0 20 20">
+        {/* Bottom Menu */}
+        <div className="bg-gray-50 rounded-t-[32px] border-t border-gray-200 p-4 mt-2 relative">
+          <div className="flex justify-between items-center">
+
+            <div className="flex flex-col items-center text-green-600 cursor-pointer">
+              <div className="w-8 h-8 flex items-center justify-center rounded-full transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
               </div>
-              <span style={{ fontSize: 10, marginTop: 6, fontWeight: 500 }}>Home</span>
+              <span className="text-[10px] mt-1.5 font-medium">Home</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#4b5563", cursor: "pointer" }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  transition: "background-color 0.2s",
-                }}
-              >
-                <svg style={{ width: 20, height: 20 }} fill="currentColor" viewBox="0 0 20 20">
+            <div className="flex flex-col items-center text-gray-600 cursor-pointer">
+              <div className="w-8 h-8 flex items-center justify-center rounded-full transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
@@ -253,33 +125,22 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
                   />
                 </svg>
               </div>
-              <span style={{ fontSize: 10, marginTop: 6, fontWeight: 500 }}>Conversation</span>
+              <span className="text-[10px] mt-1.5 font-medium">Conversation</span>
             </div>
           </div>
 
           <button
             onClick={onClose}
             style={{
-              position: "absolute",
-              top: -20,
-              right: -20,
-              width: 40,
-              height: 40,
               backgroundColor: "#16a34a",
-              borderRadius: "50%",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              color: "#fff",
-              fontSize: 24,
-              fontWeight: "bold",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-              cursor: "pointer",
+              color: "#ffffff"
             }}
+            className="absolute bottom-0 right-2 w-10 h-10 rounded-full flex justify-center items-center text-2xl font-bold shadow-lg cursor-pointer border-none"
           >
             ×
           </button>
         </div>
+
       </div>
     </div>
   );
