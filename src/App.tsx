@@ -19,7 +19,9 @@ function App() {
           />
           <Route
             path="/businessUnits"
-            element={chatOpen ? <BusinessUnitScreen /> : null}
+            element={chatOpen ? <BusinessUnitScreen onClose={function (): void {
+              throw new Error("Function not implemented.");
+            } } /> : null}
           />
           {/* ...other routes if needed... */}
         </Routes>
