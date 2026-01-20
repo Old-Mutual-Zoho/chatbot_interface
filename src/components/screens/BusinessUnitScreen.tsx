@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import circleImage from "../../assets/image3.webp";
 import logo from "../../assets/logo.jfif";
+import UnitChatScreen from "./UnitChatScreen";
 
 interface BusinessUnitScreenProps {
   onClose: () => void;
@@ -8,12 +9,23 @@ interface BusinessUnitScreenProps {
 
 const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
   const [activeCard, setActiveCard] = useState<string>("personal");
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
 
   const options = [
     { id: "personal", title: "Personal", description: "Chat Now" },
     { id: "business", title: "Business", description: "Chat Now" },
     { id: "saving", title: "Investment", description: "Chat Now" },
   ];
+
+  // If a unit has been selected, show the unit chat screen instead
+  if (selectedUnit) {
+    return (
+      <UnitChatScreen
+        unit={selectedUnit}
+        onBack={() => setSelectedUnit(null)}
+      />
+    );
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
@@ -65,7 +77,10 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
               return (
                 <div
                   key={option.id}
-                  onClick={() => setActiveCard(option.id)}
+                  onClick={() => {
+                    setActiveCard(option.id);
+                    setSelectedUnit(option.id);
+                  }}
                   className={`flex-1 min-w-0 flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200
                     ${isActive ? "border-green-600 bg-green-600 shadow-lg scale-105" : "border-green-200 bg-green-200 shadow-md scale-100"}
                   border`}
