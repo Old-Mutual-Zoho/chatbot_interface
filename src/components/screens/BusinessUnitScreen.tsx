@@ -104,7 +104,7 @@ const BusinessUnitScreen: React.FC<BusinessUnitScreenProps> = ({ onClose }) => {
 
         {/* Bottom Menu */}
         <div className="bg-gray-50 rounded-t-[32px] border-t border-gray-200 p-4 mt-2 relative">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-center items-center gap-35">
 
             <div className="flex flex-col items-center text-green-600 cursor-pointer">
               <div className="w-8 h-8 flex items-center justify-center rounded-full transition-colors">
