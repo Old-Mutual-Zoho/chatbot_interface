@@ -4,7 +4,6 @@ function App() {
   return (
     <>
       {/* Your website layout here */}
-
       <ChatbotWidget />
     </>
   );

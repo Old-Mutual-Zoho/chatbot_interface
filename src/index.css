@@ -1,4 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
 @import "tailwindcss";
+
+*{
+  font-family: 'Nunito', sans-serif !important;
+}
 
 @theme {
   --color-primary: #00A651;
@@ -14,10 +19,17 @@
 
   --radius-widget: 20px;
   --radius-bubble: 16px;
+
+} 
+
+html, body {
+  font-family: var(--font-primary) !important;
 }
 
 
 :root {
+  --font-primary: 'Nunito', sans-serif;
+
   --om-green-1: #1BAA56;
   --om-green-2: #1F8E4D;
 

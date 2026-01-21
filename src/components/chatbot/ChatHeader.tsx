@@ -32,9 +32,9 @@ export default function ChatHeader({
       </div>
 
       {/* CLOSE ICON */}
-      {/* <button onClick={onClose} className="text-2xl">
+      <button onClick={onClose} className="text-2xl">
         <IoClose />
-      </button> */}
+      </button>
     </div>
   );
 }

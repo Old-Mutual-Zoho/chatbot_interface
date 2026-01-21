@@ -1,4 +1,5 @@
-import { ProductNode } from "./productTree";
+import type { ProductNode } from "../chatbot/productTree";
+
 
 interface ProductListProps {
   items: ProductNode[];
