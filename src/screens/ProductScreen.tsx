@@ -1,4 +1,4 @@
-import type { ProductNode } from "../../chatbot/productTree";
+import type { ProductNode } from "../components/chatbot/productTree";
 
 interface ProductScreenProps {
   node: ProductNode;

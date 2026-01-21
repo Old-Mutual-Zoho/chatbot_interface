@@ -1,8 +1,8 @@
 import { useState } from "react";
 import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
-import HomeScreen from "./screens/HomeScreen";
-import ChatScreen from "./screens/ChatScreen";
+import HomeScreen from "../../screens/HomeScreen";
+import ChatScreen from "../../screens/ChatScreen";
 
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [screen, setScreen] = useState<"home" | "chat">("home");
