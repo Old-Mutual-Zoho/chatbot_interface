@@ -39,9 +39,9 @@ export default function HomeScreen({
       <div className="-mt-8 px-4">
         <button
           onClick={onStartChat}
-          className="w-full bg-white rounded-2xl shadow-md flex justify-between items-center px-4 py-3 pt-4 pb-4 cursor-pointer hover:shadow-lg transition"
+          className="w-full bg-white rounded-2xl shadow-md flex justify-between items-center px-4 py-3 pt-5 pb-5 cursor-pointer hover:shadow-lg transition"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-5">
             <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
               <BsChatRightText
                 size={22}
@@ -56,8 +56,8 @@ export default function HomeScreen({
 
       {/* Cards */}
       <div className="mt-6 px-4 pb-4">
-        <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-          <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-sm bg-white">
+          <div className="grid grid-cols-3 gap-3 mt-3">
             {/* PERSONAL */}
             <button className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs">
               <img
@@ -105,7 +105,7 @@ export default function HomeScreen({
       </div>
 
       {/* Bottom Nav */}
-      <div className="mt-auto bg-white border-t px-10 py-4 pl-15 pr-15 flex justify-between items-center">
+      <div className="mt-auto bg-gray-50 border-t border-gray-200 px-10 py-4 pl-15 pr-15 flex justify-between items-center">
         <div className="flex flex-col items-center text-primary cursor-pointer">
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>
