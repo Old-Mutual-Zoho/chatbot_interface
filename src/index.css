@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #00A651;
+  --color-primary-dark: #008C44;
+  --color-primary-light: #B2EEC3;
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
+  --color-neutral-light: #F9FAFB;
+  --color-neutral-dark: #111827;
+
+  --color-accent: #F97316;
+
+  --radius-widget: 20px;
+  --radius-bubble: 16px;
+}
+
+
+:root {
+  --om-green-1: #1BAA56;
+  --om-green-2: #1F8E4D;
+
+  --header-gradient: linear-gradient(135deg, var(--om-green-1), var(--om-green-2));
+}
+
+.om-header-gradient {
+  background: var(--header-gradient);
+}
