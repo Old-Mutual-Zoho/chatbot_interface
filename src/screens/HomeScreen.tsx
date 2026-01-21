@@ -4,6 +4,7 @@ import {
   IoHome,
   IoChatbubbles,
 } from "react-icons/io5";
+import logo from "../assets/Logo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
 import product3 from "../assets/product3.png";
@@ -19,18 +20,18 @@ export default function HomeScreen({
     <div className="flex flex-col h-full w-full bg-white">
       {/* Header */}
       <div
-        className="rounded-b-[32px] p-6 pb-10 text-white"
+        className="rounded-3xl p-6 pb-10 text-white"
         style={{
-          background: "linear-gradient(135deg, #1B8F45 0%, #32C86E 100%)",
+          background: "linear-gradient(135deg, #31A75F 0%, #54B44F 100%)",
         }}
       >
         {/* Logo */}
-        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
-          <img src="/oldmutual-logo.svg" className="w-7 h-7" />
+        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">
+          <img src={logo} className="w-full h-full" />
         </div>
 
-        <h1 className="text-3xl font-bold">Old Mutual</h1>
-        <p className="text-base opacity-90">Hey! How can we help you today</p>
+        <h1 className="text-5xl font-bold mb-2">Old Mutual</h1>
+        <p className="text-xl opacity-90 mb-5">Hey! How can we help you today</p>
       </div>
 
       {/* CHAT NOW */}
@@ -62,7 +63,9 @@ export default function HomeScreen({
                 src={product1}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">Personal</p>
+              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
+                Personal
+              </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
               </span>
@@ -74,7 +77,9 @@ export default function HomeScreen({
                 src={product2}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">Business</p>
+              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
+                Business
+              </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
               </span>
@@ -86,7 +91,10 @@ export default function HomeScreen({
                 src={product3}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-xs font-semibold text-center leading-tight"> Savings & Investment</p>
+              <p className="text-xs font-semibold text-center leading-tight">
+                {" "}
+                Savings & Investment
+              </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
               </span>
