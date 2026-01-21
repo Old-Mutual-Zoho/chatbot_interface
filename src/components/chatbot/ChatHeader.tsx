@@ -10,11 +10,11 @@ export default function ChatHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="bg-primaryGreen text-white p-4 flex items-center gap-3">
+    <div className="bg-primary  text-white p-4 flex items-center gap-3">
 
       {/* Back button */}
       {onBack ? (
-        <button onClick={onBack} className="text-2xl">
+        <button onClick={onBack} className="text-2xl cursor-pointer">
           <IoChevronBack />
         </button>
       ) : (
@@ -25,7 +25,7 @@ export default function ChatHeader({
       <div className="flex-1 text-lg font-semibold">{title}</div>
 
       {/* Close */}
-      <button onClick={onClose} className="text-2xl">
+      <button onClick={onClose} className="text-2xl cursor-pointer">
         <IoClose />
       </button>
     </div>
