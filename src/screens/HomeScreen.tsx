@@ -4,6 +4,7 @@ import {
   IoHome,
   IoChatbubbles,
 } from "react-icons/io5";
+import { BsChatRightText } from "react-icons/bs";
 import logo from "../assets/Logo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
@@ -30,7 +31,7 @@ export default function HomeScreen({
           <img src={logo} className="w-full h-full" />
         </div>
 
-        <h1 className="text-5xl font-bold mb-2">Old Mutual</h1>
+        <h1 className="text-6xl mb-2">Old Mutual</h1>
         <p className="text-xl opacity-90 mb-5">Hey! How can we help you today</p>
       </div>
 
@@ -38,18 +39,18 @@ export default function HomeScreen({
       <div className="-mt-8 px-4">
         <button
           onClick={onStartChat}
-          className="w-full bg-white rounded-xl shadow-md flex justify-between items-center px-4 py-3"
+          className="w-full bg-white rounded-2xl shadow-md flex justify-between items-center px-4 py-3 pt-4 pb-4 cursor-pointer hover:shadow-lg transition"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <IoChatbubbleEllipsesOutline
-                size={20}
-                className="text-primaryGreen"
+            <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+              <BsChatRightText
+                size={22}
+                className="text-white"
               />
             </div>
-            <span className="text-gray-700 font-medium">Chat with us now</span>
+            <span className="text-black text-xl font-medium">Chat with us now</span>
           </div>
-          <IoChevronForward size={22} className="text-gray-500" />
+          <IoChevronForward size={22} className="text-black" />
         </button>
       </div>
 
