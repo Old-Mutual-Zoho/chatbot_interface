@@ -105,15 +105,15 @@ export default function HomeScreen({
       </div>
 
       {/* Bottom Nav */}
-      <div className="mt-auto bg-white border-t px-10 py-4 flex justify-between items-center">
-        <div className="flex flex-col items-center text-primaryGreen">
+      <div className="mt-auto bg-white border-t px-10 py-4 pl-15 pr-15 flex justify-between items-center">
+        <div className="flex flex-col items-center text-primary cursor-pointer">
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>
         </div>
 
         <button
           onClick={onGoToConversation}
-          className="flex flex-col items-center text-gray-500"
+          className="flex flex-col items-center text-primary cursor-pointer"
         >
           <IoChatbubbles size={26} />
           <span className="text-sm mt-1">Conversation</span>
