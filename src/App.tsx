@@ -1,12 +1,9 @@
 import ChatbotWidget from "./components/chatbot/ChatbotWidget";
 
-function App() {
+export default function App() {
   return (
-    <>
-      {/* Your website layout here */}
+    <div>
       <ChatbotWidget />
-    </>
+    </div>
   );
 }
-
-export default App;

@@ -1,33 +1,3 @@
-// // import { ProductNode } from "../../chatbot/productTree";
-// import ProductList from "../ProductList";
-
-// interface ProductScreenProps {
-//   node: ProductNode;
-//   onSelect: (child: ProductNode) => void;
-//   onBack: () => void;
-// }
-
-// export default function ProductScreen({ node, onSelect, onBack }: ProductScreenProps) {
-//   return (
-//     <div className="flex flex-col w-full h-full bg-white">
-
-//       {/* HEADER */}
-//       <div className="h-14 bg-primaryGreen text-white flex items-center px-4 rounded-t-xl">
-//         <button onClick={onBack} className="mr-3 text-xl">←</button>
-//         <h2 className="text-lg font-semibold">{node.label}</h2>
-//       </div>
-
-//       {/* PRODUCT LIST */}
-//       <div className="flex-1 overflow-y-auto p-4">
-//         <ProductList items={node.children || []} onSelect={onSelect} />
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
-
 import type { ProductNode } from "../../chatbot/productTree";
 
 interface ProductScreenProps {

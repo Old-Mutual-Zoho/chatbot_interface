@@ -1,102 +1,101 @@
-// import { ProductNode } from "../../chatbot/productTree";
-
-// interface ChatHomeProps {
-//   businessUnits: ProductNode[];
-//   onSelectUnit: (node: ProductNode) => void;
-//   goToConversation: () => void;
-// }
-
-// export default function ChatHomeScreen({
-//   businessUnits,
-//   onSelectUnit,
-//   goToConversation,
-// }: ChatHomeProps) {
-//   return (
-//     <div className="flex flex-col w-full h-full">
-
-//       {/* Header */}
-//       <div className="p-4 bg-primaryGreen font-nunito text-white rounded-t-xl">
-//         <h2 className="text-xl font-bold">Old Mutual</h2>
-//         <p className="text-sm opacity-90">Hey! How can we help you today</p>
-//       </div>
-
-//       {/* Chat with us now button */}
-//       <div className="p-4">
-//         <button
-//           onClick={goToConversation}
-//           className="w-full bg-white border shadow-sm py-3 rounded-xl flex justify-between items-center px-4"
-//         >
-//           <span className="font-medium">Chat with us now</span>
-//           <span className="text-xl">›</span>
-//         </button>
-//       </div>
-
-//       {/* Business Unit Cards */}
-//       <div className="grid grid-cols-3 gap-3 px-4 pb-4">
-//         {businessUnits.map((unit) => (
-//           <button
-//             key={unit.id}
-//             onClick={() => onSelectUnit(unit)}
-//             className="bg-white shadow px-3 py-3 rounded-xl border text-sm font-medium hover:bg-gray-50"
-//           >
-//             {unit.label}
-//           </button>
-//         ))}
-//       </div>
-
-//     </div>
-//   );
-// }
-
-
-
-
-
-import type { ProductNode } from "../../chatbot/productTree";
-
-interface ChatHomeProps {
-  businessUnits: ProductNode[];
-  onSelectUnit: (node: ProductNode) => void;
-  goToConversation: () => void;
-}
+import { IoChatbubbleEllipsesOutline, IoChevronForward, IoHome, IoChatbubbles } from "react-icons/io5";
 
 export default function HomeScreen({
-  businessUnits,
-  onSelectUnit,
-  goToConversation,
-}: ChatHomeProps) {
+  onStartChat,
+  onGoToConversation
+}: {
+  onStartChat: () => void;
+  onGoToConversation: () => void;
+}) {
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col h-full w-full bg-white">
 
       {/* Header */}
-      <div className="p-4 bg-primaryGreen font-nunito text-white rounded-t-xl">
-        <h2 className="text-xl font-bold">Old Mutual</h2>
-        <p className="text-sm opacity-90">Hey! How can we help you today</p>
+      <div
+        className="rounded-b-[32px] p-6 pb-10 text-white"
+        style={{
+          background: "linear-gradient(135deg, #1B8F45 0%, #32C86E 100%)",
+        }}
+      >
+        {/* Logo */}
+        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
+          <img src="/oldmutual-logo.svg" className="w-7 h-7" />
+        </div>
+
+        <h1 className="text-3xl font-bold">Old Mutual</h1>
+        <p className="text-base opacity-90">Hey! How can we help you today</p>
       </div>
 
-      {/* Chat now */}
-      <div className="p-4">
+      {/* CHAT NOW */}
+      <div className="-mt-8 px-4">
         <button
-          onClick={goToConversation}
-          className="w-full bg-white border shadow-sm py-3 rounded-xl flex justify-between items-center px-4"
+          onClick={onStartChat}
+          className="w-full bg-white rounded-xl shadow-md flex justify-between items-center px-4 py-3"
         >
-          <span className="font-medium">Chat with us now</span>
-          <span className="text-xl">›</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <IoChatbubbleEllipsesOutline size={20} className="text-primaryGreen" />
+            </div>
+            <span className="text-gray-700 font-medium">Chat with us now</span>
+          </div>
+          <IoChevronForward size={22} className="text-gray-500" />
         </button>
       </div>
 
-      {/* Business Unit Cards */}
-      <div className="grid grid-cols-3 gap-3 px-4 pb-4">
-        {businessUnits.map((unit) => (
-          <button
-            key={unit.id}
-            onClick={() => onSelectUnit(unit)}
-            className="bg-white shadow px-3 py-3 rounded-xl border text-sm font-medium hover:bg-gray-50"
-          >
-            {unit.label}
-          </button>
-        ))}
+      {/* Cards */}
+      <div className="mt-6 px-4 pb-4">
+        <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
+
+          <div className="grid grid-cols-3 gap-3">
+            {/* PERSONAL */}
+            <button className="flex flex-col items-center bg-green-50 rounded-xl p-3 shadow-sm">
+              <img src="/placeholder-personal.jpg" className="w-full h-16 rounded-lg object-cover mb-2" />
+              <p className="text-sm font-semibold text-gray-800">Personal</p>
+              <span className="mt-1 text-xs bg-primaryGreen text-white px-3 py-1 rounded-full">
+                Chat Now
+              </span>
+            </button>
+
+            {/* BUSINESS */}
+            <button className="flex flex-col items-center bg-green-50 rounded-xl p-3 shadow-sm">
+              <img src="/placeholder-business.jpg" className="w-full h-16 rounded-lg object-cover mb-2" />
+              <p className="text-sm font-semibold text-gray-800">Business</p>
+              <span className="mt-1 text-xs bg-primaryGreen text-white px-3 py-1 rounded-full">
+                Chat Now
+              </span>
+            </button>
+
+            {/* SAVINGS */}
+            <button className="flex flex-col items-center bg-green-50 rounded-xl p-3 shadow-sm">
+              <img src="/placeholder-savings.jpg" className="w-full h-16 rounded-lg object-cover mb-2" />
+              <p className="text-sm font-semibold text-center leading-tight">
+                Savings & Investment
+              </p>
+              <span className="mt-1 text-xs bg-primaryGreen text-white px-3 py-1 rounded-full">
+                Chat Now
+              </span>
+            </button>
+          </div>
+
+        </div>
       </div>
+
+      {/* Bottom Nav */}
+      <div className="mt-auto bg-white border-t px-10 py-4 flex justify-between items-center">
+        <div className="flex flex-col items-center text-primaryGreen">
+          <IoHome size={26} />
+          <span className="text-sm mt-1">Home</span>
+        </div>
+
+        <button
+          onClick={onGoToConversation}
+          className="flex flex-col items-center text-gray-500"
+        >
+          <IoChatbubbles size={26} />
+          <span className="text-sm mt-1">Conversation</span>
+        </button>
+      </div>
+
     </div>
   );
 }

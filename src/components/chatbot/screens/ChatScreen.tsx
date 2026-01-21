@@ -1,5 +1,7 @@
 export default function ChatScreen() {
   return (
-    <h1>ChatScreen</h1>
+    <div className="p-6 text-center text-gray-600">
+      Chat conversation UI will go here.
+    </div>
   );
 }

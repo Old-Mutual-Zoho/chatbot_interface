@@ -1,14 +1,13 @@
-import type { ReactNode } from "react";
-
-interface FadeWrapperProps {
+export default function FadeWrapper({
+  isVisible,
+  children
+}: {
   isVisible: boolean;
-  children: ReactNode;
-}
-
-export default function FadeWrapper({ isVisible, children }: FadeWrapperProps) {
+  children: React.ReactNode;
+}) {
   return (
     <div
-      className={`transition-opacity duration-300 ease-in-out ${
+      className={`absolute inset-0 transition-opacity duration-300 ${
         isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >

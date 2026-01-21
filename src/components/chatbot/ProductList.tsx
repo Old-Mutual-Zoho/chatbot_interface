@@ -1,6 +1,5 @@
 import type { ProductNode } from "../chatbot/productTree";
 
-
 interface ProductListProps {
   items: ProductNode[];
   onSelect: (node: ProductNode) => void;
