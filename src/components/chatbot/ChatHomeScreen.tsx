@@ -1,7 +1,8 @@
-import logo from "../../../assets/Logo.png"
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import { IoChevronForward } from "react-icons/io5";
 import { IoHome, IoChatbubbles } from "react-icons/io5";
+import logo from "../../assets/Logo.png"
+
 
 interface HomeScreenProps {
   onStartChat: () => void;
@@ -25,7 +26,7 @@ export default function HomeScreen({
         <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-7">
           <img
             src={logo}
-            className="w-7 h-7"
+            className="w-full h-full"
             alt="Old Mutual"
           />
         </div>
