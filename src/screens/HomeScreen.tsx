@@ -57,7 +57,7 @@ export default function HomeScreen({
       {/* Cards */}
       <div className="mt-6 px-4 pb-4">
         <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-sm bg-white">
-          <div className="grid grid-cols-3 gap-3 mt-3">
+          <div className="grid grid-cols-3 gap-3">
             {/* PERSONAL */}
             <button className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs">
               <img
