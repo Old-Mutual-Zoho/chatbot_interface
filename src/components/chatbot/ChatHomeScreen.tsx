@@ -1,7 +1,10 @@
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import { IoChevronForward } from "react-icons/io5";
 import { IoHome, IoChatbubbles } from "react-icons/io5";
-import logo from "../../assets/Logo.png"
+import logo from "../../assets/Logo.png";
+import product1 from "../../assets/product.png";
+import product2 from "../../assets/product2.png";
+import product3 from "../../assets/product3.png";
 
 
 interface HomeScreenProps {
@@ -70,7 +73,7 @@ export default function HomeScreen({
             >
               <div className="w-16 h-16 bg-green-200 rounded-full mb-2 overflow-hidden">
                 <img
-                  src="/placeholder-personal.jpg"
+                  src={product1}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -87,7 +90,7 @@ export default function HomeScreen({
             >
               <div className="w-16 h-16 bg-green-200 rounded-full mb-2 overflow-hidden">
                 <img
-                  src="/placeholder-business.jpg"
+                  src={product2}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -104,7 +107,7 @@ export default function HomeScreen({
             >
               <div className="w-16 h-16 bg-green-200 rounded-full mb-2 overflow-hidden">
                 <img
-                  src="/placeholder-savings.jpg"
+                  src={product3}
                   className="w-full h-full object-cover"
                 />
               </div>
