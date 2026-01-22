@@ -15,7 +15,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     : "Products";
 
   return (
-    <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col">
+    <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
 
       {/* Header (hidden on home) */}
       {screen !== "home" && (
