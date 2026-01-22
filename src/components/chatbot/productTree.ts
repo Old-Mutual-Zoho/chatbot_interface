@@ -4,6 +4,22 @@ export interface ProductNode {
   children?: ProductNode[];
 }
 
+export type TopCategoryId = "personal" | "business" | "savings";
+
+export function findProductNodeById(
+  id: string,
+  nodes: ProductNode[] = productTree,
+): ProductNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findProductNodeById(id, node.children);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 export const productTree: ProductNode[] = [
   {
     id: "personal",
