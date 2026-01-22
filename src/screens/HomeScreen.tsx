@@ -1,5 +1,4 @@
 import {
-  IoChatbubbleEllipsesOutline,
   IoChevronForward,
   IoHome,
   IoChatbubbles,
@@ -9,13 +8,16 @@ import logo from "../assets/Logo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
 import product3 from "../assets/product3.png";
+import type { TopCategoryId } from "../components/chatbot/productTree";
 
 export default function HomeScreen({
   onStartChat,
   onGoToConversation,
+  onSelectCategory,
 }: {
   onStartChat: () => void;
   onGoToConversation: () => void;
+  onSelectCategory: (categoryId: TopCategoryId) => void;
 }) {
   return (
     <div className="flex flex-col h-full w-full bg-white">
@@ -59,7 +61,10 @@ export default function HomeScreen({
         <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-sm bg-white">
           <div className="grid grid-cols-3 gap-3">
             {/* PERSONAL */}
-            <button className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs">
+            <button
+              onClick={() => onSelectCategory("personal")}
+              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+            >
               <img
                 src={product1}
                 className="w-13 h-13 rounded-full object-cover mb-2"
@@ -73,7 +78,10 @@ export default function HomeScreen({
             </button>
 
             {/* BUSINESS */}
-            <button className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs">
+            <button
+              onClick={() => onSelectCategory("business")}
+              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+            >
               <img
                 src={product2}
                 className="w-13 h-13 rounded-full object-cover mb-2"
@@ -87,7 +95,10 @@ export default function HomeScreen({
             </button>
 
             {/* SAVINGS */}
-            <button className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs">
+            <button
+              onClick={() => onSelectCategory("savings")}
+              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+            >
               <img
                 src={product3}
                 className="w-13 h-13 rounded-full object-cover mb-2"
