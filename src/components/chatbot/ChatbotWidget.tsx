@@ -18,7 +18,11 @@ export default function ChatbotWidget() {
       </button>
 
       {/* Chat Panel */}
-      {open && <ChatbotContainer onClose={() => setOpen(false)} />}
+      {open && (
+        <div className="fixed bottom-[110px] right-6 z-40">
+          <ChatbotContainer onClose={() => setOpen(false)} />
+        </div>
+      )}
     </>
   );
 }
