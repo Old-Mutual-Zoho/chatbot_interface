@@ -39,3 +39,53 @@ html, body {
 .om-header-gradient {
   background: var(--header-gradient);
 }
+
+@keyframes om-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes om-panel-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -28px, 0) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes om-drop-in {
+  0% {
+    transform: translate3d(0, calc(-100vh + 8rem), 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.om-launcher {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 50;
+  will-change: transform;
+}
+
+.om-launcher--intro {
+  animation: om-drop-in 120ms cubic-bezier(0.05, 0.95, 0.1, 1) both;
+}
+
+.om-float {
+  animation: om-float 3.2s ease-in-out infinite;
+}
+
+.om-panel-enter {
+  animation: om-panel-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}

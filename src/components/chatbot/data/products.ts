@@ -10,41 +10,8 @@ export const PRODUCT_CATEGORIES = {
     "Motor COMESA Insurance",
   ],
 
-  Business: [
-    // Solutions
-    "Investment & Advisory",
-    "Office Compact",
-    "SME Medical Cover",
-    "SME Life Pack",
-
-    // Group Benefits
-    "Group Life Cover",
-    "Group Medical (Standard)",
-    "Group Personal Accident",
-    "Credit Life Cover",
-    "Combined Solutions",
-    "Umbrella Pension Scheme",
-    "Group Last Expense",
-
-    // General Insurance
-    "Fidelity Guarantee",
-    "Bankers Blanket Bond",
-    "Livestock Insurance",
-    "Public Liability",
-    "Crop Insurance",
-    "Carriers Liability",
-    "Directors & Officers Liability",
-    "Motor Commercial",
-    "Marine (Open Cover, Hull, Cargo)",
-    "Goods in Transit",
-    "Industrial All Risks",
-    "All Risks Cover",
-    "Burglary",
-    "Business Interruption",
-    "Fire & Special Perils",
-    "Money Insurance",
-    "Product Liability",
-  ],
+  // Business products are displayed via BUSINESS_SUBCATEGORIES below.
+  Business: [],
 
   "Savings & Investment": [
     // Savings & Investment
@@ -61,3 +28,54 @@ export const PRODUCT_CATEGORIES = {
 } as const;
 
 export type CategoryName = keyof typeof PRODUCT_CATEGORIES;
+
+export type BusinessSubcategoryId = "solutions" | "group-benefits" | "general-insurance";
+
+export const BUSINESS_SUBCATEGORIES: Record<
+  BusinessSubcategoryId,
+  { label: string; products: readonly string[] }
+> = {
+  solutions: {
+    label: "Solutions",
+    products: [
+      "Investment & Advisory",
+      "Office Compact",
+      "SME Medical Cover",
+      "SME Life Pack",
+    ],
+  },
+  "group-benefits": {
+    label: "Group Benefits",
+    products: [
+      "Group Life Cover",
+      "Credit Life Cover",
+      "Combined Solutions",
+      "Group Last Expense",
+      "Group Personal Accident",
+      "Umbrella Pension Scheme",
+      "Group Medical (Standard)",
+    ],
+  },
+  "general-insurance": {
+    label: "General Insurance",
+    products: [
+      "Burglary",
+      "Crop Insurance",
+      "All Risks Cover",
+      "Money Insurance",
+      "Fidelity Guarantee",
+      "Livestock Insurance",
+      "Public Liability",
+      "Carriers Liability",
+      "Motor Commercial",
+      "Goods in Transit",
+      "Industrial All Risks",
+      "Product Liability",
+      "Bankers Blanket Bond",
+      "Business Interruption",
+      "Fire & Special Perils",
+      "Directors & Officers Liability",
+      "Marine (Open Cover, Hull, Cargo)",
+    ],
+  },
+} as const;

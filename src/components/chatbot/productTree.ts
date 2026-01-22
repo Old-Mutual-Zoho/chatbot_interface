@@ -41,8 +41,18 @@ export const productTree: ProductNode[] = [
     id: "business",
     label: "Business",
     children: [
-      { id: "corporate-health", label: "Corporate Health" },
-      { id: "group-life", label: "Group Life" },
+      {
+        id: "solutions",
+        label: "Solutions",
+      },
+      {
+        id: "group-benefits",
+        label: "Group Benefits",
+      },
+      {
+        id: "general-insurance",
+        label: "General Insurance",
+      },
     ],
   },
   {
