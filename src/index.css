@@ -5,7 +5,7 @@
   font-family: 'Nunito', sans-serif !important;
 }
 
-@theme {
+/* @theme {
   --color-primary: #00A651;
   --color-primary-dark: #008C44;
   --color-primary-light: #B2EEC3;
@@ -19,7 +19,24 @@
 
   --radius-widget: 20px;
   --radius-bubble: 16px;
+}  */
 
+
+
+@theme {
+  --color-primary: #aa04cf;
+  --color-primary-dark: #008C44;
+  --color-primary-light: #B2EEC3;
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
+  --color-neutral-light: #F9FAFB;
+  --color-neutral-dark: #111827;
+
+  --color-accent: #F97316;
+
+  --radius-widget: 20px;
+  --radius-bubble: 16px;
 } 
 
 html, body {
