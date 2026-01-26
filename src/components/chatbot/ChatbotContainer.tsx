@@ -2,7 +2,7 @@ import { useState } from "react";
 import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
-import ChatScreen from "../../screens/ChatScreen";
+import { ChatScreen } from "./screens";
 import ProductScreen from "../../screens/ProductScreen";
 import { findProductNodeById, type TopCategoryId } from "./productTree";
 
@@ -17,10 +17,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   return (
     <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
 
-      {/* Header (hidden on home) */}
-      {screen !== "home" && (
+      {/* Header (hidden on home and chat) */}
+      {screen !== "home" && screen !== "chat" && (
         <ChatHeader
-          title={screen === "chat" ? "Conversation" : selectedCategoryLabel}
+          title={selectedCategoryLabel}
           onBack={() => setScreen("home")}
           onClose={onClose}
         />
@@ -43,7 +43,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
 
         {/* CHAT */}
         <FadeWrapper isVisible={screen === "chat"}>
-          <ChatScreen />
+          <ChatScreen onBackClick={() => setScreen("home")} onCloseClick={onClose} />
         </FadeWrapper>
 
         {/* PRODUCTS */}

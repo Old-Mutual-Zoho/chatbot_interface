@@ -5,6 +5,15 @@
   font-family: 'Nunito', sans-serif !important;
 }
 
+/* Hide scrollbar while keeping functionality */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
 @theme {
   --color-primary: #00A651;
   --color-primary-dark: #008C44;
