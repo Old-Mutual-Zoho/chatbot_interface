@@ -13,6 +13,7 @@ import {
 interface ProductScreenProps {
   categoryId: TopCategoryId;
   onBack: () => void;
+  onSendProduct?: (product: string) => void;
 }
 
 const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
@@ -21,7 +22,7 @@ const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
   savings: "Savings & Investment",
 };
 
-export default function ProductScreen({ categoryId, onBack }: ProductScreenProps) {
+export default function ProductScreen({ categoryId, onBack, onSendProduct }: ProductScreenProps) {
   const categoryNode = findProductNodeById(categoryId);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
   const [selectedBusinessSubcategory, setSelectedBusinessSubcategory] =
@@ -94,7 +95,13 @@ export default function ProductScreen({ categoryId, onBack }: ProductScreenProps
                     setSelectedProduct(null);
                     return;
                   }
-                  setSelectedProduct((current) => (current === label ? null : label));
+                  setSelectedProduct((current) => {
+                    const newValue = current === label ? null : label;
+                    if (onSendProduct && newValue) {
+                      onSendProduct(newValue);
+                    }
+                    return newValue;
+                  });
                 }}
                 title={label}
                 style={

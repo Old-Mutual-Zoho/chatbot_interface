@@ -17,28 +17,40 @@ const mockBotReplies = [
 interface ChatScreenProps {
   onBackClick?: () => void;
   onCloseClick?: () => void;
+  selectedProduct?: string | null;
 }
 
 interface ChatMessageWithTimestamp extends ChatMessage {
   timestamp?: string;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClick }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClick, selectedProduct }) => {
   const [messages, setMessages] = useState<ChatMessageWithTimestamp[]>([]);
   const [showWelcomeCard, setShowWelcomeCard] = useState(false);
-  // Show welcome card and follow-up after delays
+  // Show welcome card, product (if any), and follow-up after delays
   useEffect(() => {
     const welcomeTimeout = setTimeout(() => {
       setShowWelcomeCard(true);
+      const welcomeMsg: ChatMessageWithTimestamp = {
+        id: "welcome-1",
+        type: "custom-welcome",
+        sender: "bot",
+        text: "",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      const productMsg: ChatMessageWithTimestamp | null = selectedProduct
+        ? {
+            id: `product-${Date.now()}`,
+            type: "text",
+            sender: "user",
+            text: selectedProduct,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          }
+        : null;
       setMessages(prev => [
         ...prev,
-        {
-          id: "welcome-1",
-          type: "custom-welcome",
-          sender: "bot",
-          text: "", // required for type
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        } as ChatMessageWithTimestamp
+        welcomeMsg,
+        ...(productMsg ? [productMsg] : []),
       ]);
       setTimeout(() => {
         setMessages(prev => [
@@ -54,7 +66,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       }, 1200);
     }, 1200);
     return () => clearTimeout(welcomeTimeout);
-  }, []);
+  }, [selectedProduct]);
 
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -167,19 +179,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-8 sm:space-y-10">
-        {messages.map((message) => {
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4">
+        {messages.map((message, idx) => {
           if (message.type === "custom-welcome" && !showWelcomeCard) {
             return null;
           }
           if (message.type === "custom-welcome" && showWelcomeCard) {
             return (
-              <div key={message.id} className="flex justify-start animate-fade-in">
+              <div key={message.id} className="flex justify-start animate-fade-in mb-4">
                 <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
                   <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                   <div className="px-4 pt-3 pb-2">
-                    <p className="font-semibold text-gray-900 text-base mb-1">Hi Philemon!</p>
-                    <p className="text-gray-700 text-sm mb-1">Welcome to Old Mutual Chat 👋</p>
+                    <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                    <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
                     <div className="flex justify-end">
                       <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
                     </div>
@@ -188,7 +200,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
               </div>
             );
           }
-          return <MessageRenderer key={message.id} message={message} />;
+          // Add standard spacing between messages
+          return (
+            <div key={message.id} className={idx !== messages.length - 1 ? "mb-4" : undefined}>
+              <MessageRenderer message={message} />
+            </div>
+          );
         })}
         <div ref={messagesEndRef} />
       </div>

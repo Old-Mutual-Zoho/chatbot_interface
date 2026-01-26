@@ -9,6 +9,7 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [screen, setScreen] = useState<"home" | "chat" | "products">("home");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   const selectedCategoryLabel = selectedCategoryId
     ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
@@ -32,8 +33,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         {/* HOME */}
         <FadeWrapper isVisible={screen === "home"}>
           <HomeScreen
-            onStartChat={() => setScreen("chat")}
-            onGoToConversation={() => setScreen("chat")}
+            onStartChat={() => {
+              setSelectedProduct(null);
+              setScreen("chat");
+            }}
+            onGoToConversation={() => {
+              setSelectedProduct(null);
+              setScreen("chat");
+            }}
             onSelectCategory={(categoryId) => {
               setSelectedCategoryId(categoryId);
               setScreen("products");
@@ -43,7 +50,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
 
         {/* CHAT */}
         <FadeWrapper isVisible={screen === "chat"}>
-          <ChatScreen onBackClick={() => setScreen("home")} onCloseClick={onClose} />
+          <ChatScreen
+            onBackClick={() => {
+              setSelectedProduct(null);
+              setScreen("home");
+            }}
+            onCloseClick={onClose}
+            selectedProduct={selectedProduct}
+          />
         </FadeWrapper>
 
         {/* PRODUCTS */}
@@ -52,6 +66,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             <ProductScreen
               categoryId={selectedCategoryId}
               onBack={() => setScreen("home")}
+              onSendProduct={(product) => {
+                setSelectedProduct(product);
+                setScreen("chat");
+              }}
             />
           ) : (
             <div className="p-6 text-center text-gray-600">Select a category to view products.</div>
