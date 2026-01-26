@@ -31,43 +31,40 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
   // Reset chat state when selectedProduct changes or on mount
   useEffect(() => {
     setMessages([]);
-    setShowWelcomeCard(false);
-    const welcomeTimeout = setTimeout(() => {
-      setShowWelcomeCard(true);
-      const welcomeMsg: ChatMessageWithTimestamp = {
-        id: "welcome-1",
-        type: "custom-welcome",
-        sender: "bot",
-        text: "",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-      const productMsg: ChatMessageWithTimestamp | null = selectedProduct
-        ? {
-            id: `product-${Date.now()}`,
-            type: "text",
-            sender: "user",
-            text: selectedProduct,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          }
-        : null;
-      setMessages([
-        welcomeMsg,
-        ...(productMsg ? [productMsg] : []),
+    setShowWelcomeCard(true);
+    const welcomeMsg: ChatMessageWithTimestamp = {
+      id: "welcome-1",
+      type: "custom-welcome",
+      sender: "bot",
+      text: "",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    const productMsg: ChatMessageWithTimestamp | null = selectedProduct
+      ? {
+          id: `product-${Date.now()}`,
+          type: "text",
+          sender: "user",
+          text: selectedProduct,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }
+      : null;
+    setMessages([
+      welcomeMsg,
+      ...(productMsg ? [productMsg] : []),
+    ]);
+    const followupTimeout = setTimeout(() => {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: "welcome-2",
+          type: "text",
+          sender: "bot",
+          text: "How can I help you today?",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }
       ]);
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: "welcome-2",
-            type: "text",
-            sender: "bot",
-            text: "How can I help you today?",
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          }
-        ]);
-      }, 1200);
     }, 1200);
-    return () => clearTimeout(welcomeTimeout);
+    return () => clearTimeout(followupTimeout);
   }, [selectedProduct]);
 
   const [inputValue, setInputValue] = useState("");
