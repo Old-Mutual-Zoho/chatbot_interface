@@ -15,6 +15,11 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
     : "Products";
 
+  // Helper to reset chat state
+  const resetChat = () => {
+    setSelectedProduct(null);
+  };
+
   return (
     <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
 
@@ -34,11 +39,11 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         <FadeWrapper isVisible={screen === "home"}>
           <HomeScreen
             onStartChat={() => {
-              setSelectedProduct(null);
+              resetChat();
               setScreen("chat");
             }}
             onGoToConversation={() => {
-              setSelectedProduct(null);
+              resetChat();
               setScreen("chat");
             }}
             onSelectCategory={(categoryId) => {
@@ -52,7 +57,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         <FadeWrapper isVisible={screen === "chat"}>
           <ChatScreen
             onBackClick={() => {
-              setSelectedProduct(null);
+              resetChat();
               setScreen("home");
             }}
             onCloseClick={onClose}

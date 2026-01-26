@@ -27,8 +27,11 @@ interface ChatMessageWithTimestamp extends ChatMessage {
 export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClick, selectedProduct }) => {
   const [messages, setMessages] = useState<ChatMessageWithTimestamp[]>([]);
   const [showWelcomeCard, setShowWelcomeCard] = useState(false);
-  // Show welcome card, product (if any), and follow-up after delays
+
+  // Reset chat state when selectedProduct changes or on mount
   useEffect(() => {
+    setMessages([]);
+    setShowWelcomeCard(false);
     const welcomeTimeout = setTimeout(() => {
       setShowWelcomeCard(true);
       const welcomeMsg: ChatMessageWithTimestamp = {
@@ -47,8 +50,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           }
         : null;
-      setMessages(prev => [
-        ...prev,
+      setMessages([
         welcomeMsg,
         ...(productMsg ? [productMsg] : []),
       ]);
