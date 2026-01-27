@@ -1,12 +1,3 @@
-// Simple type guard for action-card messages
-function isActionCardMessage(msg: unknown): msg is { type: "action-card"; options: ActionOption[] } {
-  return (
-    typeof msg === "object" &&
-    msg !== null &&
-    (msg as { type?: string }).type === "action-card" &&
-    Array.isArray((msg as { options?: unknown }).options)
-  );
-}
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
@@ -66,7 +57,8 @@ const initialState = (selectedProduct?: string | null): State => {
     timestamp: getTimeString(),
   };
   const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
-  if (selectedProduct) {
+  // Only add the selected product as a user message if it's a product selection (not an action card option)
+  if (selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
     messages.push({
       id: `product-${Date.now()}`,
       type: "text",
@@ -118,15 +110,43 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_OPTION_RESPONSE": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
-        const botReply: ChatMessageWithTimestamp = {
-          id: Date.now() + "-bot",
+      // Add the selected option as a user message if an option was selected and not already the last user message
+      let newMessages = [...filtered];
+      if (action.payload.option && action.payload.option.label) {
+        const lastMsg = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+        if (!(lastMsg && lastMsg.sender === "user" && lastMsg.text === action.payload.option.label)) {
+          newMessages.push({
+            id: `selected-${Date.now()}`,
+            sender: "user",
+            type: "text",
+            text: action.payload.option.label,
+            timestamp: getTimeString(),
+          });
+        }
+      }
+      // If response is empty, show loading bubble
+      if (!action.payload.response) {
+        newMessages.push({
+          id: `loading-${Date.now()}`,
           sender: "bot",
-          type: "text",
-          text: action.payload.response,
-          timestamp: getTimeString(),
+          type: "loading",
+        });
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: false,
+          loading: true,
         };
-        let newMessages = [...filtered, botReply];
-        const remainingOptions = action.payload.remainingOptions;
+      }
+      const botReply: ChatMessageWithTimestamp = {
+        id: Date.now() + "-bot",
+        sender: "bot",
+        type: "text",
+        text: action.payload.response,
+        timestamp: getTimeString(),
+      };
+      newMessages.push(botReply);
+      const remainingOptions = action.payload.remainingOptions;
         // If this is the initial help message after product selection, show all 4 options and no follow-up
         if (
           action.payload.response === "How can I help you today?" &&
@@ -243,7 +263,6 @@ export const ChatScreen: React.FC<{
       }, 1200);
       return () => clearTimeout(followupTimeout);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
   // Initialize messages state directly instead of in useEffect
@@ -288,8 +307,20 @@ export const ChatScreen: React.FC<{
     // Compute the new available options after selection
     const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
-    const response = await fetchBotResponse(option.label);
-    dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+    // Show loading bubble (bot is typing)
+    dispatch({
+      type: "RECEIVE_OPTION_RESPONSE",
+      payload: {
+        response: "",
+        option,
+        remainingOptions: newAvailableOptions,
+      },
+    });
+    // Wait before showing bot response
+    setTimeout(async () => {
+      const response = await fetchBotResponse(option.label);
+      dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+    }, 900);
   };
 
   return (
@@ -340,6 +371,19 @@ export const ChatScreen: React.FC<{
               </div>
             );
           }
+          // Calculate spacing between messages
+          const prevMsg = idx > 0 ? state.messages[idx - 1] : null;
+          let spacingClass = "";
+          // Treat action card as a bot message for spacing
+          const isBot = message.sender === "bot" || message.type === "action-card";
+          const prevIsBot = prevMsg && (prevMsg.sender === "bot" || prevMsg.type === "action-card");
+
+          if (prevMsg && ((prevMsg.sender === "user" && isBot) || (prevIsBot && message.sender === "user"))) {
+            spacingClass = "mb-6"; // More space between user and bot
+          } else if (idx !== state.messages.length - 1) {
+            spacingClass = "mb-2"; // Minimal space between bot messages (including action card)
+          }
+
           // Render the action card after the initial help message or the follow-up message if there are available options
           const shouldShowActionCard =
             state.showActionCard &&
@@ -351,10 +395,10 @@ export const ChatScreen: React.FC<{
           if (shouldShowActionCard) {
             return (
               <>
-                <div key={message.id} className={idx !== state.messages.length - 1 ? "mb-4" : undefined}>
+                <div key={message.id} className={spacingClass}>
                   <MessageRenderer message={message} />
                 </div>
-                <div key={"action-card-" + message.id} className="flex justify-start">
+                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
                   <MessageRenderer
                     message={{
                       id: "dynamic-action-card",
@@ -376,7 +420,7 @@ export const ChatScreen: React.FC<{
           }
           // Add standard spacing between messages
           return (
-            <div key={message.id} className={idx !== state.messages.length - 1 ? "mb-4" : undefined}>
+            <div key={message.id} className={spacingClass}>
               <MessageRenderer message={message} />
             </div>
           );
