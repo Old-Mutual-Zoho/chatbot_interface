@@ -116,87 +116,73 @@ function reducer(state: State, action: Action): State {
         isSending: true,
       };
     }
-    case "RECEIVE_BOT_REPLY": {
-      const filtered = state.messages.filter((msg) => msg.type !== "loading");
-      const botReply: ChatMessageWithTimestamp = {
-        id: `bot-${Date.now()}`,
-        type: "text",
-        sender: "bot",
-        text: action.payload,
-        timestamp: getTimeString(),
-      };
-      return {
-        ...state,
-        messages: [...filtered, botReply],
-        isSending: false,
-      };
-    }
-    case "SELECT_OPTION": {
-      const userMessage: ChatMessageWithTimestamp = {
-        id: Date.now() + "-user",
-        sender: "user",
-        type: "text",
-        text: action.payload.label,
-        timestamp: getTimeString(),
-      };
-      const loadingMessage: ChatMessageWithTimestamp = {
-        id: `loading-${Date.now()}`,
-        type: "loading",
-        sender: "bot",
-      };
-      const newAvailableOptions = state.availableOptions.filter((o) => o.value !== action.payload.value);
-      return {
-        ...state,
-        messages: [...state.messages, userMessage, loadingMessage],
-        availableOptions: newAvailableOptions,
-        showActionCard: false,
-        loading: true,
-        lastSelected: action.payload.value,
-      };
-    }
     case "RECEIVE_OPTION_RESPONSE": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
-      const botReply: ChatMessageWithTimestamp = {
-        id: Date.now() + "-bot",
-        sender: "bot",
-        type: "text",
-        text: action.payload.response,
-        timestamp: getTimeString(),
-      };
-      let newMessages = [...filtered, botReply];
-      const remainingOptions = action.payload.remainingOptions;
-      if (remainingOptions.length > 0) {
-        newMessages = [
-          ...newMessages,
-          {
-            id: `followup-${Date.now()}`,
-            sender: "bot",
-            type: "text",
-            text: "Can I get you anything else?",
-            timestamp: getTimeString(),
-          },
-          {
-            id: `action-card-${Date.now()}`,
-            sender: "bot",
-            type: "action-card",
-            options: remainingOptions,
-          } as ChatMessageWithTimestamp,
-        ];
+        const botReply: ChatMessageWithTimestamp = {
+          id: Date.now() + "-bot",
+          sender: "bot",
+          type: "text",
+          text: action.payload.response,
+          timestamp: getTimeString(),
+        };
+        let newMessages = [...filtered, botReply];
+        const remainingOptions = action.payload.remainingOptions;
+        // If this is the initial help message after product selection, show all 4 options and no follow-up
+        if (
+          action.payload.response === "How can I help you today?" &&
+          remainingOptions.length === 4
+        ) {
+          newMessages = [
+            ...newMessages,
+            {
+              id: `action-card-${Date.now()}`,
+              sender: "bot",
+              type: "action-card",
+              options: remainingOptions,
+            } as ChatMessageWithTimestamp,
+          ];
+          return {
+            ...state,
+            messages: newMessages,
+            showActionCard: true,
+            loading: false,
+            availableOptions: remainingOptions,
+          };
+        }
+        // For follow-up after an option is selected, show follow-up message and only remaining options
+        if (remainingOptions.length > 0) {
+          newMessages = [
+            ...newMessages,
+            {
+              id: `followup-${Date.now()}`,
+              sender: "bot",
+              type: "text",
+              text: "Would you like to continue with another option?",
+              timestamp: getTimeString(),
+            },
+            {
+              id: `action-card-${Date.now()}`,
+              sender: "bot",
+              type: "action-card",
+              options: remainingOptions,
+            } as ChatMessageWithTimestamp,
+          ];
+          return {
+            ...state,
+            messages: newMessages,
+            showActionCard: true,
+            loading: false,
+            availableOptions: remainingOptions,
+          };
+        }
+        // If no options remain, just show the bot reply
         return {
           ...state,
           messages: newMessages,
-          showActionCard: true,
+          showActionCard: false,
           loading: false,
-          availableOptions: remainingOptions,
+          availableOptions: [],
         };
-      }
-      return {
-        ...state,
-        messages: newMessages,
-        showActionCard: false,
-        loading: false,
-        availableOptions: [],
-      };
     }
     case "SET_LOADING": {
       return { ...state, loading: action.payload };
@@ -228,21 +214,35 @@ export const ChatScreen: React.FC<{
   // Reset all chat state when selectedProduct changes
   useEffect(() => {
     dispatch({ type: "RESET", selectedProduct });
-    const followupTimeout = setTimeout(() => {
-      dispatch({
-        type: "RECEIVE_BOT_REPLY",
-        payload: "How can I help you today?",
-      });
-      dispatch({ type: "SET_LOADING", payload: false });
-      // Show action card if options exist
-      if (state.availableOptions.length > 0) {
+    if (selectedProduct) {
+      // After a product is selected, show help message and action card only
+      const followupTimeout = setTimeout(() => {
         dispatch({
           type: "RECEIVE_OPTION_RESPONSE",
-          payload: { response: "", option: { label: "", value: "" }, remainingOptions: state.availableOptions },
+          payload: {
+            response: "How can I help you today?",
+            option: { label: "", value: "" },
+            remainingOptions: ACTION_OPTIONS,
+          },
         });
-      }
-    }, 1200);
-    return () => clearTimeout(followupTimeout);
+        dispatch({ type: "SET_LOADING", payload: false });
+      }, 1200);
+      return () => clearTimeout(followupTimeout);
+    } else {
+      // On initial load, just show help message and action card
+      const followupTimeout = setTimeout(() => {
+        dispatch({
+          type: "RECEIVE_OPTION_RESPONSE",
+          payload: {
+            response: "How can I help you today?",
+            option: { label: "", value: "" },
+            remainingOptions: ACTION_OPTIONS,
+          },
+        });
+        dispatch({ type: "SET_LOADING", payload: false });
+      }, 1200);
+      return () => clearTimeout(followupTimeout);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
@@ -340,16 +340,38 @@ export const ChatScreen: React.FC<{
               </div>
             );
           }
-          if (message.type === "action-card" && state.showActionCard) {
-            // Only show the first action card in the messages array
-            const isFirstActionCard = state.messages.findIndex(m => m.type === "action-card") === idx;
-            if (isFirstActionCard && isActionCardMessage(message) && message.options.length > 0) {
-              return (
-                <div key={message.id} className="flex justify-start">
-                  <MessageRenderer message={message} onActionCardSelect={handleActionCardSelect} loading={state.loading} lastSelected={state.lastSelected} />
+          // Render the action card after the initial help message or the follow-up message if there are available options
+          const shouldShowActionCard =
+            state.showActionCard &&
+            state.availableOptions.length > 0 &&
+            (
+              (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
+              (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+            );
+          if (shouldShowActionCard) {
+            return (
+              <>
+                <div key={message.id} className={idx !== state.messages.length - 1 ? "mb-4" : undefined}>
+                  <MessageRenderer message={message} />
                 </div>
-              );
-            }
+                <div key={"action-card-" + message.id} className="flex justify-start">
+                  <MessageRenderer
+                    message={{
+                      id: "dynamic-action-card",
+                      sender: "bot",
+                      type: "action-card",
+                      options: state.availableOptions,
+                    }}
+                    onActionCardSelect={handleActionCardSelect}
+                    loading={state.loading}
+                    lastSelected={state.lastSelected}
+                  />
+                </div>
+              </>
+            );
+          }
+          if (message.type === "action-card") {
+            // Do not render action cards from the messages array (handled above)
             return null;
           }
           // Add standard spacing between messages
