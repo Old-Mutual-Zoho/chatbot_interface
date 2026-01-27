@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import type { ChatMessage } from "../types";
+// import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
 import WelcomeImage from "../../../assets/welcome.png";
 import PatternImage from "../../../assets/pattern.jpg";
 import { IoSend, IoArrowBack, IoClose } from "react-icons/io5";
 import Logo from "../../../assets/Logo.png";
+import type { ExtendedChatMessage } from "../messages/actionCardTypes";
+import type { ActionOption } from "../ActionCard";
 
 const mockBotReplies = [
   "That's a great question! Let me help you with that.",
@@ -12,26 +14,25 @@ const mockBotReplies = [
   "Thanks for reaching out! I'd be happy to assist.",
   "I see. Let me provide you with more information.",
   "Absolutely! Here's what you need to know.",
+  "Let me check that for you right away!",
 ];
 
-interface ChatScreenProps {
+const ACTION_OPTIONS: ActionOption[] = [
+  { label: "General Info", value: "general" },
+  { label: "Get My Quote", value: "quote" },
+  { label: "Exclusions", value: "exclusions" },
+  { label: "Buy Now", value: "buy" },
+];
+
+
+type ChatMessageWithTimestamp = ExtendedChatMessage & { timestamp?: string };
+
+export const ChatScreen: React.FC<{
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
-}
-
-interface ChatMessageWithTimestamp extends ChatMessage {
-  timestamp?: string;
-}
-
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClick, selectedProduct }) => {
-  const [messages, setMessages] = useState<ChatMessageWithTimestamp[]>([]);
-  const [showWelcomeCard, setShowWelcomeCard] = useState(false);
-
-  // Reset chat state when selectedProduct changes or on mount
-  useEffect(() => {
-    setMessages([]);
-    setShowWelcomeCard(true);
+}> = ({ onBackClick, onCloseClick, selectedProduct }) => {
+  const [messages, setMessages] = useState<ChatMessageWithTimestamp[]>(() => {
     const welcomeMsg: ChatMessageWithTimestamp = {
       id: "welcome-1",
       type: "custom-welcome",
@@ -39,21 +40,38 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       text: "",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    const productMsg: ChatMessageWithTimestamp | null = selectedProduct
-      ? {
+    return [welcomeMsg];
+  });
+  const [showWelcomeCard] = useState(true);
+  const [showActionCard, setShowActionCard] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const fetchBotResponse = async (option: string) => {
+    await new Promise((r) => setTimeout(r, 800));
+    return `Here is the info for "${option}" (placeholder response).`;
+  };
+
+  useEffect(() => {
+    // If a product is selected, insert it as a user message before bot's followup
+    setMessages((prev) => {
+      const welcomeMsg = prev[0];
+      let baseMsgs = [welcomeMsg];
+      if (selectedProduct) {
+        baseMsgs.push({
           id: `product-${Date.now()}`,
           type: "text",
           sender: "user",
           text: selectedProduct,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }
-      : null;
-    setMessages([
-      welcomeMsg,
-      ...(productMsg ? [productMsg] : []),
-    ]);
+        });
+      }
+      return baseMsgs;
+    });
     const followupTimeout = setTimeout(() => {
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           id: "welcome-2",
@@ -61,32 +79,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
           sender: "bot",
           text: "How can I help you today?",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }
+        },
+        {
+          id: `action-card-${Date.now()}`,
+          type: "action-card",
+          sender: "bot",
+          options: ACTION_OPTIONS,
+        },
       ]);
+      setShowActionCard(true);
     }, 1200);
     return () => clearTimeout(followupTimeout);
   }, [selectedProduct]);
 
-  const [inputValue, setInputValue] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Initialize messages state directly instead of in useEffect
+  // Removed effect that sets messages on mount; now handled in useState initializer
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-focus input on mount and maintain focus
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Re-focus input after bot finishes responding
   useEffect(() => {
     if (!isSending) {
       inputRef.current?.focus();
@@ -114,7 +130,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       timestamp: getTimeString(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev: ChatMessageWithTimestamp[]) => [...prev, userMessage]);
     setInputValue("");
 
     // Add loading bubble
@@ -124,7 +140,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       sender: "bot",
     };
 
-    setMessages((prev) => [...prev, loadingMessage]);
+    setMessages((prev: ChatMessageWithTimestamp[]) => [...prev, loadingMessage]);
 
     // Replace loading with bot reply after 1 second
     setTimeout(() => {
@@ -136,7 +152,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
         timestamp: getTimeString(),
       };
 
-      setMessages((prev) => {
+      setMessages((prev: ChatMessageWithTimestamp[]) => {
         const filtered = prev.filter((msg) => msg.id !== loadingMessage.id);
         return [...filtered, botReply];
       });
@@ -149,6 +165,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleActionCardSelect = async (option: ActionOption) => {
+    setMessages((msgs: ChatMessageWithTimestamp[]) => [
+      ...msgs,
+      { id: Date.now() + "-user", sender: "user", type: "text", text: option.label },
+    ]);
+    setShowActionCard(false);
+    const response = await fetchBotResponse(option.label);
+    setMessages((msgs: ChatMessageWithTimestamp[]) => [
+      ...msgs,
+      { id: Date.now() + "-bot", sender: "bot", type: "text", text: response },
+    ]);
   };
 
   return (
@@ -199,6 +228,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
               </div>
             );
           }
+          if (message.type === "action-card" && showActionCard) {
+            // Only show the first action card in the messages array
+            const isFirstActionCard = messages.findIndex(m => m.type === "action-card") === idx;
+            if (isFirstActionCard) {
+              return (
+                <div key={message.id} className="flex justify-start">
+                  <MessageRenderer message={message} onActionCardSelect={handleActionCardSelect} />
+                </div>
+              );
+            }
+            return null;
+          }
           // Add standard spacing between messages
           return (
             <div key={message.id} className={idx !== messages.length - 1 ? "mb-4" : undefined}>
@@ -234,4 +275,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       </div>
     </div>
   );
+
+// ...existing code...
 };
