@@ -9,9 +9,11 @@ import { ActionCardRenderer } from "./ActionCardRenderer";
 interface MessageRendererProps {
   message: ChatMessage | ActionCardMessage;
   onActionCardSelect?: (option: import("../ActionCard").ActionOption) => void;
+  loading?: boolean;
+  lastSelected?: string | null;
 }
 
-export const MessageRenderer: React.FC<MessageRendererProps> = ({ message, onActionCardSelect }) => {
+export const MessageRenderer: React.FC<MessageRendererProps> = ({ message, onActionCardSelect, loading, lastSelected }) => {
   if (message.type === "loading") {
     return <LoadingBubble />;
   }
@@ -19,10 +21,10 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({ message, onAct
     return <CustomWelcomeCard />;
   }
   if (message.type === "action-card") {
-    return <ActionCardRenderer message={message} onSelect={onActionCardSelect!} />;
+    return <ActionCardRenderer message={message as ActionCardMessage} onSelect={onActionCardSelect!} loading={loading} lastSelected={lastSelected} />;
   }
   if (message.sender === "user") {
-    return <UserBubble message={message} />;
+    return <UserBubble message={message as ChatMessage} />;
   }
-  return <BotBubble message={message as any} />;
+  return <BotBubble message={message as ChatMessage} />;
 };
