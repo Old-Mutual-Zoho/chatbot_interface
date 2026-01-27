@@ -12,7 +12,6 @@ type ActionCardProps = {
   lastSelected?: string | null;
 };
 
-const OLD_MUTUAL_GREEN = "bg-[#007847]"; // Old Mutual green
 
 export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loading, lastSelected }) => {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
