@@ -1,6 +1,11 @@
 // Simple type guard for action-card messages
-function isActionCardMessage(msg: any): msg is { type: "action-card"; options: ActionOption[] } {
-  return msg && msg.type === "action-card" && Array.isArray(msg.options);
+function isActionCardMessage(msg: unknown): msg is { type: "action-card"; options: ActionOption[] } {
+  return (
+    typeof msg === "object" &&
+    msg !== null &&
+    (msg as { type?: string }).type === "action-card" &&
+    Array.isArray((msg as { options?: unknown }).options)
+  );
 }
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types"; // Removed unused import
@@ -47,7 +52,7 @@ type Action =
   | { type: "SEND_MESSAGE" }
   | { type: "RECEIVE_BOT_REPLY"; payload: string }
   | { type: "SELECT_OPTION"; payload: ActionOption }
-  | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption } }
+  | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean };
 
 
@@ -159,7 +164,7 @@ function reducer(state: State, action: Action): State {
         timestamp: getTimeString(),
       };
       let newMessages = [...filtered, botReply];
-      const remainingOptions = state.availableOptions;
+      const remainingOptions = action.payload.remainingOptions;
       if (remainingOptions.length > 0) {
         newMessages = [
           ...newMessages,
@@ -182,6 +187,7 @@ function reducer(state: State, action: Action): State {
           messages: newMessages,
           showActionCard: true,
           loading: false,
+          availableOptions: remainingOptions,
         };
       }
       return {
@@ -189,6 +195,7 @@ function reducer(state: State, action: Action): State {
         messages: newMessages,
         showActionCard: false,
         loading: false,
+        availableOptions: [],
       };
     }
     case "SET_LOADING": {
@@ -231,7 +238,7 @@ export const ChatScreen: React.FC<{
       if (state.availableOptions.length > 0) {
         dispatch({
           type: "RECEIVE_OPTION_RESPONSE",
-          payload: { response: "", option: { label: "", value: "" } },
+          payload: { response: "", option: { label: "", value: "" }, remainingOptions: state.availableOptions },
         });
       }
     }, 1200);
@@ -278,9 +285,11 @@ export const ChatScreen: React.FC<{
   };
 
   const handleActionCardSelect = async (option: ActionOption) => {
+    // Compute the new available options after selection
+    const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
     const response = await fetchBotResponse(option.label);
-    dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option } });
+    dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
   };
 
   return (
