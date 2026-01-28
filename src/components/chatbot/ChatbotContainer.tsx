@@ -1,15 +1,17 @@
+
 import { useEffect, useRef, useState } from "react";
 import { createSession } from "../../services/api";
+import { type TopCategoryId } from "./productTree";
+import type { ConversationSnapshot } from "../../screens/ConversationScreen";
 import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
+import ConversationScreen from "../../screens/ConversationScreen";
 import { ChatScreen } from "./screens";
-import ProductScreen from "../../screens/ProductScreen";
-import ConversationScreen, { type ConversationSnapshot } from "../../screens/ConversationScreen";
 import QuoteFormScreen from "../../screens/QuoteFormScreen";
-import { findProductNodeById, type TopCategoryId } from "./productTree";
+import ProductScreen from "../../screens/ProductScreen";
 
-
+export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   // Local conversation storage
   const STORAGE_KEY = "om_chatbot_conversations_v1";
   const loadConversations = (): ConversationSnapshot[] => {
@@ -27,14 +29,12 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
 
   // UI and chat state
   const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations" | "quote">("home");
-  const handleShowQuoteForm = () => setScreen("quote");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [chatSessionKey, setChatSessionKey] = useState(0);
   const [conversations, setConversations] = useState<ConversationSnapshot[]>(() => loadConversations());
   const latestMessagesRef = useRef<ConversationSnapshot["messages"]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [loadedMessages, setLoadedMessages] = useState<ConversationSnapshot["messages"] | null>(null);
 
   // Backend session state
   const [userId, setUserId] = useState<string | null>(null);
@@ -64,9 +64,8 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
     }
   }, [screen, userId, sessionId]);
 
-  const selectedCategoryLabel = selectedCategoryId
-    ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
-    : "Products";
+
+
 
   // Helper to reset chat state
   const resetChat = () => {
@@ -75,7 +74,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
 
   const startNewConversation = () => {
     setActiveConversationId(null);
-    setLoadedMessages(null);
     resetChat();
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
@@ -125,7 +123,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
     if (!convo) return;
 
     setActiveConversationId(conversationId);
-    setLoadedMessages(convo.messages);
     setSelectedProduct(convo.selectedProduct ?? null);
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
@@ -135,7 +132,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
     setConversations((prev) => prev.filter((c) => c.id !== conversationId));
     if (activeConversationId === conversationId) {
       setActiveConversationId(null);
-      setLoadedMessages(null);
       resetChat();
       setChatSessionKey((k) => k + 1);
     }
@@ -143,23 +139,16 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
 
   return (
     <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
-
-      {/* Header (hidden on home, chat, and conversations) */}
-      {screen === "products" && (
+      {/* Main header: show for all screens except home */}
+      {screen !== "home" && (
         <ChatHeader
-          title={selectedCategoryLabel}
-          onBack={() => setScreen("home")}
+          title="Mutual Intelligence Assistant"
+          onBack={screen === "products" ? () => setScreen("home") : undefined}
           onClose={onClose}
         />
       )}
-
-      {screen === "quote" && (
-        <ChatHeader title="Get My Quote" onBack={() => setScreen("chat")} onClose={onClose} />
-      )}
-
       {/* Screens */}
       <div className="flex-1 relative">
-
         {/* HOME */}
         <FadeWrapper isVisible={screen === "home"}>
           <HomeScreen
@@ -175,7 +164,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
             }}
           />
         </FadeWrapper>
-
         {/* CONVERSATIONS */}
         <FadeWrapper isVisible={screen === "conversations"}>
           <ConversationScreen
@@ -186,7 +174,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
             onDeleteConversation={deleteConversation}
           />
         </FadeWrapper>
-
         {/* CHAT */}
         <FadeWrapper isVisible={screen === "chat"}>
           <ChatScreen
@@ -195,7 +182,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
               saveOrArchiveConversationIfAny();
               resetChat();
               setActiveConversationId(null);
-              setLoadedMessages(null);
               setScreen("conversations");
             }}
             onCloseClick={() => {
@@ -203,27 +189,23 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
               onClose();
             }}
             selectedProduct={selectedProduct}
-            initialMessages={loadedMessages ?? undefined}
-            onShowQuoteForm={handleShowQuoteForm}
-            onMessagesChange={(messages) => {
-              latestMessagesRef.current = messages;
-              if (activeConversationId) {
-                const updatedAt = Date.now();
-                setConversations((prev) =>
-                  prev.map((c) => (c.id === activeConversationId ? { ...c, messages, updatedAt } : c)),
-                );
-              }
-            }}
             userId={userId}
             sessionId={sessionId}
             sessionLoading={!userId || !sessionId}
+            initialMessages={activeConversationId ? (conversations.find(c => c.id === activeConversationId)?.messages ?? []) : undefined}
+            onMessagesChange={(messages) => {
+              latestMessagesRef.current = messages;
+            }}
+            onShowQuoteForm={() => setScreen("quote")}
           />
         </FadeWrapper>
         {/* QUOTE FORM */}
         <FadeWrapper isVisible={screen === "quote"}>
-          <QuoteFormScreen />
+          <QuoteFormScreen 
+            onClose={onClose}
+            title="Mutual Intelligence Assistant"
+          />
         </FadeWrapper>
-
         {/* PRODUCTS */}
         <FadeWrapper isVisible={screen === "products"}>
           {selectedCategoryId ? (
@@ -233,7 +215,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
               onSendProduct={(product) => {
                 saveOrArchiveConversationIfAny();
                 setActiveConversationId(null);
-                setLoadedMessages(null);
                 setSelectedProduct(product);
                 setChatSessionKey((k) => k + 1);
                 setScreen("chat");
@@ -243,7 +224,6 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
             <div className="p-6 text-center text-gray-600">Select a category to view products.</div>
           )}
         </FadeWrapper>
-
       </div>
     </div>
   );

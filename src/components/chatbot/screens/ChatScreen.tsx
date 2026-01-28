@@ -13,14 +13,6 @@ import { sendChatMessage } from "../../../services/api";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-const mockBotReplies = [
-  "That's a great question! Let me help you with that.",
-  "I understand. Here's what I can do for you...",
-  "Thanks for reaching out! I'd be happy to assist.",
-  "I see. Let me provide you with more information.",
-  "Absolutely! Here's what you need to know.",
-  "Let me check that for you right away!",
-];
 
 const ACTION_OPTIONS: ActionOption[] = [
   { label: "General Info", value: "general" },
@@ -124,6 +116,8 @@ function reducer(state: State, action: Action): State {
         id: `loading-${Date.now()}`,
         type: "loading",
         sender: "bot",
+        text: "",
+        timestamp: getTimeString(),
       };
       return {
         ...state,
@@ -157,8 +151,7 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_OPTION_RESPONSE": {
       // Only run guided flow logic if isGuidedFlow is true
-      // @ts-expect-error: isGuidedFlow is always present in initialState
-      const isGuidedFlow = state.isGuidedFlow !== undefined ? state.isGuidedFlow : true;
+      const isGuidedFlow = state.isGuidedFlow;
       if (!isGuidedFlow) {
         // Free-form chat: just add bot reply, always remove all loading bubbles
         const filtered = state.messages.filter((msg) => msg.type !== "loading");
@@ -294,16 +287,26 @@ function reducer(state: State, action: Action): State {
 
 type ChatMessageWithTimestamp = ExtendedChatMessage & { timestamp?: string };
 
-export const ChatScreen: React.FC<{
+interface ChatScreenProps {
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
-  onMessagesChange?: (messages: Array<ExtendedChatMessage & { timestamp?: string }>) => void;
-  initialMessages?: ChatMessageWithTimestamp[];
   userId: string | null;
   sessionId: string | null;
   sessionLoading?: boolean;
-}> = ({ onBackClick, onCloseClick, selectedProduct, onShowQuoteForm, userId, sessionId, sessionLoading }) => {
+}
+
+export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[]; onShowQuoteForm?: () => void }> = ({
+  onBackClick,
+  onCloseClick,
+  selectedProduct,
+  userId,
+  sessionId,
+  sessionLoading,
+  onMessagesChange,
+  initialMessages,
+  onShowQuoteForm
+}) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
     reducer,
@@ -320,59 +323,49 @@ export const ChatScreen: React.FC<{
     }
     try {
       const response = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
-      return response?.reply || response?.message || JSON.stringify(response);
+      // If response is an object with a nested response, extract it
+      if (typeof response === 'object' && response !== null) {
+        if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
+          return response.response.response;
+        }
+        if (typeof response.response === 'string') {
+          return response.response;
+        }
+        if (typeof response.message === 'string') {
+          return response.message;
+        }
+      }
+      // fallback: stringify
+      return JSON.stringify(response);
     } catch {
       return "Sorry, I couldn't retrieve information from the server.";
     }
   };
 
 
-  // Reset all relevant state when selectedProduct changes by using a key
+
   // Reset all chat state when selectedProduct changes
   useEffect(() => {
-    if (hasInitialMessages) return;
     dispatch({ type: "RESET", selectedProduct });
-    if (selectedProduct) {
-      // After a product is selected, show help message and action card only
-      const followupTimeout = setTimeout(() => {
-        dispatch({
-          type: "RECEIVE_OPTION_RESPONSE",
-          payload: {
-            response: "How can I help you today?",
-            option: { label: "", value: "" },
-            remainingOptions: ACTION_OPTIONS,
-          },
-        });
-        dispatch({ type: "SET_LOADING", payload: false });
-      }, 1200);
-      return () => clearTimeout(followupTimeout);
-    } else {
-      // On initial load, just show help message and action card
-      const followupTimeout = setTimeout(() => {
-        dispatch({
-          type: "RECEIVE_OPTION_RESPONSE",
-          payload: {
-            response: "How can I help you today?",
-            option: { label: "", value: "" },
-            remainingOptions: ACTION_OPTIONS,
-          },
-        });
-        dispatch({ type: "SET_LOADING", payload: false });
-      }, 1200);
-      return () => clearTimeout(followupTimeout);
-    }
-  }, [hasInitialMessages, selectedProduct]);
-
-  // Initialize messages state directly instead of in useEffect
-  // Removed effect that sets messages on mount; now handled in useState initializer
+    const followupTimeout = setTimeout(() => {
+      dispatch({
+        type: "RECEIVE_OPTION_RESPONSE",
+        payload: {
+          response: "How can I help you today?",
+          option: { label: "", value: "" },
+          remainingOptions: ACTION_OPTIONS,
+        },
+      });
+    }, 600);
+    return () => clearTimeout(followupTimeout);
+  }, [selectedProduct]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [state.messages]);
-
-  useEffect(() => {
-    onMessagesChange?.(state.messages);
-  }, [onMessagesChange, state.messages]);
+    if (onMessagesChange) {
+      onMessagesChange(state.messages);
+    }
+  }, [state.messages, onMessagesChange]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -383,19 +376,15 @@ export const ChatScreen: React.FC<{
     }
   }, [state.isSending]);
 
-  const generateMockReply = () => {
-    return mockBotReplies[Math.floor(Math.random() * mockBotReplies.length)];
-  };
-
 
 
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
     dispatch({ type: "SEND_MESSAGE" });
-    setTimeout(() => {
-      const reply = generateMockReply();
+    (async () => {
+      const reply = await fetchBotResponse(state.inputValue);
       dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
-    }, 1000);
+    })();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -406,8 +395,8 @@ export const ChatScreen: React.FC<{
   };
 
   const handleActionCardSelect = async (option: ActionOption) => {
-    if (option.value === "quote" && onShowQuoteForm) {
-      onShowQuoteForm();
+    if (option.value === "quote") {
+      if (onShowQuoteForm) onShowQuoteForm();
       return;
     }
     // Compute the new available options after selection
