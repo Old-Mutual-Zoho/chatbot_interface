@@ -14,6 +14,31 @@
   scrollbar-width: none;
 }
 
+/* Show scrollbar for specific containers (e.g. chat messages) */
+.om-show-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 166, 81, 0.55) rgba(0, 0, 0, 0.08);
+}
+
+.om-show-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+}
+
+.om-show-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+}
+
+.om-show-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 166, 81, 0.55);
+  border-radius: 999px;
+}
+
+.om-show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 166, 81, 0.75);
+}
+
 @theme {
   --color-primary: #00A651;
   --color-primary-dark: #008C44;
