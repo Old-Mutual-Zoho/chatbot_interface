@@ -26,7 +26,7 @@ const ACTION_OPTIONS: ActionOption[] = [
   { label: "Buy Now", value: "buy" },
 ];
 
-type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean };
+type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
 type State = {
   messages: ChatMessageWithTimestamp[];
   availableOptions: ActionOption[];
@@ -34,6 +34,7 @@ type State = {
   showActionCard: boolean;
   inputValue: string;
   isSending: boolean;
+  isGuidedFlow: boolean;
   loading: boolean;
   lastSelected: string | null;
 };
@@ -51,6 +52,20 @@ type Action =
 
 const initialState = (opts: ChatInitOptions): State => {
   const { selectedProduct, isGuidedFlow } = opts;
+  const initialMessages = opts.initialMessages;
+  if (initialMessages && initialMessages.length > 0) {
+    return {
+      messages: initialMessages,
+      availableOptions: ACTION_OPTIONS,
+      showWelcomeCard: true,
+      showActionCard: false,
+      inputValue: "",
+      isSending: false,
+      isGuidedFlow,
+      loading: false,
+      lastSelected: null,
+    };
+  }
   const welcomeMsg: ChatMessageWithTimestamp = {
     id: "welcome-1",
     type: "custom-welcome",
@@ -75,6 +90,7 @@ const initialState = (opts: ChatInitOptions): State => {
     showActionCard: false,
     inputValue: "",
     isSending: false,
+    isGuidedFlow,
     loading: false,
     lastSelected: null,
   };
@@ -113,11 +129,32 @@ function reducer(state: State, action: Action): State {
         isSending: true,
       };
     }
+    case "RECEIVE_BOT_REPLY": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const botReply: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: action.payload,
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, botReply],
+        isSending: false,
+        loading: false,
+        showActionCard: false,
+      };
+    }
+    case "SELECT_OPTION": {
+      return {
+        ...state,
+        lastSelected: action.payload.value,
+      };
+    }
     case "RECEIVE_OPTION_RESPONSE": {
       // Only run guided flow logic if isGuidedFlow is true
-      // @ts-expect-error: isGuidedFlow is always present in initialState
-      const isGuidedFlow = state.isGuidedFlow !== undefined ? state.isGuidedFlow : true;
-      if (!isGuidedFlow) {
+      if (!state.isGuidedFlow) {
         // Free-form chat: just add bot reply
         const filtered = state.messages.filter((msg) => msg.type !== "loading");
         const newMessages = [...filtered];
@@ -135,6 +172,7 @@ function reducer(state: State, action: Action): State {
           messages: newMessages,
           showActionCard: false,
           loading: false,
+          isSending: false,
         };
       }
       // Guided flow logic (existing)
@@ -163,6 +201,7 @@ function reducer(state: State, action: Action): State {
           messages: newMessages,
           showActionCard: false,
           loading: true,
+          isSending: false,
         };
       }
       const botReply: ChatMessageWithTimestamp = {
@@ -226,6 +265,7 @@ function reducer(state: State, action: Action): State {
         showActionCard: false,
         loading: false,
         availableOptions: [],
+        isSending: false,
       };
     }
     case "SET_LOADING": {
@@ -243,12 +283,20 @@ export const ChatScreen: React.FC<{
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
+  onMessagesChange?: (messages: Array<ExtendedChatMessage & { timestamp?: string }>) => void;
+  initialMessages?: ChatMessageWithTimestamp[];
   onShowQuoteForm?: () => void;
-}> = ({ onBackClick, onCloseClick, selectedProduct, onShowQuoteForm }) => {
+}> = ({ onBackClick, onCloseClick, selectedProduct, onMessagesChange, initialMessages, onShowQuoteForm }) => {
   const isGuidedFlow = !!selectedProduct;
-  const [state, dispatch] = useReducer(reducer, { selectedProduct, isGuidedFlow }, initialState);
+  const [state, dispatch] = useReducer(
+    reducer,
+    { selectedProduct, isGuidedFlow, initialMessages },
+    initialState,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const hasInitialMessages = !!(initialMessages && initialMessages.length > 0);
 
   const fetchBotResponse = async (option: string) => {
     await new Promise((r) => setTimeout(r, 800));
@@ -259,6 +307,7 @@ export const ChatScreen: React.FC<{
   // Reset all relevant state when selectedProduct changes by using a key
   // Reset all chat state when selectedProduct changes
   useEffect(() => {
+    if (hasInitialMessages) return;
     dispatch({ type: "RESET", selectedProduct });
     if (selectedProduct) {
       // After a product is selected, show help message and action card only
@@ -289,7 +338,7 @@ export const ChatScreen: React.FC<{
       }, 1200);
       return () => clearTimeout(followupTimeout);
     }
-  }, [selectedProduct]);
+  }, [hasInitialMessages, selectedProduct]);
 
   // Initialize messages state directly instead of in useEffect
   // Removed effect that sets messages on mount; now handled in useState initializer
@@ -297,6 +346,10 @@ export const ChatScreen: React.FC<{
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [state.messages]);
+
+  useEffect(() => {
+    onMessagesChange?.(state.messages);
+  }, [onMessagesChange, state.messages]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -370,7 +423,7 @@ export const ChatScreen: React.FC<{
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
           </div>
           <div className="flex flex-col min-w-0">
-            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Old Mutual Support</h3>
+            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Mutual Intellingence Assistant</h3>
             <span className="text-xs text-white/80 leading-tight">Online</span>
           </div>
         </div>
@@ -380,7 +433,7 @@ export const ChatScreen: React.FC<{
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
         {state.messages.map((message, idx) => {
           if (message.type === "custom-welcome" && !state.showWelcomeCard) {
             return null;

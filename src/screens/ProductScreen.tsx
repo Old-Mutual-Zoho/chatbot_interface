@@ -64,7 +64,7 @@ export default function ProductScreen({ categoryId, onBack, onSendProduct }: Pro
             }
             onBack();
           }}
-          className="mr-3 text-xl"
+          className="mr-3 text-xl cursor-pointer"
         >
           ←
         </button>
@@ -111,8 +111,8 @@ export default function ProductScreen({ categoryId, onBack, onSendProduct }: Pro
                 }
                 className={
                   isSelected
-                    ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate"
-                    : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate"
+                    ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate cursor-pointer"
+                    : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
                 }
               >
                 {label}

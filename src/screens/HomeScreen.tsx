@@ -117,9 +117,10 @@ export default function HomeScreen({
 
       {/* Bottom Nav */}
       <div className="mt-auto bg-gray-50 border-t border-gray-200 px-10 py-4 pl-15 pr-15 flex justify-between items-center">
-        <div className="flex flex-col items-center text-primary cursor-pointer">
+        <div className="flex flex-col items-center text-primary cursor-pointer" aria-current="page">
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>
+          <div className="mt-1 h-1 w-10 rounded-full bg-primary" />
         </div>
 
         <button
@@ -128,6 +129,7 @@ export default function HomeScreen({
         >
           <IoChatbubbles size={26} />
           <span className="text-sm mt-1">Conversation</span>
+          <div className="mt-1 h-1 w-10 rounded-full bg-transparent" />
         </button>
       </div>
     </div>
