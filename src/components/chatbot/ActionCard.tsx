@@ -12,7 +12,6 @@ type ActionCardProps = {
   lastSelected?: string | null;
 };
 
-
 export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loading, lastSelected }) => {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 

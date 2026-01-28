@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createSession } from "../../services/api";
 import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
@@ -7,11 +8,29 @@ import ProductScreen from "../../screens/ProductScreen";
 import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import { findProductNodeById, type TopCategoryId } from "./productTree";
 
+
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [screen, setScreen] = useState<"home" | "chat" | "products" | "quote">("home");
-    const handleShowQuoteForm = () => setScreen("quote");
+  const handleShowQuoteForm = () => setScreen("quote");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Create a session when the chat widget is opened for the first time
+    if (screen === "chat" && !userId && !sessionId) {
+      (async () => {
+        try {
+          const { user_id, session_id } = await createSession("web-user-" + Math.random().toString(36).slice(2, 10));
+          setUserId(user_id);
+          setSessionId(session_id);
+        } catch {
+          // Optionally handle error
+        }
+      })();
+    }
+  }, [screen, userId, sessionId]);
 
   const selectedCategoryLabel = selectedCategoryId
     ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
@@ -65,6 +84,9 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
               onCloseClick={onClose}
               selectedProduct={selectedProduct}
               onShowQuoteForm={handleShowQuoteForm}
+              userId={userId}
+              sessionId={sessionId}
+              sessionLoading={!userId || !sessionId}
             />
           </FadeWrapper>
         {/* QUOTE FORM */}
