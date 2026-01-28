@@ -1,12 +1,3 @@
-// Simple type guard for action-card messages
-function isActionCardMessage(msg: unknown): msg is { type: "action-card"; options: ActionOption[] } {
-  return (
-    typeof msg === "object" &&
-    msg !== null &&
-    (msg as { type?: string }).type === "action-card" &&
-    Array.isArray((msg as { options?: unknown }).options)
-  );
-}
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
