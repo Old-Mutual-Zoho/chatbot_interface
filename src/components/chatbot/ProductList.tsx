@@ -12,7 +12,7 @@ export default function ProductList({ items, onSelect, onBack }: ProductListProp
       {onBack && (
         <button
           onClick={onBack}
-          className="text-primaryGreen font-medium mb-2"
+          className="text-primaryGreen font-medium mb-2 cursor-pointer"
         >
           ← Back
         </button>
@@ -22,7 +22,7 @@ export default function ProductList({ items, onSelect, onBack }: ProductListProp
         <button
           key={node.id}
           onClick={() => onSelect(node)}
-          className="w-full text-left bg-white shadow-sm px-4 py-3 rounded-lg border hover:bg-gray-50 transition"
+          className="w-full text-left bg-white shadow-sm px-4 py-3 rounded-lg border hover:bg-gray-50 transition cursor-pointer"
         >
           {node.label}
         </button>

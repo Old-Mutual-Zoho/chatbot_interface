@@ -365,7 +365,7 @@ export const ChatScreen: React.FC<{
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
           </div>
           <div className="flex flex-col min-w-0">
-            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Old Mutual Support</h3>
+            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Mutual Intellingence Assistant</h3>
             <span className="text-xs text-white/80 leading-tight">Online</span>
           </div>
         </div>
