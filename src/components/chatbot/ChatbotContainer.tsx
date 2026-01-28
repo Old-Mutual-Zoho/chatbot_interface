@@ -5,6 +5,7 @@ import HomeScreen from "../../screens/HomeScreen";
 import { ChatScreen } from "./screens";
 import ProductScreen from "../../screens/ProductScreen";
 import ConversationScreen, { type ConversationSnapshot } from "../../screens/ConversationScreen";
+import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import { findProductNodeById, type TopCategoryId } from "./productTree";
 
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
@@ -23,7 +24,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations">("home");
+  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations" | "quote">("home");
+  const handleShowQuoteForm = () => setScreen("quote");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [chatSessionKey, setChatSessionKey] = useState(0);
@@ -120,13 +122,17 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   return (
     <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
 
-      {/* Header (hidden on home and chat) */}
+      {/* Header (hidden on home, chat, and conversations) */}
       {screen === "products" && (
         <ChatHeader
           title={selectedCategoryLabel}
           onBack={() => setScreen("home")}
           onClose={onClose}
         />
+      )}
+
+      {screen === "quote" && (
+        <ChatHeader title="Get My Quote" onBack={() => setScreen("chat")} onClose={onClose} />
       )}
 
       {/* Screens */}
@@ -176,6 +182,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             }}
             selectedProduct={selectedProduct}
             initialMessages={loadedMessages ?? undefined}
+            onShowQuoteForm={handleShowQuoteForm}
             onMessagesChange={(messages) => {
               latestMessagesRef.current = messages;
 
@@ -187,6 +194,11 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
               }
             }}
           />
+        </FadeWrapper>
+
+        {/* QUOTE FORM */}
+        <FadeWrapper isVisible={screen === "quote"}>
+          <QuoteFormScreen />
         </FadeWrapper>
 
         {/* PRODUCTS */}
