@@ -4,10 +4,12 @@ import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
 import { ChatScreen } from "./screens";
 import ProductScreen from "../../screens/ProductScreen";
+import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import { findProductNodeById, type TopCategoryId } from "./productTree";
 
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
-  const [screen, setScreen] = useState<"home" | "chat" | "products">("home");
+  const [screen, setScreen] = useState<"home" | "chat" | "products" | "quote">("home");
+    const handleShowQuoteForm = () => setScreen("quote");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
@@ -54,15 +56,20 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         </FadeWrapper>
 
         {/* CHAT */}
-        <FadeWrapper isVisible={screen === "chat"}>
-          <ChatScreen
-            onBackClick={() => {
-              resetChat();
-              setScreen("home");
-            }}
-            onCloseClick={onClose}
-            selectedProduct={selectedProduct}
-          />
+          <FadeWrapper isVisible={screen === "chat"}>
+            <ChatScreen
+              onBackClick={() => {
+                resetChat();
+                setScreen("home");
+              }}
+              onCloseClick={onClose}
+              selectedProduct={selectedProduct}
+              onShowQuoteForm={handleShowQuoteForm}
+            />
+          </FadeWrapper>
+        {/* QUOTE FORM */}
+        <FadeWrapper isVisible={screen === "quote"}>
+          <QuoteFormScreen />
         </FadeWrapper>
 
         {/* PRODUCTS */}

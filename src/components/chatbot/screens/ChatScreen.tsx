@@ -243,7 +243,8 @@ export const ChatScreen: React.FC<{
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
-}> = ({ onBackClick, onCloseClick, selectedProduct }) => {
+  onShowQuoteForm?: () => void;
+}> = ({ onBackClick, onCloseClick, selectedProduct, onShowQuoteForm }) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(reducer, { selectedProduct, isGuidedFlow }, initialState);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -329,6 +330,10 @@ export const ChatScreen: React.FC<{
   };
 
   const handleActionCardSelect = async (option: ActionOption) => {
+    if (option.value === "quote" && onShowQuoteForm) {
+      onShowQuoteForm();
+      return;
+    }
     // Compute the new available options after selection
     const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
