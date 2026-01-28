@@ -26,6 +26,7 @@ const ACTION_OPTIONS: ActionOption[] = [
   { label: "Buy Now", value: "buy" },
 ];
 
+type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean };
 type State = {
   messages: ChatMessageWithTimestamp[];
   availableOptions: ActionOption[];
@@ -48,7 +49,8 @@ type Action =
 
 
 
-const initialState = (selectedProduct?: string | null): State => {
+const initialState = (opts: ChatInitOptions): State => {
+  const { selectedProduct, isGuidedFlow } = opts;
   const welcomeMsg: ChatMessageWithTimestamp = {
     id: "welcome-1",
     type: "custom-welcome",
@@ -57,7 +59,7 @@ const initialState = (selectedProduct?: string | null): State => {
     timestamp: getTimeString(),
   };
   const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
-  if (selectedProduct) {
+  if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
     messages.push({
       id: `product-${Date.now()}`,
       type: "text",
@@ -81,7 +83,11 @@ const initialState = (selectedProduct?: string | null): State => {
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "RESET": {
-      return initialState(action.selectedProduct);
+      // Pass correct ChatInitOptions to initialState
+      return initialState({
+        selectedProduct: action.selectedProduct,
+        isGuidedFlow: !!action.selectedProduct,
+      });
     }
     case "SET_INPUT": {
       return { ...state, inputValue: action.payload };
@@ -108,72 +114,119 @@ function reducer(state: State, action: Action): State {
       };
     }
     case "RECEIVE_OPTION_RESPONSE": {
-      const filtered = state.messages.filter((msg) => msg.type !== "loading");
-        const botReply: ChatMessageWithTimestamp = {
-          id: Date.now() + "-bot",
-          sender: "bot",
-          type: "text",
-          text: action.payload.response,
-          timestamp: getTimeString(),
-        };
-        let newMessages = [...filtered, botReply];
-        const remainingOptions = action.payload.remainingOptions;
-        // If this is the initial help message after product selection, show all 4 options and no follow-up
-        if (
-          action.payload.response === "How can I help you today?" &&
-          remainingOptions.length === 4
-        ) {
-          newMessages = [
-            ...newMessages,
-            {
-              id: `action-card-${Date.now()}`,
-              sender: "bot",
-              type: "action-card",
-              options: remainingOptions,
-            } as ChatMessageWithTimestamp,
-          ];
-          return {
-            ...state,
-            messages: newMessages,
-            showActionCard: true,
-            loading: false,
-            availableOptions: remainingOptions,
-          };
+      // Only run guided flow logic if isGuidedFlow is true
+      // @ts-expect-error: isGuidedFlow is always present in initialState
+      const isGuidedFlow = state.isGuidedFlow !== undefined ? state.isGuidedFlow : true;
+      if (!isGuidedFlow) {
+        // Free-form chat: just add bot reply
+        const filtered = state.messages.filter((msg) => msg.type !== "loading");
+        const newMessages = [...filtered];
+        if (action.payload.response) {
+          newMessages.push({
+            id: Date.now() + "-bot",
+            sender: "bot",
+            type: "text",
+            text: action.payload.response,
+            timestamp: getTimeString(),
+          });
         }
-        // For follow-up after an option is selected, show follow-up message and only remaining options
-        if (remainingOptions.length > 0) {
-          newMessages = [
-            ...newMessages,
-            {
-              id: `followup-${Date.now()}`,
-              sender: "bot",
-              type: "text",
-              text: "Would you like to continue with another option?",
-              timestamp: getTimeString(),
-            },
-            {
-              id: `action-card-${Date.now()}`,
-              sender: "bot",
-              type: "action-card",
-              options: remainingOptions,
-            } as ChatMessageWithTimestamp,
-          ];
-          return {
-            ...state,
-            messages: newMessages,
-            showActionCard: true,
-            loading: false,
-            availableOptions: remainingOptions,
-          };
-        }
-        // If no options remain, just show the bot reply
         return {
           ...state,
           messages: newMessages,
           showActionCard: false,
           loading: false,
-          availableOptions: [],
         };
+      }
+      // Guided flow logic (existing)
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      let newMessages = [...filtered];
+      if (action.payload.option && action.payload.option.label) {
+        const lastMsg = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+        if (!(lastMsg && lastMsg.sender === "user" && lastMsg.text === action.payload.option.label)) {
+          newMessages.push({
+            id: `selected-${Date.now()}`,
+            sender: "user",
+            type: "text",
+            text: action.payload.option.label,
+            timestamp: getTimeString(),
+          });
+        }
+      }
+      if (!action.payload.response) {
+        newMessages.push({
+          id: `loading-${Date.now()}`,
+          sender: "bot",
+          type: "loading",
+        });
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: false,
+          loading: true,
+        };
+      }
+      const botReply: ChatMessageWithTimestamp = {
+        id: Date.now() + "-bot",
+        sender: "bot",
+        type: "text",
+        text: action.payload.response,
+        timestamp: getTimeString(),
+      };
+      newMessages.push(botReply);
+      const remainingOptions = action.payload.remainingOptions;
+      if (
+        action.payload.response === "How can I help you today?" &&
+        remainingOptions.length === 4
+      ) {
+        newMessages = [
+          ...newMessages,
+          {
+            id: `action-card-${Date.now()}`,
+            sender: "bot",
+            type: "action-card",
+            options: remainingOptions,
+          } as ChatMessageWithTimestamp,
+        ];
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: true,
+          loading: false,
+          availableOptions: remainingOptions,
+        };
+      }
+      if (remainingOptions.length > 0) {
+        newMessages = [
+          ...newMessages,
+          {
+            id: `followup-${Date.now()}`,
+            sender: "bot",
+            type: "text",
+            text: "Would you like to continue with another option?",
+            timestamp: getTimeString(),
+          },
+          {
+            id: `action-card-${Date.now()}`,
+            sender: "bot",
+            type: "action-card",
+            options: remainingOptions,
+          } as ChatMessageWithTimestamp,
+        ];
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: true,
+          loading: false,
+          availableOptions: remainingOptions,
+        };
+      }
+      return {
+        ...state,
+        messages: newMessages,
+        showActionCard: false,
+        loading: false,
+        availableOptions: [],
+      };
     }
     case "SET_LOADING": {
       return { ...state, loading: action.payload };
@@ -191,7 +244,8 @@ export const ChatScreen: React.FC<{
   onCloseClick?: () => void;
   selectedProduct?: string | null;
 }> = ({ onBackClick, onCloseClick, selectedProduct }) => {
-  const [state, dispatch] = useReducer(reducer, selectedProduct, initialState);
+  const isGuidedFlow = !!selectedProduct;
+  const [state, dispatch] = useReducer(reducer, { selectedProduct, isGuidedFlow }, initialState);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -234,7 +288,6 @@ export const ChatScreen: React.FC<{
       }, 1200);
       return () => clearTimeout(followupTimeout);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
   // Initialize messages state directly instead of in useEffect
@@ -279,8 +332,20 @@ export const ChatScreen: React.FC<{
     // Compute the new available options after selection
     const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
-    const response = await fetchBotResponse(option.label);
-    dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+    // Show loading bubble (bot is typing)
+    dispatch({
+      type: "RECEIVE_OPTION_RESPONSE",
+      payload: {
+        response: "",
+        option,
+        remainingOptions: newAvailableOptions,
+      },
+    });
+    // Wait before showing bot response
+    setTimeout(async () => {
+      const response = await fetchBotResponse(option.label);
+      dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+    }, 900);
   };
 
   return (
@@ -331,8 +396,27 @@ export const ChatScreen: React.FC<{
               </div>
             );
           }
-          // Render the action card after the initial help message or the follow-up message if there are available options
+          // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
+          const prevMsg = idx > 0 ? state.messages[idx - 1] : null;
+          let spacingClass = "";
+          if (prevMsg) {
+            // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
+            const prevSender = isGuidedFlow
+              ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+              : prevMsg.sender;
+            const currSender = isGuidedFlow
+              ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+              : message.sender;
+            if (prevSender !== currSender) {
+              spacingClass = "mb-6"; // More space between different senders
+            } else if (idx !== state.messages.length - 1) {
+              spacingClass = "mb-2"; // Minimal space between same sender
+            }
+          }
+
+          // Only show action card and guided UI if isGuidedFlow is true
           const shouldShowActionCard =
+            isGuidedFlow &&
             state.showActionCard &&
             state.availableOptions.length > 0 &&
             (
@@ -342,10 +426,10 @@ export const ChatScreen: React.FC<{
           if (shouldShowActionCard) {
             return (
               <>
-                <div key={message.id} className={idx !== state.messages.length - 1 ? "mb-4" : undefined}>
+                <div key={message.id} className={spacingClass}>
                   <MessageRenderer message={message} />
                 </div>
-                <div key={"action-card-" + message.id} className="flex justify-start">
+                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
                   <MessageRenderer
                     message={{
                       id: "dynamic-action-card",
@@ -367,7 +451,7 @@ export const ChatScreen: React.FC<{
           }
           // Add standard spacing between messages
           return (
-            <div key={message.id} className={idx !== state.messages.length - 1 ? "mb-4" : undefined}>
+            <div key={message.id} className={spacingClass}>
               <MessageRenderer message={message} />
             </div>
           );
