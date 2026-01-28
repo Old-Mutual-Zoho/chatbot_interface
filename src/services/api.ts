@@ -1,0 +1,112 @@
+
+import axios from 'axios';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api';
+
+export const api = axios.create({
+	baseURL: BASE_URL,
+	headers: {
+		'Content-Type': 'application/json',
+	},
+});
+
+// --- Types ---
+export interface SessionResponse {
+	session_id: string;
+	user_id: string;
+}
+
+export interface SessionState {
+	session_id: string;
+	mode: 'conversational' | 'guided';
+	current_flow: string | null;
+	current_step: number;
+	step_name: string;
+	steps_total?: number;
+	collected_keys: string[];
+}
+
+export interface ChatMessagePayload {
+	user_id: string;
+	session_id: string;
+	message?: string;
+	form_data?: Record<string, unknown>;
+}
+
+// --- API Functions ---
+export async function createSession(user_id: string) {
+	const { data } = await api.post<SessionResponse>('/session', { user_id });
+	return data;
+}
+
+export async function getSessionState(session_id: string) {
+	const { data } = await api.get<SessionState>(`/session/${session_id}`);
+	return data;
+}
+
+export async function sendChatMessage(payload: ChatMessagePayload) {
+	const { data } = await api.post('/chat/message', payload);
+	return data;
+}
+
+// --- Product Discovery Types ---
+export interface Category {
+	id: string;
+	name: string;
+}
+
+export interface Subcategory {
+	id: string;
+	name: string;
+}
+
+export interface Product {
+	id: string;
+	name: string;
+	description?: string;
+}
+
+export interface ProductDetails {
+	id: string;
+	name: string;
+	overview: string;
+	benefits: string[];
+	eligibility?: string;
+	coverage?: string;
+	faq?: Array<{ question: string; answer: string }>;
+}
+
+// --- Product Discovery API Functions ---
+export async function getCategories() {
+	const { data } = await api.get<Category[]>('/products/categories');
+	return data;
+}
+
+export async function getSubcategoriesOrProducts(category: string) {
+	const { data } = await api.get<Subcategory[] | Product[]>(`/products/${category}`);
+	return data;
+}
+
+export async function getProductsBySubcategory(category: string, subcategory: string) {
+	const { data } = await api.get<Product[]>(`/products/${category}/${subcategory}`);
+	return data;
+}
+
+export async function getProductDetails(product_id: string) {
+	const { data } = await api.get<ProductDetails>(`/products/by-id/${product_id}`);
+	return data;
+}
+
+// --- Guided Quote Flow ---
+export interface StartGuidedQuotePayload {
+	user_id: string;
+	initial_data: {
+		product_id: string;
+		[key: string]: unknown;
+	};
+}
+
+export async function startGuidedQuote(payload: StartGuidedQuotePayload) {
+	const { data } = await api.post('/chat/start-guided', payload);
+	return data;
+}

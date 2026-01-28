@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatbotContainer from "./ChatbotContainer";
+import popSound from "../../assets/pop.mp3";
 import { IoClose } from "react-icons/io5";
 import AiProfileImage from "../../assets/ai-profile.jpeg";
 
@@ -16,6 +17,8 @@ export default function ChatbotWidget() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Ref for pop sound
+  const popAudioRef = useRef<HTMLAudioElement | null>(null);
   // Sync teaser visibility with widget open/close state
   const handleToggleOpen = () => {
     const nextOpen = !open;
@@ -23,6 +26,11 @@ export default function ChatbotWidget() {
     if (nextOpen) {
       // Opening chat: hide teaser
       setShowTeaser(false);
+      // Play pop sound when chat opens
+      if (popAudioRef.current) {
+        popAudioRef.current.currentTime = 0;
+        popAudioRef.current.play();
+      }
     } else {
       // Closing chat: bring teaser back (with animation)
       setShowTeaser(true);
@@ -31,6 +39,8 @@ export default function ChatbotWidget() {
 
   return (
     <>
+  {/* Audio element for pop sound */}
+  <audio ref={popAudioRef} src={popSound} preload="auto" />
       {/* Floating Button + Teaser */}
       <div className="om-launcher om-launcher--intro relative">
         <div className={`flex items-center gap-3 ${open ? "" : "om-float"}`}>

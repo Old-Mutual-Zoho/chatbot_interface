@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createSession } from "../../services/api";
 import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
@@ -8,9 +9,9 @@ import ConversationScreen, { type ConversationSnapshot } from "../../screens/Con
 import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import { findProductNodeById, type TopCategoryId } from "./productTree";
 
-export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
-  const STORAGE_KEY = "om_chatbot_conversations_v1";
 
+  // Local conversation storage
+  const STORAGE_KEY = "om_chatbot_conversations_v1";
   const loadConversations = (): ConversationSnapshot[] => {
     try {
       if (typeof window === "undefined") return [];
@@ -24,6 +25,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   };
 
+  // UI and chat state
   const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations" | "quote">("home");
   const handleShowQuoteForm = () => setScreen("quote");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
@@ -34,6 +36,11 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [loadedMessages, setLoadedMessages] = useState<ConversationSnapshot["messages"] | null>(null);
 
+  // Backend session state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Persist conversations to localStorage
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
@@ -41,6 +48,21 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
       // Ignore storage quota / private mode errors
     }
   }, [conversations]);
+
+  // Create backend session when chat opens
+  useEffect(() => {
+    if (screen === "chat" && !userId && !sessionId) {
+      (async () => {
+        try {
+          const { user_id, session_id } = await createSession("web-user-" + Math.random().toString(36).slice(2, 10));
+          setUserId(user_id);
+          setSessionId(session_id);
+        } catch {
+          // Optionally handle error
+        }
+      })();
+    }
+  }, [screen, userId, sessionId]);
 
   const selectedCategoryLabel = selectedCategoryId
     ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
@@ -185,7 +207,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             onShowQuoteForm={handleShowQuoteForm}
             onMessagesChange={(messages) => {
               latestMessagesRef.current = messages;
-
               if (activeConversationId) {
                 const updatedAt = Date.now();
                 setConversations((prev) =>
@@ -193,9 +214,11 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
                 );
               }
             }}
+            userId={userId}
+            sessionId={sessionId}
+            sessionLoading={!userId || !sessionId}
           />
         </FadeWrapper>
-
         {/* QUOTE FORM */}
         <FadeWrapper isVisible={screen === "quote"}>
           <QuoteFormScreen />

@@ -1,3 +1,4 @@
+import popSound from "../../../assets/pop.mp3";
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
@@ -5,8 +6,10 @@ import WelcomeImage from "../../../assets/welcome.png";
 import PatternImage from "../../../assets/pattern.jpg";
 import { IoSend, IoArrowBack, IoClose } from "react-icons/io5";
 import Logo from "../../../assets/Logo.png";
+
 import type { ExtendedChatMessage } from "../messages/actionCardTypes";
 import type { ActionOption } from "../ActionCard";
+import { sendChatMessage } from "../../../services/api";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -154,8 +157,10 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_OPTION_RESPONSE": {
       // Only run guided flow logic if isGuidedFlow is true
-      if (!state.isGuidedFlow) {
-        // Free-form chat: just add bot reply
+      // @ts-expect-error: isGuidedFlow is always present in initialState
+      const isGuidedFlow = state.isGuidedFlow !== undefined ? state.isGuidedFlow : true;
+      if (!isGuidedFlow) {
+        // Free-form chat: just add bot reply, always remove all loading bubbles
         const filtered = state.messages.filter((msg) => msg.type !== "loading");
         const newMessages = [...filtered];
         if (action.payload.response) {
@@ -166,6 +171,11 @@ function reducer(state: State, action: Action): State {
             text: action.payload.response,
             timestamp: getTimeString(),
           });
+          // Play pop sound immediately when bot reply is added
+          if (typeof window !== 'undefined') {
+            const audio = new Audio(popSound);
+            audio.play().catch(() => {});
+          }
         }
         return {
           ...state,
@@ -175,7 +185,7 @@ function reducer(state: State, action: Action): State {
           isSending: false,
         };
       }
-      // Guided flow logic (existing)
+      // Guided flow logic (existing), always remove all loading bubbles
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       let newMessages = [...filtered];
       if (action.payload.option && action.payload.option.label) {
@@ -212,6 +222,11 @@ function reducer(state: State, action: Action): State {
         timestamp: getTimeString(),
       };
       newMessages.push(botReply);
+      // Play pop sound immediately when bot reply is added (guided flow)
+      if (typeof window !== 'undefined') {
+        const audio = new Audio(popSound);
+        audio.play().catch(() => {});
+      }
       const remainingOptions = action.payload.remainingOptions;
       if (
         action.payload.response === "How can I help you today?" &&
@@ -285,8 +300,10 @@ export const ChatScreen: React.FC<{
   selectedProduct?: string | null;
   onMessagesChange?: (messages: Array<ExtendedChatMessage & { timestamp?: string }>) => void;
   initialMessages?: ChatMessageWithTimestamp[];
-  onShowQuoteForm?: () => void;
-}> = ({ onBackClick, onCloseClick, selectedProduct, onMessagesChange, initialMessages, onShowQuoteForm }) => {
+  userId: string | null;
+  sessionId: string | null;
+  sessionLoading?: boolean;
+}> = ({ onBackClick, onCloseClick, selectedProduct, onShowQuoteForm, userId, sessionId, sessionLoading }) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
     reducer,
@@ -296,11 +313,17 @@ export const ChatScreen: React.FC<{
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hasInitialMessages = !!(initialMessages && initialMessages.length > 0);
-
+  // This function now calls the backend for real responses
   const fetchBotResponse = async (option: string) => {
-    await new Promise((r) => setTimeout(r, 800));
-    return `Here is the info for "${option}" (placeholder response).`;
+    if (!userId || !sessionId) {
+      return "Connecting to chat...";
+    }
+    try {
+      const response = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
+      return response?.reply || response?.message || JSON.stringify(response);
+    } catch {
+      return "Sorry, I couldn't retrieve information from the server.";
+    }
   };
 
 
@@ -526,13 +549,13 @@ export const ChatScreen: React.FC<{
             value={state.inputValue}
             onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
             onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
-            disabled={state.isSending}
+            placeholder={sessionLoading ? "Connecting..." : "Type a message..."}
+            disabled={state.isSending || sessionLoading}
             className="flex-1 px-4 sm:px-5 py-2 sm:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
           />
           <button
             onClick={handleSendMessage}
-            disabled={state.inputValue.trim() === "" || state.isSending}
+            disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
             className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer flex-shrink-0"
           >
             <IoSend size={16} className="sm:block" />
