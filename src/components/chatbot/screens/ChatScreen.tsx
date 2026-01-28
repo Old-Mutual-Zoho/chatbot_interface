@@ -1,10 +1,14 @@
-import { useState, useRef, useEffect } from "react";
-import type { ChatMessage } from "../types";
+import { useReducer, useRef, useEffect } from "react";
+// import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
 import WelcomeImage from "../../../assets/welcome.png";
 import PatternImage from "../../../assets/pattern.jpg";
 import { IoSend, IoArrowBack, IoClose } from "react-icons/io5";
 import Logo from "../../../assets/Logo.png";
+import type { ExtendedChatMessage } from "../messages/actionCardTypes";
+import type { ActionOption } from "../ActionCard";
+
+const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const mockBotReplies = [
   "That's a great question! Let me help you with that.",
@@ -12,132 +16,336 @@ const mockBotReplies = [
   "Thanks for reaching out! I'd be happy to assist.",
   "I see. Let me provide you with more information.",
   "Absolutely! Here's what you need to know.",
+  "Let me check that for you right away!",
 ];
 
-interface ChatScreenProps {
+const ACTION_OPTIONS: ActionOption[] = [
+  { label: "General Info", value: "general" },
+  { label: "Get My Quote", value: "quote" },
+  { label: "Exclusions", value: "exclusions" },
+  { label: "Buy Now", value: "buy" },
+];
+
+type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean };
+type State = {
+  messages: ChatMessageWithTimestamp[];
+  availableOptions: ActionOption[];
+  showWelcomeCard: boolean;
+  showActionCard: boolean;
+  inputValue: string;
+  isSending: boolean;
+  loading: boolean;
+  lastSelected: string | null;
+};
+
+type Action =
+  | { type: "RESET"; selectedProduct?: string | null }
+  | { type: "SET_INPUT"; payload: string }
+  | { type: "SEND_MESSAGE" }
+  | { type: "RECEIVE_BOT_REPLY"; payload: string }
+  | { type: "SELECT_OPTION"; payload: ActionOption }
+  | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
+  | { type: "SET_LOADING"; payload: boolean };
+
+
+
+const initialState = (opts: ChatInitOptions): State => {
+  const { selectedProduct, isGuidedFlow } = opts;
+  const welcomeMsg: ChatMessageWithTimestamp = {
+    id: "welcome-1",
+    type: "custom-welcome",
+    sender: "bot",
+    text: "",
+    timestamp: getTimeString(),
+  };
+  const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
+  if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
+    messages.push({
+      id: `product-${Date.now()}`,
+      type: "text",
+      sender: "user",
+      text: selectedProduct,
+      timestamp: getTimeString(),
+    });
+  }
+  return {
+    messages,
+    availableOptions: ACTION_OPTIONS,
+    showWelcomeCard: true,
+    showActionCard: false,
+    inputValue: "",
+    isSending: false,
+    loading: false,
+    lastSelected: null,
+  };
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "RESET": {
+      // Pass correct ChatInitOptions to initialState
+      return initialState({
+        selectedProduct: action.selectedProduct,
+        isGuidedFlow: !!action.selectedProduct,
+      });
+    }
+    case "SET_INPUT": {
+      return { ...state, inputValue: action.payload };
+    }
+    case "SEND_MESSAGE": {
+      if (state.inputValue.trim() === "") return state;
+      const userMessage: ChatMessageWithTimestamp = {
+        id: Date.now().toString(),
+        type: "text",
+        sender: "user",
+        text: state.inputValue,
+        timestamp: getTimeString(),
+      };
+      const loadingMessage: ChatMessageWithTimestamp = {
+        id: `loading-${Date.now()}`,
+        type: "loading",
+        sender: "bot",
+      };
+      return {
+        ...state,
+        messages: [...state.messages, userMessage, loadingMessage],
+        inputValue: "",
+        isSending: true,
+      };
+    }
+    case "RECEIVE_OPTION_RESPONSE": {
+      // Only run guided flow logic if isGuidedFlow is true
+      // @ts-expect-error: isGuidedFlow is always present in initialState
+      const isGuidedFlow = state.isGuidedFlow !== undefined ? state.isGuidedFlow : true;
+      if (!isGuidedFlow) {
+        // Free-form chat: just add bot reply
+        const filtered = state.messages.filter((msg) => msg.type !== "loading");
+        const newMessages = [...filtered];
+        if (action.payload.response) {
+          newMessages.push({
+            id: Date.now() + "-bot",
+            sender: "bot",
+            type: "text",
+            text: action.payload.response,
+            timestamp: getTimeString(),
+          });
+        }
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: false,
+          loading: false,
+        };
+      }
+      // Guided flow logic (existing)
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      let newMessages = [...filtered];
+      if (action.payload.option && action.payload.option.label) {
+        const lastMsg = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+        if (!(lastMsg && lastMsg.sender === "user" && lastMsg.text === action.payload.option.label)) {
+          newMessages.push({
+            id: `selected-${Date.now()}`,
+            sender: "user",
+            type: "text",
+            text: action.payload.option.label,
+            timestamp: getTimeString(),
+          });
+        }
+      }
+      if (!action.payload.response) {
+        newMessages.push({
+          id: `loading-${Date.now()}`,
+          sender: "bot",
+          type: "loading",
+        });
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: false,
+          loading: true,
+        };
+      }
+      const botReply: ChatMessageWithTimestamp = {
+        id: Date.now() + "-bot",
+        sender: "bot",
+        type: "text",
+        text: action.payload.response,
+        timestamp: getTimeString(),
+      };
+      newMessages.push(botReply);
+      const remainingOptions = action.payload.remainingOptions;
+      if (
+        action.payload.response === "How can I help you today?" &&
+        remainingOptions.length === 4
+      ) {
+        newMessages = [
+          ...newMessages,
+          {
+            id: `action-card-${Date.now()}`,
+            sender: "bot",
+            type: "action-card",
+            options: remainingOptions,
+          } as ChatMessageWithTimestamp,
+        ];
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: true,
+          loading: false,
+          availableOptions: remainingOptions,
+        };
+      }
+      if (remainingOptions.length > 0) {
+        newMessages = [
+          ...newMessages,
+          {
+            id: `followup-${Date.now()}`,
+            sender: "bot",
+            type: "text",
+            text: "Would you like to continue with another option?",
+            timestamp: getTimeString(),
+          },
+          {
+            id: `action-card-${Date.now()}`,
+            sender: "bot",
+            type: "action-card",
+            options: remainingOptions,
+          } as ChatMessageWithTimestamp,
+        ];
+        return {
+          ...state,
+          messages: newMessages,
+          showActionCard: true,
+          loading: false,
+          availableOptions: remainingOptions,
+        };
+      }
+      return {
+        ...state,
+        messages: newMessages,
+        showActionCard: false,
+        loading: false,
+        availableOptions: [],
+      };
+    }
+    case "SET_LOADING": {
+      return { ...state, loading: action.payload };
+    }
+    default:
+      return state;
+  }
+}
+
+
+type ChatMessageWithTimestamp = ExtendedChatMessage & { timestamp?: string };
+
+export const ChatScreen: React.FC<{
   onBackClick?: () => void;
   onCloseClick?: () => void;
-}
-
-interface ChatMessageWithTimestamp extends ChatMessage {
-  timestamp?: string;
-}
-
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClick }) => {
-  const [messages, setMessages] = useState<ChatMessageWithTimestamp[]>([]);
-  const [showWelcomeCard, setShowWelcomeCard] = useState(false);
-  // Show welcome card and follow-up after delays
-  useEffect(() => {
-    const welcomeTimeout = setTimeout(() => {
-      setShowWelcomeCard(true);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: "welcome-1",
-          type: "custom-welcome",
-          sender: "bot",
-          text: "", // required for type
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        } as ChatMessageWithTimestamp
-      ]);
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: "welcome-2",
-            type: "text",
-            sender: "bot",
-            text: "How can I help you today?",
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          }
-        ]);
-      }, 1200);
-    }, 1200);
-    return () => clearTimeout(welcomeTimeout);
-  }, []);
-
-  const [inputValue, setInputValue] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  selectedProduct?: string | null;
+}> = ({ onBackClick, onCloseClick, selectedProduct }) => {
+  const isGuidedFlow = !!selectedProduct;
+  const [state, dispatch] = useReducer(reducer, { selectedProduct, isGuidedFlow }, initialState);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const fetchBotResponse = async (option: string) => {
+    await new Promise((r) => setTimeout(r, 800));
+    return `Here is the info for "${option}" (placeholder response).`;
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
-  // Auto-focus input on mount and maintain focus
+  // Reset all relevant state when selectedProduct changes by using a key
+  // Reset all chat state when selectedProduct changes
+  useEffect(() => {
+    dispatch({ type: "RESET", selectedProduct });
+    if (selectedProduct) {
+      // After a product is selected, show help message and action card only
+      const followupTimeout = setTimeout(() => {
+        dispatch({
+          type: "RECEIVE_OPTION_RESPONSE",
+          payload: {
+            response: "How can I help you today?",
+            option: { label: "", value: "" },
+            remainingOptions: ACTION_OPTIONS,
+          },
+        });
+        dispatch({ type: "SET_LOADING", payload: false });
+      }, 1200);
+      return () => clearTimeout(followupTimeout);
+    } else {
+      // On initial load, just show help message and action card
+      const followupTimeout = setTimeout(() => {
+        dispatch({
+          type: "RECEIVE_OPTION_RESPONSE",
+          payload: {
+            response: "How can I help you today?",
+            option: { label: "", value: "" },
+            remainingOptions: ACTION_OPTIONS,
+          },
+        });
+        dispatch({ type: "SET_LOADING", payload: false });
+      }, 1200);
+      return () => clearTimeout(followupTimeout);
+    }
+  }, [selectedProduct]);
+
+  // Initialize messages state directly instead of in useEffect
+  // Removed effect that sets messages on mount; now handled in useState initializer
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.messages]);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // Re-focus input after bot finishes responding
   useEffect(() => {
-    if (!isSending) {
+    if (!state.isSending) {
       inputRef.current?.focus();
     }
-  }, [isSending]);
+  }, [state.isSending]);
 
   const generateMockReply = () => {
     return mockBotReplies[Math.floor(Math.random() * mockBotReplies.length)];
   };
 
-  const getTimeString = () => {
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
 
-  const handleSendMessage = async () => {
-    if (inputValue.trim() === "") return;
-    setIsSending(true);
 
-    // Add user message
-    const userMessage: ChatMessageWithTimestamp = {
-      id: Date.now().toString(),
-      type: "text",
-      sender: "user",
-      text: inputValue,
-      timestamp: getTimeString(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue("");
-
-    // Add loading bubble
-    const loadingMessage: ChatMessageWithTimestamp = {
-      id: `loading-${Date.now()}`,
-      type: "loading",
-      sender: "bot",
-    };
-
-    setMessages((prev) => [...prev, loadingMessage]);
-
-    // Replace loading with bot reply after 1 second
+  const handleSendMessage = () => {
+    if (state.inputValue.trim() === "") return;
+    dispatch({ type: "SEND_MESSAGE" });
     setTimeout(() => {
-      const botReply: ChatMessageWithTimestamp = {
-        id: `bot-${Date.now()}`,
-        type: "text",
-        sender: "bot",
-        text: generateMockReply(),
-        timestamp: getTimeString(),
-      };
-
-      setMessages((prev) => {
-        const filtered = prev.filter((msg) => msg.id !== loadingMessage.id);
-        return [...filtered, botReply];
-      });
-      setIsSending(false);
+      const reply = generateMockReply();
+      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
     }, 1000);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isSending) {
+    if (e.key === "Enter" && !e.shiftKey && !state.isSending) {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleActionCardSelect = async (option: ActionOption) => {
+    // Compute the new available options after selection
+    const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
+    dispatch({ type: "SELECT_OPTION", payload: option });
+    // Show loading bubble (bot is typing)
+    dispatch({
+      type: "RECEIVE_OPTION_RESPONSE",
+      payload: {
+        response: "",
+        option,
+        remainingOptions: newAvailableOptions,
+      },
+    });
+    // Wait before showing bot response
+    setTimeout(async () => {
+      const response = await fetchBotResponse(option.label);
+      dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+    }, 900);
   };
 
   return (
@@ -157,7 +365,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
           </div>
           <div className="flex flex-col min-w-0">
-            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Old Mutual Support</h3>
+            <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Mutual Intellingence Assistant</h3>
             <span className="text-xs text-white/80 leading-tight">Online</span>
           </div>
         </div>
@@ -167,19 +375,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-8 sm:space-y-10">
-        {messages.map((message) => {
-          if (message.type === "custom-welcome" && !showWelcomeCard) {
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4">
+        {state.messages.map((message, idx) => {
+          if (message.type === "custom-welcome" && !state.showWelcomeCard) {
             return null;
           }
-          if (message.type === "custom-welcome" && showWelcomeCard) {
+          if (message.type === "custom-welcome" && state.showWelcomeCard) {
             return (
-              <div key={message.id} className="flex justify-start animate-fade-in">
+              <div key={message.id} className="flex justify-start animate-fade-in mb-4">
                 <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
                   <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                   <div className="px-4 pt-3 pb-2">
-                    <p className="font-semibold text-gray-900 text-base mb-1">Hi Philemon!</p>
-                    <p className="text-gray-700 text-sm mb-1">Welcome to Old Mutual Chat 👋</p>
+                    <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                    <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
                     <div className="flex justify-end">
                       <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
                     </div>
@@ -188,7 +396,65 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
               </div>
             );
           }
-          return <MessageRenderer key={message.id} message={message} />;
+          // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
+          const prevMsg = idx > 0 ? state.messages[idx - 1] : null;
+          let spacingClass = "";
+          if (prevMsg) {
+            // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
+            const prevSender = isGuidedFlow
+              ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+              : prevMsg.sender;
+            const currSender = isGuidedFlow
+              ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+              : message.sender;
+            if (prevSender !== currSender) {
+              spacingClass = "mb-6"; // More space between different senders
+            } else if (idx !== state.messages.length - 1) {
+              spacingClass = "mb-2"; // Minimal space between same sender
+            }
+          }
+
+          // Only show action card and guided UI if isGuidedFlow is true
+          const shouldShowActionCard =
+            isGuidedFlow &&
+            state.showActionCard &&
+            state.availableOptions.length > 0 &&
+            (
+              (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
+              (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+            );
+          if (shouldShowActionCard) {
+            return (
+              <>
+                <div key={message.id} className={spacingClass}>
+                  <MessageRenderer message={message} />
+                </div>
+                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                  <MessageRenderer
+                    message={{
+                      id: "dynamic-action-card",
+                      sender: "bot",
+                      type: "action-card",
+                      options: state.availableOptions,
+                    }}
+                    onActionCardSelect={handleActionCardSelect}
+                    loading={state.loading}
+                    lastSelected={state.lastSelected}
+                  />
+                </div>
+              </>
+            );
+          }
+          if (message.type === "action-card") {
+            // Do not render action cards from the messages array (handled above)
+            return null;
+          }
+          // Add standard spacing between messages
+          return (
+            <div key={message.id} className={spacingClass}>
+              <MessageRenderer message={message} />
+            </div>
+          );
         })}
         <div ref={messagesEndRef} />
       </div>
@@ -199,16 +465,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
           <input
             ref={inputRef}
             type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            value={state.inputValue}
+            onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
-            disabled={isSending}
+            disabled={state.isSending}
             className="flex-1 px-4 sm:px-5 py-2 sm:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
           />
           <button
             onClick={handleSendMessage}
-            disabled={inputValue.trim() === "" || isSending}
+            disabled={state.inputValue.trim() === "" || state.isSending}
             className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer flex-shrink-0"
           >
             <IoSend size={16} className="sm:block" />
@@ -218,4 +484,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onBackClick, onCloseClic
       </div>
     </div>
   );
+
+// ...existing code...
 };

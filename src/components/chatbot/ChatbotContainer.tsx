@@ -9,10 +9,16 @@ import { findProductNodeById, type TopCategoryId } from "./productTree";
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [screen, setScreen] = useState<"home" | "chat" | "products">("home");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   const selectedCategoryLabel = selectedCategoryId
     ? findProductNodeById(selectedCategoryId)?.label ?? "Products"
     : "Products";
+
+  // Helper to reset chat state
+  const resetChat = () => {
+    setSelectedProduct(null);
+  };
 
   return (
     <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
@@ -32,8 +38,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         {/* HOME */}
         <FadeWrapper isVisible={screen === "home"}>
           <HomeScreen
-            onStartChat={() => setScreen("chat")}
-            onGoToConversation={() => setScreen("chat")}
+            onStartChat={() => {
+              resetChat();
+              setScreen("chat");
+            }}
+            onGoToConversation={() => {
+              resetChat();
+              setScreen("chat");
+            }}
             onSelectCategory={(categoryId) => {
               setSelectedCategoryId(categoryId);
               setScreen("products");
@@ -43,7 +55,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
 
         {/* CHAT */}
         <FadeWrapper isVisible={screen === "chat"}>
-          <ChatScreen onBackClick={() => setScreen("home")} onCloseClick={onClose} />
+          <ChatScreen
+            onBackClick={() => {
+              resetChat();
+              setScreen("home");
+            }}
+            onCloseClick={onClose}
+            selectedProduct={selectedProduct}
+          />
         </FadeWrapper>
 
         {/* PRODUCTS */}
@@ -52,6 +71,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             <ProductScreen
               categoryId={selectedCategoryId}
               onBack={() => setScreen("home")}
+              onSendProduct={(product) => {
+                setSelectedProduct(product);
+                setScreen("chat");
+              }}
             />
           ) : (
             <div className="p-6 text-center text-gray-600">Select a category to view products.</div>

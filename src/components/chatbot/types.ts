@@ -1,4 +1,4 @@
-export type MessageType = "text" | "loading" | "custom-welcome";
+export type MessageType = "text" | "loading" | "custom-welcome" | "action-card";
 
 export interface ChatMessage {
   id: string;

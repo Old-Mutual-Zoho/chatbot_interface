@@ -13,6 +13,7 @@ import {
 interface ProductScreenProps {
   categoryId: TopCategoryId;
   onBack: () => void;
+  onSendProduct?: (product: string) => void;
 }
 
 const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
@@ -21,7 +22,7 @@ const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
   savings: "Savings & Investment",
 };
 
-export default function ProductScreen({ categoryId, onBack }: ProductScreenProps) {
+export default function ProductScreen({ categoryId, onBack, onSendProduct }: ProductScreenProps) {
   const categoryNode = findProductNodeById(categoryId);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
   const [selectedBusinessSubcategory, setSelectedBusinessSubcategory] =
@@ -63,7 +64,7 @@ export default function ProductScreen({ categoryId, onBack }: ProductScreenProps
             }
             onBack();
           }}
-          className="mr-3 text-xl"
+          className="mr-3 text-xl cursor-pointer"
         >
           ←
         </button>
@@ -94,7 +95,13 @@ export default function ProductScreen({ categoryId, onBack }: ProductScreenProps
                     setSelectedProduct(null);
                     return;
                   }
-                  setSelectedProduct((current) => (current === label ? null : label));
+                  setSelectedProduct((current) => {
+                    const newValue = current === label ? null : label;
+                    if (onSendProduct && newValue) {
+                      onSendProduct(newValue);
+                    }
+                    return newValue;
+                  });
                 }}
                 title={label}
                 style={
@@ -104,8 +111,8 @@ export default function ProductScreen({ categoryId, onBack }: ProductScreenProps
                 }
                 className={
                   isSelected
-                    ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate"
-                    : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate"
+                    ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate cursor-pointer"
+                    : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
                 }
               >
                 {label}
