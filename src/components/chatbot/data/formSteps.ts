@@ -37,6 +37,7 @@ export const formSteps: CardStepConfig[] = [
     title: "Address Details",
     fields: [
       { name: "residence", label: "Place of Residence", type: "text", required: true, placeholder: "Enter your place of residence" },
+      { name: "nin", label: "NIN Number", type: "text", required: true, placeholder: "Enter your NIN number" },
     ],
   },
   // Add more steps for product-specific forms as needed

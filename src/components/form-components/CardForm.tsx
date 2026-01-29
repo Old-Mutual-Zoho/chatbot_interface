@@ -20,7 +20,6 @@ export interface CardFormProps {
   showNext?: boolean;
 }
 
-
 const CardForm: React.FC<CardFormProps> = ({
   title,
   fields,
@@ -31,30 +30,24 @@ const CardForm: React.FC<CardFormProps> = ({
   showBack = false,
   showNext = true,
 }) => {
-  const [visibleCount, setVisibleCount] = React.useState(2);
-  // Removed unused setErrors state
 
-  // Check if first N fields are filled
+  // Unified progressive reveal logic for all forms
+  const [fieldGroup, setFieldGroup] = React.useState(0);
+  const groupSize = 2;
+  const totalGroups = Math.ceil(fields.length / groupSize);
   React.useEffect(() => {
-    // Reset visibleCount if fields change (step changes)
-    setVisibleCount(2);
-  }, [fields]);
+    setFieldGroup(0);
+  }, [fields, title]);
 
-  React.useEffect(() => {
-    if (visibleCount >= fields.length) return;
-    const firstFields = fields.slice(0, visibleCount);
-    const allFilled = firstFields.every(f => {
-      if (!f.required) return true;
-      return values[f.name] && values[f.name].trim() !== "";
-    });
-    if (allFilled) {
-      setTimeout(() => setVisibleCount(fields.length), 300); // reveal after short delay
-    }
-  }, [fields, values, visibleCount]);
+  const visibleFields = fields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
 
-  // Only enable Next if all required visible fields are filled
-  const visibleFields = fields.slice(0, visibleCount);
-  const allVisibleRequiredFilled = visibleFields.every(f => {
+  // Only enable Next if all required fields in all groups are filled
+  const allFieldsRequiredFilled = fields.every(f => {
+    if (!f.required) return true;
+    return values[f.name] && values[f.name].trim() !== "";
+  });
+  // Only enable group advance if current group is filled
+  const allCurrentGroupFilled = visibleFields.every(f => {
     if (!f.required) return true;
     return values[f.name] && values[f.name].trim() !== "";
   });
@@ -88,6 +81,11 @@ const CardForm: React.FC<CardFormProps> = ({
           } else if (field.name === "mobile" && value) {
             if (!/^\+256\s\d{9}$/.test(value)) {
               error = "Phone number must be in format +256 7XXXXXXXX.";
+            }
+          } else if (field.name === "nin" && value) {
+            // Uganda NIN: 13 chars, starts with CM or CF, rest digits
+            if (!/^(CM|CF)\d{11}$/.test(value)) {
+              error = "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.";
             }
           }
           // Show error if present
@@ -158,17 +156,13 @@ const CardForm: React.FC<CardFormProps> = ({
           <button type="button" onClick={onBack} className="px-4 py-2 bg-gray-300 rounded">Back</button>
         )}
         {showNext && (
-          // On the Contact Details and Address Details cards, make Next small and right-aligned
-          (title === "Contact Details" || title === "Address Details") ? (
+          fieldGroup < totalGroups - 1 ? (
             <button
               type="button"
-              onClick={onNext}
-              onMouseDown={handleNextMouseDown}
-              onMouseUp={handleNextMouseUp}
-              onMouseLeave={handleNextMouseLeave}
-              disabled={!allVisibleRequiredFilled}
-              className={`ml-auto px-6 py-2 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md${!allVisibleRequiredFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-              style={{ letterSpacing: 0.5, minWidth: 100 }}
+              onClick={() => setFieldGroup(fieldGroup + 1)}
+              disabled={!allCurrentGroupFilled}
+              className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+              style={{ letterSpacing: 0.5 }}
             >
               Next
             </button>
@@ -179,8 +173,8 @@ const CardForm: React.FC<CardFormProps> = ({
               onMouseDown={handleNextMouseDown}
               onMouseUp={handleNextMouseUp}
               onMouseLeave={handleNextMouseLeave}
-              disabled={!allVisibleRequiredFilled}
-              className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allVisibleRequiredFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+              disabled={!allFieldsRequiredFilled}
+              className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allFieldsRequiredFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
               style={{ letterSpacing: 0.5 }}
             >
               Next
@@ -193,6 +187,6 @@ const CardForm: React.FC<CardFormProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default CardForm;
