@@ -323,20 +323,37 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     }
     try {
       const response = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
+      console.log('DEBUG BOT RESPONSE:', response);
+      if (response && typeof response === 'object' && 'response' in response) {
+        console.log('DEBUG BOT RESPONSE.response:', response.response);
+      }
       // If response is an object with a nested response, extract it
       if (typeof response === 'object' && response !== null) {
+        // Deeply nested string response
         if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
           return response.response.response;
         }
+        // Direct string response
         if (typeof response.response === 'string') {
           return response.response;
         }
+        // Message field
         if (typeof response.message === 'string') {
           return response.message;
         }
+        // If options are present, format them for display
+        if (Array.isArray(response.options) && response.options.length > 0) {
+          let optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          return `${response.message || response.response?.message || 'Please choose an option:'}\n${optionsText}`;
+        }
+        // If response has a message and options inside response.response
+        if (response.response && Array.isArray(response.response.options)) {
+          let optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          return `${response.response.message || 'Please choose an option:'}\n${optionsText}`;
+        }
       }
       // fallback: stringify
-      return JSON.stringify(response);
+      return typeof response === 'string' ? response : 'Sorry, I could not understand the server response.';
     } catch {
       return "Sorry, I couldn't retrieve information from the server.";
     }

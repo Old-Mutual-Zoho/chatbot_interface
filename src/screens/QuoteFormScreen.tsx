@@ -3,23 +3,27 @@
 import React, { useState } from "react";
 import CardForm from '../components/form-components/CardForm';
 import { formSteps } from '../components/chatbot/data/formSteps';
-import ChatHeader from "../components/chatbot/ChatHeader";
+import { getProductFormSteps } from '../utils/getProductFormSteps';
+
 
 interface QuoteFormScreenProps {
-  onClose: () => void;
-  title: string;
+  selectedProduct?: string | null;
 }
 
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ onClose, title }) => {
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct }) => {
   const [step, setStep] = useState<number>(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
+
+  // Combine generic and product-specific steps
+  const productSteps = selectedProduct ? getProductFormSteps(selectedProduct) : [];
+  const allSteps = [...formSteps, ...productSteps];
 
   const handleChange = (name: string, value: string) => {
     setFormData((prev: Record<string, string>) => ({ ...prev, [name]: value }));
   };
 
   const handleNext = () => {
-    if (step < formSteps.length - 1) {
+    if (step < allSteps.length - 1) {
       setStep(step + 1);
     } else {
       // Submit or go to next section
@@ -35,15 +39,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ onClose, title }) => 
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <ChatHeader title={title} onClose={onClose} />
       <div className="p-4 mt-1">
         <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
         <p className="text-center text-gray-600 mb-3 text-sm">
           To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
         </p>
         <CardForm
-          title={formSteps[step].title}
-          fields={formSteps[step].fields}
+          title={allSteps[step].title}
+          fields={allSteps[step].fields}
           values={formData}
           onChange={handleChange}
           onNext={handleNext}
