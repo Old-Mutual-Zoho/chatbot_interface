@@ -8,6 +8,8 @@ export interface CardFieldConfig {
   required?: boolean;
   placeholder?: string;
   optionalLabel?: string;
+  options?: { label: string; value: string }[];
+  showIf?: { field: string; value: string };
 }
 
 export interface CardStepConfig {

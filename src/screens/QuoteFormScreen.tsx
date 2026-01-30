@@ -39,7 +39,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct }) =>
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-4 mt-1">
+      <div className="p-4 mt-12">
         <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
         <p className="text-center text-gray-600 mb-3 text-sm">
           To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.

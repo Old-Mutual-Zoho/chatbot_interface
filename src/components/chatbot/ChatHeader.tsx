@@ -11,7 +11,7 @@ export default function ChatHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="bg-primary text-white p-4 flex items-center gap-3">
+    <div className="bg-primary text-white p-4 flex items-center gap-3 relative z-10">
       {/* Back button */}
       {onBack ? (
         <button onClick={onBack} className="text-2xl cursor-pointer">

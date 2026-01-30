@@ -7,6 +7,10 @@ export interface CardFieldConfig {
   required?: boolean;
   placeholder?: string;
   optionalLabel?: string;
+  // For radio/select/checkbox-group fields
+  options?: { label: string; value: string }[];
+  // For conditional fields
+  showIf?: { field: string; value: string };
 }
 
 export interface CardFormProps {
@@ -68,6 +72,13 @@ const CardForm: React.FC<CardFormProps> = ({
       </div>
       <form className="w-full flex flex-col gap-5">
         {visibleFields.map((field) => {
+          // Conditional rendering for fields with showIf
+          if (field.showIf) {
+            const depValue = values[field.showIf.field];
+            if (depValue !== field.showIf.value) {
+              return null;
+            }
+          }
           // Validation logic
           let error = "";
           const value = values[field.name] || "";
@@ -88,7 +99,35 @@ const CardForm: React.FC<CardFormProps> = ({
               error = "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.";
             }
           }
-          // Show error if present
+
+          // Render radio fields
+          if (field.type === "radio" && Array.isArray(field.options)) {
+            return (
+              <div key={field.name} className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                  {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
+                </label>
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
+                  {field.options.map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                      <input
+                        type="radio"
+                        name={field.name}
+                        value={opt.value}
+                        checked={value === opt.value}
+                        onChange={() => onChange(field.name, opt.value)}
+                        className="accent-green-600"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+              </div>
+            );
+          }
+
           // Special handling for phone number field
           if (field.name === "mobile") {
             const prefix = "+256 ";
@@ -129,6 +168,7 @@ const CardForm: React.FC<CardFormProps> = ({
               </div>
             );
           }
+
           // Default field rendering
           return (
             <div key={field.name}>

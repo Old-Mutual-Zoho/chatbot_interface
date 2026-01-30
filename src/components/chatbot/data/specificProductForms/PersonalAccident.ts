@@ -84,7 +84,7 @@ export const personalAccidentFormSteps = [
       {
         name: "riskActivities",
         label: "Are you engaged in any of the following activities?",
-        type: "checkbox-group",
+        type: "radio",
         options: [
           { label: "Manufacture of fireworks or explosives", value: "fireworks" },
           { label: "Airline crew & ship/boat crew", value: "airline_crew" },
