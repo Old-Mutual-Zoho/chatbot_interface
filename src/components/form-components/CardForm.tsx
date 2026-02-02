@@ -38,18 +38,21 @@ const CardForm: React.FC<CardFormProps> = ({
   // Unified progressive reveal logic for all forms
   const [fieldGroup, setFieldGroup] = React.useState(0);
   const groupSize = 2;
-  const totalGroups = Math.ceil(fields.length / groupSize);
+  // Removed unused totalGroups variable
   React.useEffect(() => {
     setFieldGroup(0);
   }, [fields, title]);
 
-  const visibleFields = fields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
+  // Only show fields that are not hidden by showIf
+  const allVisibleFields = fields.filter(field => {
+    if (!field.showIf) return true;
+    const depValue = values[field.showIf.field];
+    return depValue === field.showIf.value;
+  });
+  const visibleFields = allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
 
   // Only enable Next if all required fields in all groups are filled
-  const allFieldsRequiredFilled = fields.every(f => {
-    if (!f.required) return true;
-    return values[f.name] && values[f.name].trim() !== "";
-  });
+  // Removed unused allFieldsRequiredFilled variable
   // Only enable group advance if current group is filled
   const allCurrentGroupFilled = visibleFields.every(f => {
     if (!f.required) return true;
@@ -196,30 +199,32 @@ const CardForm: React.FC<CardFormProps> = ({
           <button type="button" onClick={onBack} className="px-4 py-2 bg-gray-300 rounded">Back</button>
         )}
         {showNext && (
-          fieldGroup < totalGroups - 1 ? (
-            <button
-              type="button"
-              onClick={() => setFieldGroup(fieldGroup + 1)}
-              disabled={!allCurrentGroupFilled}
-              className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-              style={{ letterSpacing: 0.5 }}
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onNext}
-              onMouseDown={handleNextMouseDown}
-              onMouseUp={handleNextMouseUp}
-              onMouseLeave={handleNextMouseLeave}
-              disabled={!allFieldsRequiredFilled}
-              className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allFieldsRequiredFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-              style={{ letterSpacing: 0.5 }}
-            >
-              Next
-            </button>
-          )
+          (fieldGroup < Math.ceil(allVisibleFields.length / groupSize) - 1 && visibleFields.length > 0)
+            ? (
+              <button
+                type="button"
+                onClick={() => setFieldGroup(fieldGroup + 1)}
+                disabled={!allCurrentGroupFilled}
+                className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+                style={{ letterSpacing: 0.5 }}
+              >
+                Next
+              </button>
+            )
+            : (
+              <button
+                type="button"
+                onClick={onNext}
+                onMouseDown={handleNextMouseDown}
+                onMouseUp={handleNextMouseUp}
+                onMouseLeave={handleNextMouseLeave}
+                disabled={!allCurrentGroupFilled}
+                className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+                style={{ letterSpacing: 0.5 }}
+              >
+                Next
+              </button>
+            )
         )}
       </div>
       <div className="w-full mt-3 text-xs text-gray-500 text-center">

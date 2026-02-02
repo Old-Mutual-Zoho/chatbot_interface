@@ -25,6 +25,11 @@ export const formSteps: CardStepConfig[] = [
       { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter your last name" },
       { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional" },
       { name: "dob", label: "Date of Birth", type: "date", required: false },
+      { name: "professionalOccupation", label: "Professional Occupation", type: "text", required: true, placeholder: "Enter your occupation" },
+      { name: "nationalityType", label: "Nationality Type", type: "radio", required: true, options: [
+        { label: "Ugandan", value: "ugandan" },
+        { label: "Non Ugandan", value: "non_ugandan" }
+      ], showIf: { field: "selectedProduct", value: "Travel Sure Plus" } },
     ],
   },
   {
