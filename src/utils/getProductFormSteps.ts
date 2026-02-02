@@ -2,6 +2,7 @@
 
 import { personalAccidentFormSteps } from '../components/chatbot/data/specificProductForms/PersonalAccident';
 import { travelPlusFormSteps } from '../components/chatbot/data/specificProductForms/TravelPlus';
+import { serenicareFormSteps } from '../components/chatbot/data/specificProductForms/serenicareForm';
 
 export function getProductFormSteps(product: string) {
   switch (product) {
@@ -9,6 +10,8 @@ export function getProductFormSteps(product: string) {
       return personalAccidentFormSteps;
     case 'Travel Sure Plus':
       return travelPlusFormSteps;
+    case 'Serenicare':
+      return serenicareFormSteps;
     // Add more cases for other products
     default:
       return [];
