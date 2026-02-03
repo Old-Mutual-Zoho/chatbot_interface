@@ -73,7 +73,7 @@ export const serenicareFormSteps = [
           },
           { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
           { name: "age", type: "number", required: true, placeholder: "Enter age" },
-          // ...children field removed...
+          
         ]
       }
     ]

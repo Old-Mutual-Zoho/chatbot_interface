@@ -1,8 +1,7 @@
 // Product-specific form steps for Travel Sure Plus
 
 export const travelPlusFormSteps = [
- 
-  {  
+  {
     title: "Identification / Travel Document Details",
     fields: [
       {
@@ -31,6 +30,27 @@ export const travelPlusFormSteps = [
         type: "date",
         required: true
       }
+    ]
+  },
+  {
+    title: "Cover Selection Details",
+    fields: [     
+      {
+        name: "coverLevel",
+        label: "Level of Cover",
+        type: "radio",
+        required: true,
+        options: [
+          { label: "Worldwide Essential", value: "worldwide_essential" },
+          { label: "Worldwide Elite", value: "worldwide_elite" },
+          { label: "Schengen Essential", value: "schengen_essential" },
+          { label: "Schengen Elite", value: "schengen_elite" },
+          { label: "Student Cover", value: "student_cover" },
+          { label: "Africa & Asia", value: "africa_asia" },
+          { label: "Inbound Karibu", value: "inbound_karibu" }
+        ]
+      },      
+     
     ]
   },
   {
@@ -76,130 +96,23 @@ export const travelPlusFormSteps = [
         placeholder: "Enter duration in days"
       },
       {
+        name: "whoAreYouCovering",
+        label: "Who are you covering?",
+        type: "radio",
+        required: true,
+        options: [
+          { label: "Myself", value: "myself" },
+          { label: "Someone else", value: "someone_else" },
+          { label: "Myself and someone else", value: "myself_and_someone_else" },
+          { label: "Group", value: "group" }
+        ]
+      },
+      {
         name: "numberOfTravelers",
         label: "Number of Travelers",
         type: "number",
         required: true,
         placeholder: "Enter number of travelers"
-      },
-      {
-        name: "typeOfTrip",
-        label: "Type of Trip",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Single Trip", value: "single" },
-          { label: "Multiple Trips", value: "multiple" }
-        ]
-      }
-    ]
-  },
-  {
-    title: "Cover Selection Details",
-    fields: [
-      {
-        name: "insurancePlanType",
-        label: "Type of Travel Insurance Plan",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Individual", value: "individual" },
-          { label: "Family", value: "family" },
-          { label: "Group", value: "group" }
-        ],
-        placeholder: "Select plan type"
-      },
-      {
-        name: "coverLevel",
-        label: "Level of Cover",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Basic", value: "basic" },
-          { label: "Standard", value: "standard" },
-          { label: "Comprehensive", value: "comprehensive" }
-        ]
-      },
-      {
-        name: "optionalAddOns",
-        label: "Optional Add-ons",
-        type: "checkbox-group",
-        required: false,
-        options: [
-          { label: "Luggage", value: "luggage" },
-          { label: "Adventure Sports", value: "adventure_sports" },
-          { label: "COVID Cover", value: "covid" }
-        ]
-      },
-      {
-        name: "sumInsured",
-        label: "Sum Insured / Coverage Limits",
-        type: "number",
-        required: true,
-        placeholder: "Enter sum insured or coverage limit"
-      }
-    ]
-  },
-  {
-    title: "Medical & Health Information",
-    fields: [
-      {
-        name: "preExistingConditions",
-        label: "Pre-existing Medical Conditions",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Yes", value: "yes" },
-          { label: "No", value: "no" }
-        ]
-      },
-      {
-        name: "preExistingConditionDetails",
-        label: "If Yes, provide details",
-        type: "textarea",
-        required: false,
-        showIf: { field: "preExistingConditions", value: "yes" },
-        placeholder: "Describe your condition(s)"
-      },
-      {
-        name: "currentMedications",
-        label: "Current Medications (if applicable)",
-        type: "textarea",
-        required: false,
-        placeholder: "List any current medications"
-      },
-      {
-        name: "specialMedicalNeeds",
-        label: "Special Medical Needs (if any)",
-        type: "textarea",
-        required: false,
-        placeholder: "Describe any special needs"
-      }
-    ]
-  },
-  {
-    title: "Beneficiary / Emergency Details",
-    fields: [
-      {
-        name: "emergencyContactName",
-        label: "Emergency Contact Name",
-        type: "text",
-        required: true,
-        placeholder: "Enter emergency contact name"
-      },
-      {
-        name: "emergencyContactRelationship",
-        label: "Relationship to Traveler",
-        type: "text",
-        required: true,
-        placeholder: "Enter relationship"
-      },
-      {
-        name: "emergencyContactPhone",
-        label: "Emergency Contact Phone Number",
-        type: "tel",
-        required: true,
-        placeholder: "Enter emergency contact phone number"
       }
     ]
   }
