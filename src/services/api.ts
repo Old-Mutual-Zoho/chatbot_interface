@@ -2,12 +2,22 @@
 import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api';
+const API_KEY = import.meta.env.VITE_API_KEY;
+console.log('VITE_API_KEY at runtime:', API_KEY);
 
 export const api = axios.create({
 	baseURL: BASE_URL,
 	headers: {
 		'Content-Type': 'application/json',
+		...(API_KEY ? { 'X-API-KEY': API_KEY } : {}),
 	},
+});
+
+// Ensure X-API-KEY is always sent, even if headers are overridden elsewhere
+api.interceptors.request.use((config) => {
+	config.headers = config.headers || {};
+	config.headers['X-API-KEY'] = API_KEY;
+	return config;
 });
 
 // --- Types ---

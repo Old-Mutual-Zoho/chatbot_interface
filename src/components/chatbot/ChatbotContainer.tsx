@@ -203,6 +203,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         <FadeWrapper isVisible={screen === "quote"}>
           <QuoteFormScreen 
             selectedProduct={selectedProduct}
+            userId={userId}
           />
         </FadeWrapper>
         {/* PRODUCTS */}

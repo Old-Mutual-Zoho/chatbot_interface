@@ -1,3 +1,19 @@
+
+@theme {
+  --color-primary: #00A651;
+  --color-primary-dark: #008C44;
+  --color-primary-light: #B2EEC3;
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
+  --color-neutral-light: #F9FAFB;
+  --color-neutral-dark: #111827;
+
+  --color-accent: #F97316;
+
+  --radius-widget: 20px;
+  --radius-bubble: 16px;
+}
 @import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
 @import "tailwindcss";
 
@@ -39,21 +55,6 @@
   background: rgba(0, 166, 81, 0.75);
 }
 
-@theme {
-  --color-primary: #00A651;
-  --color-primary-dark: #008C44;
-  --color-primary-light: #B2EEC3;
-  --color-white: #FFFFFF;
-  --color-black: #000000;
-
-  --color-neutral-light: #F9FAFB;
-  --color-neutral-dark: #111827;
-
-  --color-accent: #F97316;
-
-  --radius-widget: 20px;
-  --radius-bubble: 16px;
-} 
 
 
 

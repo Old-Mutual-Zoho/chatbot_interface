@@ -59,28 +59,21 @@ export const serenicareFormSteps = [
         label: "Main Members",
         type: "repeatable-group",
         fields: [
-          { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
           {
             name: "includeSpouse",
-            label: "Include Spouse/Partner?",
+            label: "Include Spouse?",
             type: "checkbox",
             required: false
           },
           {
             name: "includeChildren",
-            label: "Include Child/Children?",
+            label: "Include Children?",
             type: "checkbox",
             required: false
           },
-          {
-            name: "children",
-            label: "Children",
-            type: "repeatable-group",
-            fields: [
-              { name: "childAge", label: "Child Age", type: "number", required: true, placeholder: "Enter child age" }
-            ],
-            showIf: { field: "includeChildren", value: true }
-          }
+          { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
+          { name: "age", type: "number", required: true, placeholder: "Enter age" },
+          // ...children field removed...
         ]
       }
     ]

@@ -2,7 +2,7 @@ import React from "react";
 
 export interface CardFieldConfig {
   name: string;
-  label: string;
+  label?: string;
   type: string;
   required?: boolean;
   placeholder?: string;
@@ -10,7 +10,9 @@ export interface CardFieldConfig {
   // For radio/select/checkbox-group fields
   options?: { label: string; value: string }[];
   // For conditional fields
-  showIf?: { field: string; value: string };
+  showIf?: { field: string; value: string | boolean };
+  // For repeatable-group fields
+  fields?: CardFieldConfig[];
 }
 
 export interface CardFormProps {
@@ -24,6 +26,8 @@ export interface CardFormProps {
   showNext?: boolean;
 }
 
+
+
 const CardForm: React.FC<CardFormProps> = ({
   title,
   fields,
@@ -34,14 +38,21 @@ const CardForm: React.FC<CardFormProps> = ({
   showBack = false,
   showNext = true,
 }) => {
-
   // Unified progressive reveal logic for all forms
   const [fieldGroup, setFieldGroup] = React.useState(0);
   const groupSize = 2;
-  // Removed unused totalGroups variable
   React.useEffect(() => {
     setFieldGroup(0);
   }, [fields, title]);
+
+  // Repeatable group state for active member index per group
+  const [repeatableGroupState, setRepeatableGroupState] = React.useState<{ [key: string]: number }>({});
+  React.useEffect(() => {
+    setRepeatableGroupState({});
+  }, [fields, title]);
+  const handleSetActiveIdx = (fieldName: string, idx: number) => {
+    setRepeatableGroupState(prev => ({ ...prev, [fieldName]: idx }));
+  };
 
   // Only show fields that are not hidden by showIf
   const allVisibleFields = fields.filter(field => {
@@ -52,8 +63,6 @@ const CardForm: React.FC<CardFormProps> = ({
   const visibleFields = allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
 
   // Only enable Next if all required fields in all groups are filled
-  // Removed unused allFieldsRequiredFilled variable
-  // Only enable group advance if current group is filled
   const allCurrentGroupFilled = visibleFields.every(f => {
     if (!f.required) return true;
     return values[f.name] && values[f.name].trim() !== "";
@@ -72,6 +81,9 @@ const CardForm: React.FC<CardFormProps> = ({
           {title}
         </h2>
         <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />
+        {title === "Cover Personalization" && (
+          <p className="text-center text-gray-600 text-sm mt-1">Assign different cover options to members in this cover</p>
+        )}
       </div>
       <form className="w-full flex flex-col gap-5">
         {visibleFields.map((field) => {
@@ -88,7 +100,6 @@ const CardForm: React.FC<CardFormProps> = ({
           if (field.required && !value.trim()) {
             error = `${field.label} is required.`;
           } else if (field.type === "email" && value) {
-            // Simple email regex
             if (!/^\S+@\S+\.\S+$/.test(value)) {
               error = "Please enter a valid email address.";
             }
@@ -97,10 +108,133 @@ const CardForm: React.FC<CardFormProps> = ({
               error = "Phone number must be in format +256 7XXXXXXXX.";
             }
           } else if (field.name === "nin" && value) {
-            // Uganda NIN: 13 chars, starts with CM or CF, rest digits
             if (!/^(CM|CF)\d{11}$/.test(value)) {
               error = "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.";
             }
+          }
+
+          // Repeatable group (e.g. Main Members)
+          if (field.type === "repeatable-group" && Array.isArray(field.fields)) {
+            // Value is a JSON stringified array of member objects
+            let groupValue: Record<string, unknown>[] = [];
+            try {
+              groupValue = value ? JSON.parse(value) : [];
+            } catch {
+              groupValue = [];
+            }
+            const activeIdx = repeatableGroupState[field.name] ?? 0;
+
+            const handleAdd = () => {
+              const updated = [...groupValue, {}];
+              onChange(field.name, JSON.stringify(updated));
+              handleSetActiveIdx(field.name, updated.length - 1);
+            };
+            const handleRemove = (idx: number) => {
+              const updated = groupValue.filter((_, i) => i !== idx);
+              onChange(field.name, JSON.stringify(updated));
+              handleSetActiveIdx(field.name, Math.max(0, idx - 1));
+            };
+            const handleFieldChange = (idx: number, subName: string, subValue: string) => {
+              const updated = groupValue.map((item, i) => i === idx ? { ...item, [subName]: subValue } : item);
+              onChange(field.name, JSON.stringify(updated));
+            };
+
+            return (
+              <div key={field.name} className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+                {groupValue.length === 0 && (
+                  <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded">Add Member</button>
+                )}
+                {groupValue.length > 0 && (
+                  <div className="mb-3 p-3 bg-white rounded border border-green-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-primary">Member {activeIdx + 1}</span>
+                      <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-xs">Remove</button>
+                    </div>
+                    {/* Render subfields for this member */}
+                    {field.fields.map((subField: CardFieldConfig, idx) => {
+                      const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
+                      // Render spouse/children checkboxes in a row if both present
+                      if (
+                        subField.type === "checkbox" &&
+                        Array.isArray(field.fields) &&
+                        idx < field.fields.length - 1 &&
+                        field.fields[idx + 1]?.type === "checkbox"
+                      ) {
+                        const nextField = field.fields[idx + 1];
+                        const nextValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[nextField.name] ?? "" : "";
+                        return (
+                          <div key={subField.name + "_row"} className="flex flex-row gap-4 mb-1">
+                            <label className="flex items-center text-xs text-gray-700 mb-0.5">
+                              <input
+                                type="checkbox"
+                                checked={!!subValue}
+                                onChange={e => handleFieldChange(activeIdx, subField.name, e.target.checked ? "true" : "")}
+                                className="mr-1"
+                              />
+                              {subField.label}
+                            </label>
+                            <label className="flex items-center text-xs text-gray-700 mb-0.5">
+                              <input
+                                type="checkbox"
+                                checked={!!nextValue}
+                                onChange={e => handleFieldChange(activeIdx, nextField.name, e.target.checked ? "true" : "")}
+                                className="mr-1"
+                              />
+                              {nextField.label}
+                            </label>
+                          </div>
+                        );
+                      }
+                      // Skip rendering the next field if already rendered in row
+                      if (
+                        subField.type === "checkbox" &&
+                        Array.isArray(field.fields) &&
+                        idx > 0 &&
+                        field.fields[idx - 1]?.type === "checkbox"
+                      ) {
+                        return null;
+                      }
+                      // Render unnamed field with only placeholder (no label)
+                      if (!subField.label && subField.placeholder) {
+                        return (
+                          <div key={subField.name} className="mb-1">
+                            <input
+                              type={subField.type}
+                              value={subValue as string}
+                              onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                              placeholder={subField.placeholder}
+                            />
+                          </div>
+                        );
+                      }
+                      // Default rendering for other fields
+                      return (
+                        <div key={subField.name} className="mb-1">
+                          <label className="block text-xs text-gray-700 mb-0.5">{subField.label}</label>
+                          <input
+                            type={subField.type}
+                            value={subValue as string}
+                            onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                            placeholder={subField.placeholder}
+                          />
+                        </div>
+                      );
+                    })}
+                    {/* Navigation buttons */}
+                    <div className="flex justify-between mt-3">
+                      <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Back</button>
+                      <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Next</button>
+                    </div>
+                  </div>
+                )}
+                {groupValue.length > 0 && (
+                  <button type="button" onClick={handleAdd} className="mt-2 px-3 py-1 bg-primary text-white rounded">Add Member</button>
+                )}
+              </div>
+            );
           }
 
           // Render radio fields
@@ -131,42 +265,39 @@ const CardForm: React.FC<CardFormProps> = ({
             );
           }
 
-          // Special handling for phone number field
-          if (field.name === "mobile") {
-            const prefix = "+256 ";
-            // Remove prefix if user tries to delete it
-            let value = values[field.name] || "";
-            if (!value.startsWith(prefix)) {
-              value = prefix + value.replace(/^\+?256\s?/, "");
-            }
-            // Only allow numbers after the prefix, max 9 digits
-            const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-              let input = e.target.value;
-              if (!input.startsWith(prefix)) {
-                input = prefix + input.replace(/^\+?256\s?/, "");
-              }
-              const digits = input.slice(prefix.length).replace(/\D/g, "").slice(0, 9);
-              onChange(field.name, prefix + digits);
-            };
+          // Render checkbox-group fields
+          if (field.type === "checkbox-group" && Array.isArray(field.options)) {
+            // Value is a comma-separated string of selected options
+            const selected = value ? value.split(",") : [];
             return (
-              <div key={field.name}>
-                <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
+              <div key={field.name} className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   {field.label} {field.required && <span className="text-red-500">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="tel"
-                  required={field.required}
-                  value={value}
-                  onChange={handleMobileChange}
-                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-green-50 focus:bg-white transition`}
-                  placeholder={"+256 7XXXXXXXX"}
-                  maxLength={prefix.length + 9}
-                  pattern="\+256\s\d{9}"
-                  inputMode="numeric"
-                />
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
+                  {field.options.map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                      <input
+                        type="checkbox"
+                        name={field.name}
+                        value={opt.value}
+                        checked={selected.includes(opt.value)}
+                        onChange={() => {
+                          let updated: string[];
+                          if (selected.includes(opt.value)) {
+                            updated = selected.filter((v) => v !== opt.value);
+                          } else {
+                            updated = [...selected, opt.value];
+                          }
+                          onChange(field.name, updated.join(","));
+                        }}
+                        className="accent-green-600"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
                 {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );

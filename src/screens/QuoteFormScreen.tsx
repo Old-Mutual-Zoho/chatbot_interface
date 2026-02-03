@@ -1,17 +1,20 @@
 
 
 import React, { useState } from "react";
+import { startGuidedQuote } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { formSteps } from '../components/chatbot/data/formSteps';
 import { getProductFormSteps } from '../utils/getProductFormSteps';
 import { serenicareFormSteps } from '../components/chatbot/data/specificProductForms/serenicareForm';
 
 
+
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
+  userId?: string | null;
 }
 
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct }) => {
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId }) => {
   // All hooks must be called unconditionally and in the same order
   const [phase, setPhase] = useState<'main' | 'product'>('main');
   const [mainStep, setMainStep] = useState(0);
@@ -44,11 +47,34 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct }) =>
   const handleProductChange = (name: string, value: string) => {
     setProductFormData((prev) => ({ ...prev, [name]: value }));
   };
-  const handleProductNext = () => {
+  const handleProductNext = async () => {
+    // If next step is Cover Personalization, initialize mainMembers as [] if not set
+    if (productStep + 1 < serenicareFormSteps.length && serenicareFormSteps[productStep + 1].fields.some(f => f.type === 'repeatable-group')) {
+      setProductFormData(prev => {
+        if (!prev.mainMembers) {
+          return { ...prev, mainMembers: JSON.stringify([]) };
+        }
+        return prev;
+      });
+    }
     if (productStep < serenicareFormSteps.length - 1) {
       setProductStep(productStep + 1);
     } else {
-      // Submit or show summary here
+      // Submit Serenicare form data to backend
+      try {
+        const user_id = userId || '';
+        const product_id = 'Serenicare';
+        const initial_data = {
+          product_id: String(product_id),
+          ...mainFormData,
+          ...productFormData,
+        };
+        await startGuidedQuote({ user_id, initial_data });
+        // Optionally show a success message or move to a summary screen
+        alert('Quote submitted successfully!');
+      } catch (error) {
+        alert('Failed to submit quote.');
+      }
     }
   };
   const handleProductBack = () => {
@@ -59,13 +85,27 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct }) =>
   const handleChange = (name: string, value: string) => {
     setFormData((prev: Record<string, string>) => ({ ...prev, [name]: value }));
   };
-  const handleNext = () => {
+  const handleNext = async () => {
     const productSteps = selectedProduct ? getProductFormSteps(selectedProduct) : [];
     const allSteps = [...formSteps, ...productSteps];
     if (step < allSteps.length - 1) {
       setStep(step + 1);
     } else {
-      // Submit or go to next section
+      // Submit form data for supported products
+      if (["Travel Sure Plus", "Personal Accident"].includes(selectedProduct || "")) {
+        try {
+          const user_id = userId || '';
+          const product_id = selectedProduct ? String(selectedProduct) : '';
+          const initial_data = {
+            product_id,
+            ...formData,
+          };
+          await startGuidedQuote({ user_id, initial_data });
+          alert('Quote submitted successfully!');
+        } catch (error) {
+          alert('Failed to submit quote.');
+        }
+      }
       // ...
     }
   };
