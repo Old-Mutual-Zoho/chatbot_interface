@@ -56,7 +56,7 @@ export const serenicareFormSteps = [
     fields: [
       {
         name: "mainMembers",
-        label: "Main Members",
+        label: "Main Members to cover",
         type: "repeatable-group",
         fields: [
           {

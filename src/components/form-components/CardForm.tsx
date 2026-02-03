@@ -75,15 +75,12 @@ const CardForm: React.FC<CardFormProps> = ({
   const handleNextMouseLeave = () => setNextActive(false);
 
   return (
-    <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center" style={{ minWidth: 340, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
+    <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center overflow-y-auto" style={{ minWidth: 340, maxHeight: 520, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
       <div className="w-full mb-4">
         <h2 className="text-xl font-bold text-center" style={{ color: '#00A651' }}>
           {title}
         </h2>
-        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />
-        {title === "Cover Personalization" && (
-          <p className="text-center text-gray-600 text-sm mt-1">Assign different cover options to members in this cover</p>
-        )}
+        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />        
       </div>
       <form className="w-full flex flex-col gap-5">
         {visibleFields.map((field) => {
@@ -140,52 +137,54 @@ const CardForm: React.FC<CardFormProps> = ({
             };
 
             return (
-              <div key={field.name} className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+              <div key={field.name} className="mb-4">
+                <label className="block text-base font-medium text-gray-700 mb-3">{field.label}</label>
                 {groupValue.length === 0 && (
                   <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded">Add Member</button>
                 )}
                 {groupValue.length > 0 && (
-                  <div className="mb-3 p-3 bg-white rounded border border-green-200">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-primary">Member {activeIdx + 1}</span>
-                      <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-xs">Remove</button>
-                    </div>
-                    {/* Render subfields for this member */}
-                    {field.fields.map((subField: CardFieldConfig, idx) => {
+                  <div className="mb-2 px-4 py-3 bg-white rounded-xl border border-green-200 shadow-sm flex flex-row items-start gap-6 max-w-2xl mx-auto">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="font-semibold text-lg text-primary">Member {activeIdx + 1}</span>
+                        <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-sm">Remove</button>
+                      </div>
+                      {/* Render subfields for this member */}
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                        {field.fields.map((subField: CardFieldConfig, idx) => {
                       const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
                       // Render spouse/children checkboxes in a row if both present
-                      if (
-                        subField.type === "checkbox" &&
-                        Array.isArray(field.fields) &&
-                        idx < field.fields.length - 1 &&
-                        field.fields[idx + 1]?.type === "checkbox"
-                      ) {
-                        const nextField = field.fields[idx + 1];
-                        const nextValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[nextField.name] ?? "" : "";
-                        return (
-                          <div key={subField.name + "_row"} className="flex flex-row gap-4 mb-1">
-                            <label className="flex items-center text-xs text-gray-700 mb-0.5">
-                              <input
-                                type="checkbox"
-                                checked={!!subValue}
-                                onChange={e => handleFieldChange(activeIdx, subField.name, e.target.checked ? "true" : "")}
-                                className="mr-1"
-                              />
-                              {subField.label}
-                            </label>
-                            <label className="flex items-center text-xs text-gray-700 mb-0.5">
-                              <input
-                                type="checkbox"
-                                checked={!!nextValue}
-                                onChange={e => handleFieldChange(activeIdx, nextField.name, e.target.checked ? "true" : "")}
-                                className="mr-1"
-                              />
-                              {nextField.label}
-                            </label>
-                          </div>
-                        );
-                      }
+                          if (
+                            subField.type === "checkbox" &&
+                            Array.isArray(field.fields) &&
+                            idx < field.fields.length - 1 &&
+                            field.fields[idx + 1]?.type === "checkbox"
+                          ) {
+                            const nextField = field.fields[idx + 1];
+                            const nextValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[nextField.name] ?? "" : "";
+                            return (
+                              <div key={subField.name + "_row"} className="col-span-2 flex flex-row gap-8 mb-2">
+                                <label className="flex items-center text-base text-gray-700 mb-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!subValue}
+                                    onChange={e => handleFieldChange(activeIdx, subField.name, e.target.checked ? "true" : "")}
+                                    className="mr-2"
+                                  />
+                                  {subField.label}
+                                </label>
+                                <label className="flex items-center text-base text-gray-700 mb-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!nextValue}
+                                    onChange={e => handleFieldChange(activeIdx, nextField.name, e.target.checked ? "true" : "")}
+                                    className="mr-2"
+                                  />
+                                  {nextField.label}
+                                </label>
+                              </div>
+                            );
+                          }
                       // Skip rendering the next field if already rendered in row
                       if (
                         subField.type === "checkbox" &&
@@ -196,37 +195,39 @@ const CardForm: React.FC<CardFormProps> = ({
                         return null;
                       }
                       // Render unnamed field with only placeholder (no label)
-                      if (!subField.label && subField.placeholder) {
-                        return (
-                          <div key={subField.name} className="mb-1">
-                            <input
-                              type={subField.type}
-                              value={subValue as string}
-                              onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                              placeholder={subField.placeholder}
-                            />
-                          </div>
-                        );
-                      }
-                      // Default rendering for other fields
-                      return (
-                        <div key={subField.name} className="mb-1">
-                          <label className="block text-xs text-gray-700 mb-0.5">{subField.label}</label>
-                          <input
-                            type={subField.type}
-                            value={subValue as string}
-                            onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                            placeholder={subField.placeholder}
-                          />
-                        </div>
-                      );
-                    })}
-                    {/* Navigation buttons */}
-                    <div className="flex justify-between mt-3">
-                      <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Back</button>
-                      <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Next</button>
+                          if (!subField.label && subField.placeholder) {
+                            return (
+                              <div key={subField.name} className="col-span-2 mb-2">
+                                <input
+                                  type={subField.type}
+                                  value={subValue as string}
+                                  onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
+                                  className="w-full px-3 py-3 border border-gray-300 rounded text-base"
+                                  placeholder={subField.placeholder}
+                                />
+                              </div>
+                            );
+                          }
+                          // Default rendering for other fields
+                          return (
+                            <div key={subField.name} className="col-span-2 mb-2">
+                              <label className="block text-base text-gray-700 mb-2">{subField.label}</label>
+                              <input
+                                type={subField.type}
+                                value={subValue as string}
+                                onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
+                                className="w-full px-3 py-3 border border-gray-300 rounded text-base"
+                                placeholder={subField.placeholder}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Navigation buttons */}
+                      <div className="flex justify-between mt-2">
+                        <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Back</button>
+                        <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Next</button>
+                      </div>
                     </div>
                   </div>
                 )}

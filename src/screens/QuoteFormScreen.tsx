@@ -71,9 +71,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         };
         await startGuidedQuote({ user_id, initial_data });
         // Optionally show a success message or move to a summary screen
-        alert('Quote submitted successfully!');
-      } catch (error) {
-        alert('Failed to submit quote.');
+        alert('Form submitted successfully!');
+      } catch {
+        alert('Failed to submit form.');
       }
     }
   };
@@ -101,9 +101,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
             ...formData,
           };
           await startGuidedQuote({ user_id, initial_data });
-          alert('Quote submitted successfully!');
-        } catch (error) {
-          alert('Failed to submit quote.');
+          alert('Form submitted successfully!');
+        } catch {
+          alert('Failed to submit form.');
         }
       }
       // ...
@@ -120,7 +120,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     const serenicareMainSteps = formSteps.slice(0, 2);
     return (
       <div className="flex flex-col h-full bg-white">
-        <div className="p-4 mt-12">
+        <div className="p-4 mt-6">
           <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
           <p className="text-center text-gray-600 mb-3 text-sm">
             To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
@@ -138,16 +138,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
             />
           )}
           {phase === 'product' && (
-            <CardForm
-              title={serenicareFormSteps[productStep].title}
-              fields={serenicareFormSteps[productStep].fields}
-              values={productFormData}
-              onChange={handleProductChange}
-              onNext={handleProductNext}
-              onBack={handleProductBack}
-              showBack={productStep > 0}
-              showNext={true}
-            />
+            <>
+               <CardForm
+                title={serenicareFormSteps[productStep].title}
+                fields={serenicareFormSteps[productStep].fields}
+                values={productFormData}
+                onChange={handleProductChange}
+                onNext={handleProductNext}
+                onBack={handleProductBack}
+                showBack={productStep > 0}
+                showNext={true}
+              />
+            </>
           )}
         </div>
       </div>
@@ -160,10 +162,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-4 mt-12">
-        <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
-        <p className="text-center text-gray-600 mb-3 text-sm">
-          To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
-        </p>
+          <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
+          <p className="text-center text-gray-600 mb-1 text-sm">
+            To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
+          </p>
         <CardForm
           title={allSteps[step].title}
           fields={allSteps[step].fields}
