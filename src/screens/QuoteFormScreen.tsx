@@ -69,8 +69,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           ...mainFormData,
           ...productFormData,
         };
-        await startGuidedQuote({ user_id, initial_data });
-        // Optionally show a success message or move to a summary screen
+        await startGuidedQuote({ user_id, flow_name: 'serenicare', initial_data });
         alert('Form submitted successfully!');
       } catch {
         alert('Failed to submit form.');
@@ -100,7 +99,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
             product_id,
             ...formData,
           };
-          await startGuidedQuote({ user_id, initial_data });
+          let flow_name = '';
+          if (selectedProduct === 'Travel Sure Plus') flow_name = 'travel_sure_plus';
+          else if (selectedProduct === 'Personal Accident') flow_name = 'personal_accident';
+          await startGuidedQuote({ user_id, flow_name, initial_data });
           alert('Form submitted successfully!');
         } catch {
           alert('Failed to submit form.');
