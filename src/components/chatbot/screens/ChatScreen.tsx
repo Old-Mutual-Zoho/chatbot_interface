@@ -1,5 +1,5 @@
 import popSound from "../../../assets/pop.mp3";
-import { useReducer, useRef, useEffect } from "react";
+import { useReducer, useRef, useEffect, useState } from "react";
 // import type { ChatMessage } from "../types"; // Removed unused import
 import { MessageRenderer } from "../messages/MessageRenderer";
 import WelcomeImage from "../../../assets/Welcome.png";
@@ -9,7 +9,9 @@ import Logo from "../../../assets/Logo.png";
 
 import type { ExtendedChatMessage } from "../messages/actionCardTypes";
 import type { ActionOption } from "../ActionCard";
-import { sendChatMessage } from "../../../services/api";
+import { sendChatMessage, startGuidedQuote } from "../../../services/api";
+import type { GuidedResponsePayload } from "../../../services/guidedTypes";
+import GuidedFormRenderer from "../GuidedFormRenderer";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -316,44 +318,59 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Guided (backend-driven) form state
+  const [lastGuidedResponse, setLastGuidedResponse] = useState<GuidedResponsePayload | null>(null);
+  const [guidedFormValues, setGuidedFormValues] = useState<Record<string, string>>({});
+  const [guidedActive, setGuidedActive] = useState(false);
+  const [guidedStep, setGuidedStep] = useState<number | null>(null);
+
   // This function now calls the backend for real responses
   const fetchBotResponse = async (option: string) => {
     if (!userId || !sessionId) {
       return "Connecting to chat...";
     }
     try {
-      const response = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
-      console.log('DEBUG BOT RESPONSE:', response);
-      if (response && typeof response === 'object' && 'response' in response) {
-        console.log('DEBUG BOT RESPONSE.response:', response.response);
-      }
-      // If response is an object with a nested response, extract it
-      if (typeof response === 'object' && response !== null) {
-        // Deeply nested string response
-        if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
-          return response.response.response;
-        }
-        // Direct string response
-        if (typeof response.response === 'string') {
-          return response.response;
-        }
-        // Message field
-        if (typeof response.message === 'string') {
-          return response.message;
-        }
-        // If options are present, format them for display
-        if (Array.isArray(response.options) && response.options.length > 0) {
-          let optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return `${response.message || response.response?.message || 'Please choose an option:'}\n${optionsText}`;
-        }
-        // If response has a message and options inside response.response
-        if (response.response && Array.isArray(response.response.options)) {
-          let optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return `${response.response.message || 'Please choose an option:'}\n${optionsText}`;
+      const apiResp = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
+      console.log("DEBUG BOT RESPONSE:", apiResp);
+
+      const inner = apiResp?.response as any;
+
+      // Guided mode: only treat as guided when a guided journey was explicitly started
+      if (guidedActive && inner && typeof inner === "object" && inner.mode === "guided") {
+        const guidedEnvelope = inner as {
+          mode: string;
+          flow?: string;
+          step?: number;
+          response?: GuidedResponsePayload | string;
+        };
+        const payload = guidedEnvelope.response;
+        if (payload && typeof payload === "object") {
+          setLastGuidedResponse(payload as GuidedResponsePayload);
+          setGuidedFormValues({});
+          if (typeof guidedEnvelope.step === "number") {
+            setGuidedStep(guidedEnvelope.step);
+          }
+          if ("message" in payload && typeof (payload as any).message === "string") {
+            return (payload as any).message as string;
+          }
+          return "Please complete the form to continue.";
         }
       }
-      // fallback: stringify
-      return typeof response === 'string' ? response : 'Sorry, I could not understand the server response.';
+
+      // Conversational mode (or generic fallback): look into inner payload
+      const r: any = inner;
+      if (typeof r === "string") {
+        return r;
+      }
+      if (r && typeof r === "object") {
+        if (typeof r.response === "string") {
+          return r.response;
+        }
+        if (typeof r.message === "string") {
+          return r.message;
+        }
+      }
+      return "Sorry, I could not understand the server response.";
     } catch {
       return "Sorry, I couldn't retrieve information from the server.";
     }
@@ -413,7 +430,82 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "quote") {
-      if (onShowQuoteForm) onShowQuoteForm();
+      // Start a guided quote journey from the selected product, instead of
+      // using the separate QuoteForm screen.
+      if (!userId || !sessionId) {
+        return;
+      }
+      setGuidedActive(true);
+
+      // Map selected product label to backend flow + product_id
+      let flowName: string | null = null;
+      let productId: string | null = null;
+
+      switch (selectedProduct) {
+        case "Personal Accident":
+          flowName = "personal_accident";
+          productId = "personal_accident";
+          break;
+        case "Serenicare":
+          flowName = "serenicare";
+          productId = "serenicare";
+          break;
+        case "Travel Sure Plus":
+          flowName = "travel_insurance";
+          productId = "travel_insurance";
+          break;
+        case "Motor Private Insurance":
+          flowName = "motor_private";
+          productId = "motor_private";
+          break;
+        default:
+          break;
+      }
+
+      if (flowName && productId) {
+        try {
+          const resp = await startGuidedQuote({
+            user_id: userId,
+            flow_name: flowName,
+            session_id: sessionId || undefined,
+            initial_data: { product_id: productId },
+          });
+
+          // start-guided returns the guided envelope at the top level:
+          // { session_id, mode, flow, step, response: { ... }, data }
+          if (resp && resp.response && typeof resp.response === "object") {
+            const payload = resp.response as GuidedResponsePayload;
+            setLastGuidedResponse(payload);
+            setGuidedFormValues({});
+            if (typeof resp.step === "number") {
+              setGuidedStep(resp.step);
+            } else {
+              setGuidedStep(0);
+            }
+            if ("message" in payload && typeof (payload as any).message === "string") {
+              dispatch({ type: "RECEIVE_BOT_REPLY", payload: (payload as any).message as string });
+            }
+          } else {
+            dispatch({
+              type: "RECEIVE_BOT_REPLY",
+              payload: "I’ve started your quote journey. Please follow the next instructions.",
+            });
+          }
+        } catch {
+          dispatch({
+            type: "RECEIVE_BOT_REPLY",
+            payload: "Sorry, I couldn't start the quote journey right now.",
+          });
+        }
+      } else {
+        // Fallback: if we don't recognise the product, send a descriptive message
+        const text =
+          selectedProduct && selectedProduct.trim().length > 0
+            ? `I would like a quote for ${selectedProduct}.`
+            : "I would like to get a quote.";
+        const reply = await fetchBotResponse(text);
+        dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
+      }
       return;
     }
     // Compute the new available options after selection
@@ -544,6 +636,142 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           );
         })}
         <div ref={messagesEndRef} />
+        {/* Guided forms rendered inline when flows are active */}
+        {lastGuidedResponse && userId && sessionId && (
+          <GuidedFormRenderer
+            response={lastGuidedResponse}
+            values={guidedFormValues}
+            onChange={(name, value) => {
+              setGuidedFormValues((prev) => ({ ...prev, [name]: value }));
+            }}
+            onSubmit={async (nextValues) => {
+              const payloadValues = nextValues || guidedFormValues;
+              try {
+                // First send: submit the current step's form data
+                const apiResp = await sendChatMessage({
+                  user_id: userId,
+                  session_id: sessionId,
+                  form_data: payloadValues,
+                });
+
+                const inner = apiResp?.response as any;
+
+                if (inner && typeof inner === "object" && inner.mode === "guided") {
+                  const env = inner as {
+                    mode: string;
+                    flow?: string;
+                    step?: number;
+                    response?: GuidedResponsePayload | string;
+                    complete?: boolean;
+                  };
+                  
+                  const currentStep = guidedStep ?? 0;
+                  const serverStep = typeof env.step === "number" ? env.step : currentStep;
+
+                  // The backend returns the NEXT step number in the 'step' field after processing
+                  // So if we submitted step 6, the backend processes it and returns step 7
+                  // We need to check if the server step is greater than our current step
+                  if (serverStep > currentStep) {
+                    // Step advanced: update our step tracker and fetch the schema for the new step
+                    setGuidedStep(serverStep);
+                    
+                    // Fetch the next step's schema by sending an empty message
+                    const nextResp = await sendChatMessage({
+                      user_id: userId,
+                      session_id: sessionId,
+                      message: "",
+                    });
+
+                    const nextInner = nextResp?.response as any;
+                    if (nextInner && typeof nextInner === "object" && nextInner.mode === "guided") {
+                      const nextEnv = nextInner as {
+                        mode: string;
+                        flow?: string;
+                        step?: number;
+                        response?: GuidedResponsePayload | string;
+                      };
+                      const nextPayload = nextEnv.response;
+                      if (nextPayload && typeof nextPayload === "object") {
+                        setLastGuidedResponse(nextPayload as GuidedResponsePayload);
+                        setGuidedFormValues({});
+                        if ("message" in nextPayload && typeof (nextPayload as any).message === "string") {
+                          dispatch({
+                            type: "RECEIVE_BOT_REPLY",
+                            payload: (nextPayload as any).message as string,
+                          });
+                        }
+                        // Update step to match what the server says
+                        if (typeof nextEnv.step === "number") {
+                          setGuidedStep(nextEnv.step);
+                        }
+                        return;
+                      }
+                    }
+                  } else if (serverStep === currentStep) {
+                    // Step didn't advance (e.g., validation error or same step returned)
+                    // Show the server's response (which might be an error or the same form)
+                    const payload = env.response;
+                    if (payload && typeof payload === "object") {
+                      setLastGuidedResponse(payload as GuidedResponsePayload);
+                      // Don't clear form values if it's the same step (user might need to fix errors)
+                      if (serverStep !== currentStep) {
+                        setGuidedFormValues({});
+                      }
+                      if ("message" in payload && typeof (payload as any).message === "string") {
+                        dispatch({
+                          type: "RECEIVE_BOT_REPLY",
+                          payload: (payload as any).message as string,
+                        });
+                      }
+                      if (typeof env.step === "number") {
+                        setGuidedStep(env.step);
+                      }
+                    }
+                  } else {
+                    // Server step is less than current (shouldn't happen, but handle gracefully)
+                    // Update to server's step
+                    const payload = env.response;
+                    if (payload && typeof payload === "object") {
+                      setLastGuidedResponse(payload as GuidedResponsePayload);
+                      setGuidedFormValues({});
+                      if ("message" in payload && typeof (payload as any).message === "string") {
+                        dispatch({
+                          type: "RECEIVE_BOT_REPLY",
+                          payload: (payload as any).message as string,
+                        });
+                      }
+                      if (typeof env.step === "number") {
+                        setGuidedStep(env.step);
+                      }
+                    }
+                  }
+
+                  // Check if flow is complete
+                  if (env.complete) {
+                    setLastGuidedResponse(null);
+                    setGuidedFormValues({});
+                    setGuidedActive(false);
+                  }
+                } else {
+                  // Not in guided mode anymore; clear guided UI and show plain response text if present.
+                  setLastGuidedResponse(null);
+                  setGuidedFormValues({});
+                  setGuidedActive(false);
+                  const r: any = inner;
+                  if (typeof r?.response === "string") {
+                    dispatch({ type: "RECEIVE_BOT_REPLY", payload: r.response });
+                  }
+                }
+              } catch (error) {
+                console.error("Error submitting form:", error);
+                dispatch({
+                  type: "RECEIVE_BOT_REPLY",
+                  payload: "Sorry, something went wrong while submitting the form.",
+                });
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* Input Area */}

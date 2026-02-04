@@ -1,23 +1,24 @@
 
 import axios from 'axios';
+import type { GuidedChatBackendResponse } from './guidedTypes';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api/v1';
 const API_KEY = import.meta.env.VITE_API_KEY;
 console.log('VITE_API_KEY at runtime:', API_KEY);
 
 export const api = axios.create({
-	baseURL: BASE_URL,
-	headers: {
-		'Content-Type': 'application/json',
-		...(API_KEY ? { 'X-API-KEY': API_KEY } : {}),
-	},
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    ...(API_KEY ? { 'X-API-KEY': API_KEY } : {}),
+  },
 });
 
 // Ensure X-API-KEY is always sent, even if headers are overridden elsewhere
 api.interceptors.request.use((config) => {
-	config.headers = config.headers || {};
-	config.headers['X-API-KEY'] = API_KEY;
-	return config;
+  config.headers = config.headers || {};
+  config.headers['X-API-KEY'] = API_KEY;
+  return config;
 });
 
 // --- Types ---
@@ -37,26 +38,34 @@ export interface SessionState {
 }
 
 export interface ChatMessagePayload {
-	user_id: string;
-	session_id: string;
-	message?: string;
-	form_data?: Record<string, unknown>;
+  user_id: string;
+  session_id: string;
+  message?: string;
+  form_data?: Record<string, unknown>;
+}
+
+// Shape returned by POST /chat/message
+export interface ChatApiResponse {
+  response: unknown; // can be GuidedChatBackendResponse or a simple conversational payload
+  session_id: string;
+  mode: 'conversational' | 'guided';
+  timestamp: string;
 }
 
 // --- API Functions ---
 export async function createSession(user_id: string) {
-	const { data } = await api.post<SessionResponse>('/session', { user_id });
-	return data;
+  const { data } = await api.post<SessionResponse>('/session', { user_id });
+  return data;
 }
 
 export async function getSessionState(session_id: string) {
-	const { data } = await api.get<SessionState>(`/session/${session_id}`);
-	return data;
+  const { data } = await api.get<SessionState>(`/session/${session_id}`);
+  return data;
 }
 
 export async function sendChatMessage(payload: ChatMessagePayload) {
-	const { data } = await api.post('/chat/message', payload);
-	return data;
+  const { data } = await api.post<ChatApiResponse>('/chat/message', payload);
+  return data;
 }
 
 // --- Product Discovery Types ---
@@ -103,21 +112,22 @@ export async function getProductsBySubcategory(category: string, subcategory: st
 }
 
 export async function getProductDetails(product_id: string) {
-	const { data } = await api.get<ProductDetails>(`/products/by-id/${product_id}`);
-	return data;
+  const { data } = await api.get<ProductDetails>(`/products/by-id/${product_id}`);
+  return data;
 }
 
 // --- Guided Quote Flow ---
 export interface StartGuidedQuotePayload {
-	user_id: string;
-	flow_name: string;
-	initial_data: {
-		product_id: string;
-		[key: string]: unknown;
-	};
+  user_id: string;
+  flow_name: string;
+  session_id?: string;
+  initial_data: {
+    product_id: string;
+    [key: string]: unknown;
+  };
 }
 
 export async function startGuidedQuote(payload: StartGuidedQuotePayload) {
-	const { data } = await api.post('/chat/start-guided', payload);
-	return data;
+  const { data } = await api.post('/chat/start-guided', payload);
+  return data;
 }

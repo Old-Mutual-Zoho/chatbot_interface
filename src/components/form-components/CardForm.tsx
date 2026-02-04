@@ -43,7 +43,7 @@ const CardForm: React.FC<CardFormProps> = ({
   const groupSize = 2;
   React.useEffect(() => {
     setFieldGroup(0);
-  }, [fields, title]);
+  }, [title]);
 
   // Repeatable group state for active member index per group
   const [repeatableGroupState, setRepeatableGroupState] = React.useState<{ [key: string]: number }>({});
@@ -100,13 +100,30 @@ const CardForm: React.FC<CardFormProps> = ({
             if (!/^\S+@\S+\.\S+$/.test(value)) {
               error = "Please enter a valid email address.";
             }
-          } else if (field.name === "mobile" && value) {
-            if (!/^\+256\s\d{9}$/.test(value)) {
-              error = "Phone number must be in format +256 7XXXXXXXX.";
+          } else if (
+            // Guided flows: backend expects Ugandan mobile numbers for these fields
+            ["mobile", "mobile_number", "phone_number", "nok_phone_number"].includes(field.name) &&
+            value
+          ) {
+            const trimmed = value.replace(/\s+/g, "");
+            const ugPattern = /^(0\d{9}|2567\d{8}|\+2567\d{8})$/;
+            if (!ugPattern.test(trimmed)) {
+              error = "Phone must be Ugandan (e.g. 0771234567 or +2567XXXXXXXX).";
             }
-          } else if (field.name === "nin" && value) {
-            if (!/^(CM|CF)\d{11}$/.test(value)) {
-              error = "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.";
+          } else if (
+            // National ID (NIN) validation aligned with backend: 2 letters + 12 digits
+            ["nin", "national_id_number", "nok_id_number"].includes(field.name) &&
+            value
+          ) {
+            if (!/^[A-Za-z]{2}\d{12}$/.test(value.replace(/\s+/g, ""))) {
+              error = "NIN must be 2 letters followed by 12 digits.";
+            }
+          } else if (field.type === "date" && value) {
+            // Basic "not in the future" check for DOB-like fields
+            const today = new Date();
+            const entered = new Date(value);
+            if (!isNaN(entered.getTime()) && entered > today) {
+              error = "Date cannot be in the future.";
             }
           }
 
