@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@import "tailwindcss";
 
 @theme {
   --color-primary: #00A651;
@@ -14,8 +16,6 @@
   --radius-widget: 20px;
   --radius-bubble: 16px;
 }
-@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
-@import "tailwindcss";
 
 *{
   font-family: 'Nunito', sans-serif !important;

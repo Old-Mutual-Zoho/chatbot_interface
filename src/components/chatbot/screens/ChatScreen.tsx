@@ -9,7 +9,7 @@ import Logo from "../../../assets/Logo.png";
 
 import type { ExtendedChatMessage } from "../messages/actionCardTypes";
 import type { ActionOption } from "../ActionCard";
-import { sendChatMessage } from "../../../services/api";
+import { sendChatMessage, initiatePurchase } from "../../../services/api";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -32,6 +32,8 @@ type State = {
   isGuidedFlow: boolean;
   loading: boolean;
   lastSelected: string | null;
+  isPurchasing?: boolean;
+  isPaymentMode?: boolean;
 };
 
 type Action =
@@ -41,11 +43,21 @@ type Action =
   | { type: "RECEIVE_BOT_REPLY"; payload: string }
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
-  | { type: "SET_LOADING"; payload: boolean };
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "START_BUY_FLOW" }
+  | { type: "SHOW_PURCHASE_SUMMARY"; payload: { productName: string; price: string; duration: string } }
+  | { type: "SHOW_PAYMENT_METHOD_SELECTOR" }
+  | { type: "SELECT_PAYMENT_METHOD"; payload: "mobile" | "card" | "flexipay" }
+  | { type: "SHOW_MOBILE_MONEY_FORM" }
+  | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
+  | { type: "SHOW_PAYMENT_LOADING_SCREEN" }
+  | { type: "CONFIRM_PURCHASE" }
+  | { type: "PURCHASE_SUCCESS"; payload: string }
+  | { type: "PURCHASE_FAILED"; payload: string };
 
 
 
-const initialState = (opts: ChatInitOptions): State => {
+  const initialState = (opts: ChatInitOptions): State => {
   const { selectedProduct, isGuidedFlow } = opts;
   const initialMessages = opts.initialMessages;
   if (initialMessages && initialMessages.length > 0) {
@@ -59,6 +71,8 @@ const initialState = (opts: ChatInitOptions): State => {
       isGuidedFlow,
       loading: false,
       lastSelected: null,
+      isPurchasing: false,
+      isPaymentMode: false,
     };
   }
   const welcomeMsg: ChatMessageWithTimestamp = {
@@ -88,6 +102,8 @@ const initialState = (opts: ChatInitOptions): State => {
     isGuidedFlow,
     loading: false,
     lastSelected: null,
+    isPurchasing: false,
+    isPaymentMode: false,
   };
 };
 
@@ -279,13 +295,196 @@ function reducer(state: State, action: Action): State {
     case "SET_LOADING": {
       return { ...state, loading: action.payload };
     }
+    case "START_BUY_FLOW": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const botReply: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: "Great choice 👍 I'll help you complete your purchase.",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, botReply],
+        showActionCard: false,
+        loading: false,
+        isPaymentMode: true,
+        isSending: false,
+        isPurchasing: true,
+      };
+    }
+    case "SHOW_PURCHASE_SUMMARY": {
+      const purchaseSummaryMsg: ChatMessageWithTimestamp = {
+        id: `purchase-${Date.now()}`,
+        sender: "bot",
+        type: "purchase-summary",
+        text: "",
+        timestamp: getTimeString(),
+        productName: action.payload.productName,
+        price: action.payload.price,
+        duration: action.payload.duration,
+      };
+      return {
+        ...state,
+        messages: [...state.messages, purchaseSummaryMsg],
+        isPurchasing: true,
+      };
+    }
+    case "SHOW_PAYMENT_METHOD_SELECTOR": {
+      const paymentMethodMsg: ChatMessageWithTimestamp = {
+        id: `payment-method-${Date.now()}`,
+        sender: "bot",
+        type: "payment-method-selector",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...state.messages, paymentMethodMsg],
+        isPurchasing: true,
+      };
+    }
+    case "SELECT_PAYMENT_METHOD": {
+      return {
+        ...state,
+        isPurchasing: true,
+      };
+    }
+    case "SHOW_MOBILE_MONEY_FORM": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const confirmMsg: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: "Great! I'll process your payment using Mobile Money",
+        timestamp: getTimeString(),
+      };
+      const mobileMoneyMsg: ChatMessageWithTimestamp = {
+        id: `mobile-money-${Date.now()}`,
+        sender: "bot",
+        type: "mobile-money-form",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, confirmMsg, mobileMoneyMsg],
+        isPurchasing: true,
+        loading: false,
+      };
+    }
+    case "SUBMIT_MOBILE_PAYMENT": {
+      // Remove mobile money form and show confirming message
+      const filtered = state.messages.filter((msg) => msg.type !== "mobile-money-form" && msg.type !== "loading");
+      const confirmMsg: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: "Great! I'm confirming your payment...",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, confirmMsg],
+        loading: true,
+        isPurchasing: true,
+      };
+    }
+    case "SHOW_PAYMENT_LOADING_SCREEN": {
+      const loadingScreen: ChatMessageWithTimestamp = {
+        id: `payment-loading-${Date.now()}`,
+        sender: "bot",
+        type: "payment-loading-screen",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...state.messages, loadingScreen],
+        loading: true,
+        isPurchasing: true,
+      };
+    }
+    case "CONFIRM_PURCHASE": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const loadingMessage: ChatMessageWithTimestamp = {
+        id: `loading-${Date.now()}`,
+        type: "loading",
+        sender: "bot",
+        text: "",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, loadingMessage],
+        loading: true,
+        isPurchasing: true,
+      };
+    }
+    case "PURCHASE_SUCCESS": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const botReply: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: action.payload,
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, botReply],
+        loading: false,
+        isPurchasing: false,
+        isPaymentMode: false,
+      };
+    }
+    case "PURCHASE_FAILED": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const botReply: ChatMessageWithTimestamp = {
+        id: `${Date.now()}-bot`,
+        sender: "bot",
+        type: "text",
+        text: action.payload,
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        messages: [...filtered, botReply],
+        loading: false,
+        isPurchasing: false,
+        showActionCard: false,
+        isPaymentMode: false,
+      };
+    }
     default:
       return state;
   }
 }
 
 
-type ChatMessageWithTimestamp = ExtendedChatMessage & { timestamp?: string };
+type ChatMessageWithTimestamp = (ExtendedChatMessage & { timestamp?: string }) | {
+  id: string;
+  type: "purchase-summary";
+  sender: "bot";
+  timestamp?: string;
+  productName: string;
+  price: string;
+  duration: string;
+} | {
+  id: string;
+  type: "payment-method-selector";
+  sender: "bot";
+  timestamp?: string;
+} | {
+  id: string;
+  type: "mobile-money-form";
+  sender: "bot";
+  timestamp?: string;
+  isLoading?: boolean;
+} | {
+  id: string;
+  type: "payment-loading-screen";
+  sender: "bot";
+  timestamp?: string;
+};
 
 interface ChatScreenProps {
   onBackClick?: () => void;
@@ -416,6 +615,33 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       if (onShowQuoteForm) onShowQuoteForm();
       return;
     }
+    
+    // Handle Buy Now flow
+    if (option.value === "buy") {
+      dispatch({ type: "START_BUY_FLOW" });
+      
+      // Check if product is selected
+      if (!selectedProduct) {
+        setTimeout(() => {
+          dispatch({
+            type: "RECEIVE_BOT_REPLY",
+            payload: "Please select a product first before proceeding to purchase.",
+          });
+          // Show category selection CTA
+          setTimeout(() => {
+            dispatch({ type: "RESET", selectedProduct: null });
+          }, 600);
+        }, 900);
+        return;
+      }
+      
+      // Show payment method selector after a short delay
+      setTimeout(() => {
+        dispatch({ type: "SHOW_PAYMENT_METHOD_SELECTOR" });
+      }, 1200);
+      return;
+    }
+    
     // Compute the new available options after selection
     const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
@@ -433,6 +659,107 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       const response = await fetchBotResponse(option.label);
       dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
     }, 900);
+  };
+
+  const handleSelectPaymentMethod = (method: "mobile" | "card" | "flexipay") => {
+    dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
+
+    if (method === "mobile") {
+      // Show loading briefly before showing mobile money form
+      setTimeout(() => {
+        dispatch({ type: "SHOW_MOBILE_MONEY_FORM" });
+      }, 800);
+    } else {
+      // For card and flexipay, show coming soon message
+      setTimeout(() => {
+        dispatch({
+          type: "RECEIVE_BOT_REPLY",
+          payload: `${method === "card" ? "Card Payment" : "FlexiPay"} is coming soon. Please use Mobile Money for now.`,
+        });
+      }, 800);
+    }
+  };
+
+  const handleSubmitMobilePayment = async (phoneNumber: string) => {
+    if (!selectedProduct || !userId || !sessionId) {
+      dispatch({
+        type: "PURCHASE_FAILED",
+        payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
+      });
+      return;
+    }
+
+    dispatch({ type: "SUBMIT_MOBILE_PAYMENT", payload: phoneNumber });
+
+    // Show loading screen after confirmation message
+    setTimeout(() => {
+      dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN" });
+    }, 300);
+
+    try {
+      const response = await initiatePurchase({
+        user_id: userId,
+        session_id: sessionId,
+        product: selectedProduct,
+        channel: "chatbot",
+      });
+
+      if (response && (response as any).success !== false) {
+        // Show success after loading
+        setTimeout(() => {
+          dispatch({
+            type: "PURCHASE_SUCCESS",
+            payload: "✅ Payment request sent. Please complete payment on your phone.",
+          });
+        }, 10000);
+      } else {
+        throw new Error((response as any)?.message || "Payment initiation failed");
+      }
+    } catch (error) {
+      console.error("Purchase error:", error);
+      setTimeout(() => {
+        dispatch({
+          type: "PURCHASE_FAILED",
+          payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
+        });
+      }, 10000);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedProduct || !userId || !sessionId) {
+      dispatch({
+        type: "PURCHASE_FAILED",
+        payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
+      });
+      return;
+    }
+
+    dispatch({ type: "CONFIRM_PURCHASE" });
+
+    try {
+      const response = await initiatePurchase({
+        user_id: userId,
+        session_id: sessionId,
+        product: selectedProduct,
+        channel: "chatbot",
+      });
+
+      if (response && (response as any).success !== false) {
+        dispatch({
+          type: "PURCHASE_SUCCESS",
+          payload: "✅ Payment request sent. Please complete payment on your phone.",
+        });
+      } else {
+        throw new Error((response as any)?.message || "Payment initiation failed");
+      }
+    } catch (error) {
+      console.error("Purchase error:", error);
+      dispatch({
+        type: "PURCHASE_FAILED",
+        payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
+      });
+    }
   };
 
   return (
@@ -463,7 +790,24 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
-        {state.messages.map((message, idx) => {
+        {state.messages
+          .filter((msg) => {
+            // In payment mode, only show payment-related messages
+            if (state.isPaymentMode) {
+              return (
+                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                msg.type === "payment-method-selector" ||
+                msg.type === "mobile-money-form" ||
+                msg.type === "payment-loading-screen" ||
+                msg.type === "loading" ||
+                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+              );
+            }
+            return true;
+          })
+          .map((message, idx) => {
           if (message.type === "custom-welcome" && !state.showWelcomeCard) {
             return null;
           }
@@ -484,7 +828,19 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             );
           }
           // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
-          const prevMsg = idx > 0 ? state.messages[idx - 1] : null;
+          const filteredMessages = state.isPaymentMode
+            ? state.messages.filter((msg) => 
+                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                msg.type === "payment-method-selector" ||
+                msg.type === "mobile-money-form" ||
+                msg.type === "payment-loading-screen" ||
+                msg.type === "loading" ||
+                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+              )
+            : state.messages;
+          const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
           let spacingClass = "";
           if (prevMsg) {
             // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
@@ -496,7 +852,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
               : message.sender;
             if (prevSender !== currSender) {
               spacingClass = "mb-6"; // More space between different senders
-            } else if (idx !== state.messages.length - 1) {
+            } else if (idx !== filteredMessages.length - 1) {
               spacingClass = "mb-2"; // Minimal space between same sender
             }
           }
@@ -514,7 +870,12 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             return (
               <>
                 <div key={message.id} className={spacingClass}>
-                  <MessageRenderer message={message} />
+                  <MessageRenderer
+                    message={message}
+                    onConfirmPayment={handleConfirmPayment}
+                    onSelectPaymentMethod={handleSelectPaymentMethod}
+                    onSubmitMobilePayment={handleSubmitMobilePayment}
+                  />
                 </div>
                 <div key={"action-card-" + message.id} className="flex justify-start mt-0">
                   <MessageRenderer
@@ -525,6 +886,9 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                       options: state.availableOptions,
                     }}
                     onActionCardSelect={handleActionCardSelect}
+                    onConfirmPayment={handleConfirmPayment}
+                    onSelectPaymentMethod={handleSelectPaymentMethod}
+                    onSubmitMobilePayment={handleSubmitMobilePayment}
                     loading={state.loading}
                     lastSelected={state.lastSelected}
                   />
@@ -539,7 +903,12 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           // Add standard spacing between messages
           return (
             <div key={message.id} className={spacingClass}>
-              <MessageRenderer message={message} />
+              <MessageRenderer
+                message={message}
+                onConfirmPayment={handleConfirmPayment}
+                onSelectPaymentMethod={handleSelectPaymentMethod}
+                onSubmitMobilePayment={handleSubmitMobilePayment}
+              />
             </div>
           );
         })}
