@@ -4,7 +4,7 @@ import { useReducer, useRef, useEffect } from "react";
 import { MessageRenderer } from "../messages/MessageRenderer";
 import WelcomeImage from "../../../assets/Welcome.png";
 import PatternImage from "../../../assets/pattern.jpg";
-import { IoSend, IoArrowBack, IoClose } from "react-icons/io5";
+import { IoSend, IoArrowBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
 import Logo from "../../../assets/Logo.png";
 
 import type { ExtendedChatMessage } from "../messages/actionCardTypes";
@@ -493,6 +493,8 @@ interface ChatScreenProps {
   userId: string | null;
   sessionId: string | null;
   sessionLoading?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[]; onShowQuoteForm?: () => void }> = ({
@@ -502,6 +504,8 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   userId,
   sessionId,
   sessionLoading,
+  isExpanded,
+  onToggleExpand,
   onMessagesChange,
   initialMessages,
   onShowQuoteForm
@@ -783,9 +787,18 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             <span className="text-xs text-white/80 leading-tight">Online</span>
           </div>
         </div>
-        <button onClick={onCloseClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Close">
-          <IoClose size={18} className="sm:block" />
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={onToggleExpand}
+            className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer"
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? <IoContractOutline size={18} className="sm:block" /> : <IoExpandOutline size={18} className="sm:block" />}
+          </button>
+          <button onClick={onCloseClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer" title="Close">
+            <IoClose size={18} className="sm:block" />
+          </button>
+        </div>
       </div>
 
       {/* Messages Container */}

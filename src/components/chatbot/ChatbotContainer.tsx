@@ -35,6 +35,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [conversations, setConversations] = useState<ConversationSnapshot[]>(() => loadConversations());
   const latestMessagesRef = useRef<ConversationSnapshot["messages"]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Backend session state
   const [userId, setUserId] = useState<string | null>(null);
@@ -137,8 +138,17 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const baseWidth = 430;
+  const expandedWidth = Math.round(baseWidth * 1.25);
+
   return (
-    <div className="w-[430px] h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20">
+    <div
+      className="h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20"
+      style={{
+        width: isExpanded ? `${expandedWidth}px` : `${baseWidth}px`,
+        transition: "width 200ms ease",
+      }}
+    >
       {/* Main header: show for all screens except home */}
       {screen !== "home" && (
         <ChatHeader
@@ -197,6 +207,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
               latestMessagesRef.current = messages;
             }}
             onShowQuoteForm={() => setScreen("quote")}
+            isExpanded={isExpanded}
+            onToggleExpand={() => setIsExpanded((prev) => !prev)}
           />
         </FadeWrapper>
         {/* QUOTE FORM */}
