@@ -72,7 +72,7 @@ export const serenicareFormSteps = [
             required: false
           },
           { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
-          { name: "age", type: "number", required: true, placeholder: "Enter age" },
+          { name: "age", label: "Age", type: "number", required: true, placeholder: "Age will be calculated" },
           
         ]
       }

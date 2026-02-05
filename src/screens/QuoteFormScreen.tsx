@@ -12,9 +12,10 @@ import { serenicareFormSteps } from '../components/chatbot/data/specificProductF
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
+  onFormSubmitted?: () => void;
 }
 
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId }) => {
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, onFormSubmitted }) => {
   // All hooks must be called unconditionally and in the same order
   const [phase, setPhase] = useState<'main' | 'product'>('main');
   const [mainStep, setMainStep] = useState(0);
@@ -60,7 +61,6 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     if (productStep < serenicareFormSteps.length - 1) {
       setProductStep(productStep + 1);
     } else {
-      // Submit Serenicare form data to backend
       try {
         const user_id = userId || '';
         const product_id = 'Serenicare';
@@ -70,10 +70,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           ...productFormData,
         };
         await startGuidedQuote({ user_id, initial_data });
-        // Optionally show a success message or move to a summary screen
-        alert('Form submitted successfully!');
-      } catch {
-        alert('Failed to submit form.');
+        if (onFormSubmitted) {
+          onFormSubmitted();
+        }
+      } catch (error) {
+        console.error('Form submission error:', error);
+        if (onFormSubmitted) {
+          onFormSubmitted();
+        }
       }
     }
   };
@@ -91,7 +95,6 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     if (step < allSteps.length - 1) {
       setStep(step + 1);
     } else {
-      // Submit form data for supported products
       if (["Travel Sure Plus", "Personal Accident"].includes(selectedProduct || "")) {
         try {
           const user_id = userId || '';
@@ -101,9 +104,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
             ...formData,
           };
           await startGuidedQuote({ user_id, initial_data });
-          alert('Form submitted successfully!');
-        } catch {
-          alert('Failed to submit form.');
+          if (onFormSubmitted) {
+            onFormSubmitted();
+          }
+        } catch (error) {
+          console.error('Form submission error:', error);
+          if (onFormSubmitted) {
+            onFormSubmitted();
+          }
         }
       }
       // ...

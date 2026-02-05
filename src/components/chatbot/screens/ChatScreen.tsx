@@ -1,6 +1,6 @@
 import popSound from "../../../assets/pop.mp3";
 import { useReducer, useRef, useEffect } from "react";
-// import type { ChatMessage } from "../types"; // Removed unused import
+// import type { ChatMessage } from "../types";
 import { MessageRenderer } from "../messages/MessageRenderer";
 import WelcomeImage from "../../../assets/Welcome.png";
 import PatternImage from "../../../assets/pattern.jpg";
