@@ -24,6 +24,7 @@ export interface CardFormProps {
   onBack?: () => void;
   showBack?: boolean;
   showNext?: boolean;
+  nextButtonLabel?: string;
 }
 
 
@@ -37,6 +38,7 @@ const CardForm: React.FC<CardFormProps> = ({
   onBack,
   showBack = false,
   showNext = true,
+  nextButtonLabel = "Next",
 }) => {
   // Unified progressive reveal logic for all forms
   const [fieldGroup, setFieldGroup] = React.useState(0);
@@ -80,7 +82,7 @@ const CardForm: React.FC<CardFormProps> = ({
         <h2 className="text-xl font-bold text-center" style={{ color: '#00A651' }}>
           {title}
         </h2>
-        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />        
+        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />           
       </div>
       <form className="w-full flex flex-col gap-5">
         {visibleFields.map((field) => {
@@ -340,7 +342,7 @@ const CardForm: React.FC<CardFormProps> = ({
                 className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
                 style={{ letterSpacing: 0.5 }}
               >
-                Next
+                {nextButtonLabel}
               </button>
             )
             : (
@@ -354,7 +356,7 @@ const CardForm: React.FC<CardFormProps> = ({
                 className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
                 style={{ letterSpacing: 0.5 }}
               >
-                Next
+                {nextButtonLabel}
               </button>
             )
         )}
