@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api/v1';
 const API_KEY = import.meta.env.VITE_API_KEY;
 console.log('VITE_API_KEY at runtime:', API_KEY);
 

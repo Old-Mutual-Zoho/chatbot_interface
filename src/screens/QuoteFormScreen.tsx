@@ -148,6 +148,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
                 onBack={handleProductBack}
                 showBack={productStep > 0}
                 showNext={true}
+                nextButtonLabel={productStep === serenicareFormSteps.length - 1 ? "Submit" : "Next"}
               />
             </>
           )}
@@ -159,6 +160,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // For other products, keep the original combined flow
   const productSteps = selectedProduct ? getProductFormSteps(selectedProduct) : [];
   const allSteps = [...formSteps, ...productSteps];
+  const isLastStep = step === allSteps.length - 1;
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-4 mt-12">
@@ -175,6 +177,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           onBack={handleBack}
           showBack={step > 0}
           showNext={true}
+          nextButtonLabel={isLastStep ? "Submit" : "Next"}
         />
       </div>
     </div>
