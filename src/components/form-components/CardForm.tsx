@@ -155,7 +155,38 @@ const CardForm: React.FC<CardFormProps> = ({
                       <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                         {field.fields.map((subField: CardFieldConfig, idx) => {
                       const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
-                      // Render spouse/children checkboxes in a row if both present
+                      
+                      if (subField.showIf) {
+                        const depValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.showIf.field] ?? "" : "";
+                        if (depValue !== subField.showIf.value) {
+                          return null;
+                        }
+                      }
+                      
+                      const calculateAge = (dob: string) => {
+                        if (!dob) return 0;
+                        const birthDate = new Date(dob);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return age;
+                      };
+                      
+                      const handleDateChange = (idx: number, dateName: string, ageName: string, dateValue: string, minAge?: number) => {
+                        const age = calculateAge(dateValue);
+                        handleFieldChange(idx, dateName, dateValue);
+                        handleFieldChange(idx, ageName, age.toString());
+                        
+                        if (minAge && age > 0 && age < minAge) {
+                          setTimeout(() => {
+                            alert(`Minimum age requirement is ${minAge} years. Current age: ${age} years.`);
+                          }, 100);
+                        }
+                      };
+                      
                           if (
                             subField.type === "checkbox" &&
                             Array.isArray(field.fields) &&
@@ -187,7 +218,6 @@ const CardForm: React.FC<CardFormProps> = ({
                               </div>
                             );
                           }
-                      // Skip rendering the next field if already rendered in row
                       if (
                         subField.type === "checkbox" &&
                         Array.isArray(field.fields) &&
@@ -196,7 +226,60 @@ const CardForm: React.FC<CardFormProps> = ({
                       ) {
                         return null;
                       }
-                      // Render unnamed field with only placeholder (no label)
+                      
+                      const isSpouseIncluded = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)["includeSpouse"] === "true" : false;
+                      
+                      if (subField.name === "dob" && subField.type === "date") {
+                        const maxDate = isSpouseIncluded ? (() => {
+                          const d = new Date();
+                          d.setFullYear(d.getFullYear() - 19);
+                          return d.toISOString().split('T')[0];
+                        })() : undefined;
+                        
+                        return (
+                          <div key={subField.name} className="col-span-2 mb-2">
+                            <label className="block text-base text-gray-700 mb-2">
+                              {subField.label} 
+                              {isSpouseIncluded && <span className="text-sm text-gray-500"> (Min. age 19 for spouse)</span>}
+                              {subField.required && <span className="text-red-500"> *</span>}
+                            </label>
+                            <input
+                              type="date"
+                              value={subValue as string}
+                              max={maxDate}
+                              onChange={e => handleDateChange(activeIdx, "dob", "age", e.target.value, isSpouseIncluded ? 19 : undefined)}
+                              className="w-full px-3 py-3 border border-gray-300 rounded text-base"
+                              placeholder={subField.placeholder}
+                            />
+                          </div>
+                        );
+                      }
+                      
+                      if (subField.name === "age" && subField.type === "number") {
+                        const dobValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)["dob"] ?? "" : "";
+                        if (dobValue && !subValue) {
+                          const calculatedAge = calculateAge(dobValue as string);
+                          if (calculatedAge > 0) {
+                            setTimeout(() => {
+                              handleFieldChange(activeIdx, "age", calculatedAge.toString());
+                            }, 0);
+                          }
+                        }
+                        
+                        return (
+                          <div key={subField.name} className="col-span-2 mb-2">
+                            <label className="block text-base text-gray-700 mb-2">{subField.label || "Age"}</label>
+                            <input
+                              type="text"
+                              value={subValue as string}
+                              readOnly
+                              className="w-full px-3 py-3 border border-gray-300 rounded text-base bg-gray-100"
+                              placeholder={subField.placeholder}
+                            />
+                          </div>
+                        );
+                      }
+                      
                           if (!subField.label && subField.placeholder) {
                             return (
                               <div key={subField.name} className="col-span-2 mb-2">
@@ -210,7 +293,6 @@ const CardForm: React.FC<CardFormProps> = ({
                               </div>
                             );
                           }
-                          // Default rendering for other fields
                           return (
                             <div key={subField.name} className="col-span-2 mb-2">
                               <label className="block text-base text-gray-700 mb-2">{subField.label}</label>
@@ -225,7 +307,6 @@ const CardForm: React.FC<CardFormProps> = ({
                           );
                         })}
                       </div>
-                      {/* Navigation buttons */}
                       <div className="flex justify-between mt-2">
                         <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Back</button>
                         <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Next</button>

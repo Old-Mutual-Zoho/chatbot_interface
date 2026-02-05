@@ -64,10 +64,20 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   }, [screen, userId, sessionId]);
 
+  const handleFormSubmission = () => {
+    const confirmationMessage = {
+      id: `form-confirm-${Date.now()}`,
+      type: "text" as const,
+      sender: "bot" as const,
+      text: "Thank you! Your details have been submitted successfully. We'll get back to you shortly.",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    };
+    
+    latestMessagesRef.current = [...latestMessagesRef.current, confirmationMessage];
+    setChatSessionKey((k) => k + 1);
+    setScreen("chat");
+  };
 
-
-
-  // Helper to reset chat state
   const resetChat = () => {
     setSelectedProduct(null);
   };
@@ -174,7 +184,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             onDeleteConversation={deleteConversation}
           />
         </FadeWrapper>
-        {/* CHAT */}
         <FadeWrapper isVisible={screen === "chat"}>
           <ChatScreen
             key={chatSessionKey}
@@ -192,18 +201,18 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             userId={userId}
             sessionId={sessionId}
             sessionLoading={!userId || !sessionId}
-            initialMessages={activeConversationId ? (conversations.find(c => c.id === activeConversationId)?.messages ?? []) : undefined}
+            initialMessages={activeConversationId ? (conversations.find(c => c.id === activeConversationId)?.messages ?? []) : (latestMessagesRef.current.length > 0 ? latestMessagesRef.current : undefined)}
             onMessagesChange={(messages) => {
               latestMessagesRef.current = messages;
             }}
             onShowQuoteForm={() => setScreen("quote")}
           />
         </FadeWrapper>
-        {/* QUOTE FORM */}
         <FadeWrapper isVisible={screen === "quote"}>
           <QuoteFormScreen 
             selectedProduct={selectedProduct}
             userId={userId}
+            onFormSubmitted={handleFormSubmission}
           />
         </FadeWrapper>
         {/* PRODUCTS */}
