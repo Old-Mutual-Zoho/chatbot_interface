@@ -2,7 +2,7 @@
 // As we migrate products to own their full step list (personal/contact/address + product-specific),
 // legacy products were temporarily composed here by prefixing shared steps.
 import { personalAccidentFormSteps } from "../components/chatbot/data/specificProductForms/PersonalAccident";
-import { travelPlusFormSteps } from "../components/chatbot/data/specificProductForms/TravelPlus";
+import { travelPlusQuoteFormSteps } from "../components/chatbot/data/specificProductForms/TravelPlus";
 import { serenicareFormSteps } from "../components/chatbot/data/specificProductForms/serenicareForm";
 
 export function getProductFormSteps(product: string) {
@@ -11,7 +11,7 @@ export function getProductFormSteps(product: string) {
       return personalAccidentFormSteps;
 
     case "Travel Sure Plus":
-      return travelPlusFormSteps;
+      return travelPlusQuoteFormSteps;
 
     case "Serenicare":
       return serenicareFormSteps;

@@ -1,78 +1,21 @@
-// Travel Sure Plus full form steps (includes personal, contact, address + product-specific)
-
-export const travelPlusFormSteps = [
+export const travelPlusQuoteFormSteps = [
   {
-    title: "Personal Details",
+    title: "Travel Sure Plus Quote",
     fields: [
       { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter your first name" },
-      { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter your last name" },
       { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional" },
-      { name: "dob", label: "Date of Birth", type: "date", required: false },
-      { name: "professionalOccupation", label: "Professional Occupation", type: "text", required: true, placeholder: "Enter your occupation" },
-      {
-        name: "nationalityType",
-        label: "Nationality Type",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Ugandan", value: "ugandan" },
-          { label: "Non Ugandan", value: "non_ugandan" },
-        ],
-      },
+      { name: "surname", label: "Surname", type: "text", required: true, placeholder: "Enter your surname" },
+      { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your phone number" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter your email" },
+     
     ],
   },
   {
-    title: "Contact Details",
+    title: "Select Cover",
     fields: [
-      { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your mobile number" },
-      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "Enter your email address" },
-      { name: "preferredContact", label: "Preferred Contact Method", type: "text", required: false, placeholder: "e.g. WhatsApp, Email, Phone Call", optionalLabel: "optional" },
-    ],
-  },
-  {
-    title: "Address Details",
-    fields: [
-      { name: "residence", label: "Place of Residence", type: "text", required: true, placeholder: "Enter your place of residence" },
-      { name: "nin", label: "NIN Number", type: "text", required: true, placeholder: "Enter your NIN number" },
-    ],
-  },
-  {
-    title: "Identification / Travel Document Details",
-    fields: [
-      {
-        name: "passportNumber",
-        label: "Passport Number",
-        type: "text",
-        required: true,
-        placeholder: "Enter your passport number"
-      },
-      {
-        name: "passportIssuingCountry",
-        label: "Passport Issuing Country",
-        type: "text",
-        required: true,
-        placeholder: "Enter issuing country"
-      },
-      {
-        name: "passportIssueDate",
-        label: "Passport Issue Date",
-        type: "date",
-        required: true
-      },
-      {
-        name: "passportExpiryDate",
-        label: "Passport Expiry Date",
-        type: "date",
-        required: true
-      }
-    ]
-  },
-  {
-    title: "Cover Selection Details",
-    fields: [     
       {
         name: "coverLevel",
-        label: "Level of Cover",
+        label: "Cover",
         type: "radio",
         required: true,
         options: [
@@ -82,73 +25,129 @@ export const travelPlusFormSteps = [
           { label: "Schengen Elite", value: "schengen_elite" },
           { label: "Student Cover", value: "student_cover" },
           { label: "Africa & Asia", value: "africa_asia" },
-          { label: "Inbound Karibu", value: "inbound_karibu" }
-        ]
-      },      
-     
-    ]
+          { label: "Inbound Karibu", value: "inbound_karibu" },
+        ],
+      },
+    ],
   },
   {
     title: "Trip Details",
     fields: [
       {
-        name: "destinationCountries",
-        label: "Destination Country/Countries",
+        name: "departureCountry",
+        label: "Departure Country",
         type: "text",
         required: true,
-        placeholder: "Enter destination country/countries"
+        placeholder: "Enter departure country",
       },
       {
-        name: "purposeOfTravel",
-        label: "Purpose of Travel",
-        type: "select",
+        name: "destinationCountries",
+        label: "Destination Countries/Country",
+        type: "text",
         required: true,
-        options: [
-          { label: "Leisure", value: "leisure" },
-          { label: "Business", value: "business" },
-          { label: "Study", value: "study" },
-          { label: "Other", value: "other" }
-        ],
-        placeholder: "Select purpose"
+        placeholder: "Enter destination countries/country",
       },
       {
-        name: "departureDate",
-        label: "Departure Date",
+        name: "travelStartDate",
+        label: "Travel Start Date",
         type: "date",
-        required: true
+        required: true,
       },
       {
-        name: "returnDate",
-        label: "Return Date",
+        name: "travelEndDate",
+        label: "Travel End Date",
         type: "date",
-        required: true
+        required: true,
       },
       {
         name: "durationOfTravel",
-        label: "Duration of Travel (days)",
+        label: "Number of days for the trip",
         type: "number",
         required: true,
-        placeholder: "Enter duration in days"
+        placeholder: "Enter number of days",
       },
       {
         name: "whoAreYouCovering",
-        label: "Who are you covering?",
+        label: "Who are you covering",
         type: "radio",
         required: true,
         options: [
           { label: "Myself", value: "myself" },
           { label: "Someone else", value: "someone_else" },
           { label: "Myself and someone else", value: "myself_and_someone_else" },
-          { label: "Group", value: "group" }
-        ]
+          { label: "Group", value: "group" },
+        ],
       },
       {
-        name: "numberOfTravelers",
-        label: "Number of Travelers",
+        name: "numberOfTravellers",
+        label: "Number of travellers",
         type: "number",
         required: true,
-        placeholder: "Enter number of travelers"
-      }
-    ]
-  }
+        placeholder: "Enter number of travellers",
+      },
+
+      // Not in provided images / not requested for quote
+      // {
+      //   name: "purposeOfTravel",
+      //   label: "Purpose of Travel",
+      //   type: "select",
+      //   required: true,
+      //   options: [
+      //     { label: "Leisure", value: "leisure" },
+      //     { label: "Business", value: "business" },
+      //     { label: "Study", value: "study" },
+      //     { label: "Other", value: "other" },
+      //   ],
+      //   placeholder: "Select purpose",
+      // },
+    ],
+  },
 ];
+
+// export const travelPlusPurchaseFormSteps = [
+//   {
+//     title: "Additional Details",
+//     fields: [
+//       { name: "professionalOccupation", label: "Professional Occupation", type: "text", required: true, placeholder: "Enter your occupation" },
+//       { name: "preferredContact", label: "Preferred Contact Method", type: "text", required: false, placeholder: "e.g. WhatsApp, Email, Phone Call", optionalLabel: "optional" },
+//     ],
+//   },
+//   {
+//     title: "Address Details",
+//     fields: [
+//       { name: "residence", label: "Place of Residence", type: "text", required: true, placeholder: "Enter your place of residence" },
+//       { name: "nin", label: "NIN Number", type: "text", required: true, placeholder: "Enter your NIN number" },
+//     ],
+//   },
+//   {
+//     title: "Identification / Travel Document Details",
+//     fields: [
+//       {
+//         name: "passportNumber",
+//         label: "Passport Number",
+//         type: "text",
+//         required: true,
+//         placeholder: "Enter your passport number",
+//       },
+//       {
+//         name: "passportIssuingCountry",
+//         label: "Passport Issuing Country",
+//         type: "text",
+//         required: true,
+//         placeholder: "Enter issuing country",
+//       },
+//       {
+//         name: "passportIssueDate",
+//         label: "Passport Issue Date",
+//         type: "date",
+//         required: true,
+//       },
+//       {
+//         name: "passportExpiryDate",
+//         label: "Passport Expiry Date",
+//         type: "date",
+//         required: true,
+//       },
+//     ],
+//   },
+// ];
