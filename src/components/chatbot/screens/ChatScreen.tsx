@@ -150,10 +150,8 @@ function reducer(state: State, action: Action): State {
       };
     }
     case "RECEIVE_OPTION_RESPONSE": {
-      // Only run guided flow logic if isGuidedFlow is true
       const isGuidedFlow = state.isGuidedFlow;
       if (!isGuidedFlow) {
-        // Free-form chat: just add bot reply, always remove all loading bubbles
         const filtered = state.messages.filter((msg) => msg.type !== "loading");
         const newMessages = [...filtered];
         if (action.payload.response) {
@@ -178,7 +176,6 @@ function reducer(state: State, action: Action): State {
           isSending: false,
         };
       }
-      // Guided flow logic (existing), always remove all loading bubbles
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       let newMessages = [...filtered];
       if (action.payload.option && action.payload.option.label) {

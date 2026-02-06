@@ -1,3 +1,29 @@
+// Serenicare full form configuration.
+// Serenicare uses a two-phase flow in QuoteFormScreen:
+// - main steps (personal/contact)
+// - product steps (plan selection, benefits, etc.)
+
+export const serenicareMainFormSteps = [
+  {
+    title: "Personal Details",
+    fields: [
+      { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter your first name" },
+      { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter your last name" },
+      { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional" },
+      { name: "dob", label: "Date of Birth", type: "date", required: false },
+      { name: "professionalOccupation", label: "Professional Occupation", type: "text", required: true, placeholder: "Enter your occupation" },
+    ],
+  },
+  {
+    title: "Contact Details",
+    fields: [
+      { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your mobile number" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "Enter your email address" },
+      { name: "preferredContact", label: "Preferred Contact Method", type: "text", required: false, placeholder: "e.g. WhatsApp, Email, Phone Call", optionalLabel: "optional" },
+    ],
+  },
+];
+
 // Serenicare product-specific form steps
 
 export const serenicareFormSteps = [
