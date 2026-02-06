@@ -25,6 +25,8 @@ export interface CardFormProps {
   showBack?: boolean;
   showNext?: boolean;
   nextButtonLabel?: string;
+  groupSize?: number;
+  autoAdvance?: boolean;
 }
 
 
@@ -39,13 +41,15 @@ const CardForm: React.FC<CardFormProps> = ({
   showBack = false,
   showNext = true,
   nextButtonLabel = "Next",
+  groupSize: groupSizeProp = 2,
+  autoAdvance = false,
 }) => {
   // Unified progressive reveal logic for all forms
   const [fieldGroup, setFieldGroup] = React.useState(0);
-  const groupSize = 2;
+  const groupSize = Math.max(1, groupSizeProp);
   React.useEffect(() => {
     setFieldGroup(0);
-  }, [fields, title]);
+  }, [fields, title, groupSize]);
 
   // Repeatable group state for active member index per group
   const [repeatableGroupState, setRepeatableGroupState] = React.useState<{ [key: string]: number }>({});
@@ -62,19 +66,116 @@ const CardForm: React.FC<CardFormProps> = ({
     const depValue = values[field.showIf.field];
     return depValue === field.showIf.value;
   });
-  const visibleFields = allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
+  const totalGroups = Math.ceil(allVisibleFields.length / groupSize);
+  const hasMultipleGroups = totalGroups > 1;
+  const isFirstGroup = fieldGroup <= 0;
+  const isLastGroup = fieldGroup >= totalGroups - 1;
+  const canGoPrevGroup = !autoAdvance && hasMultipleGroups && !isFirstGroup;
+  const canGoNextGroup = hasMultipleGroups && !isLastGroup;
+  const visibleFields = autoAdvance
+    ? allVisibleFields.slice(0, Math.min(allVisibleFields.length, (fieldGroup + 1) * groupSize))
+    : allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
 
-  // Only enable Next if all required fields in all groups are filled
-  const allCurrentGroupFilled = visibleFields.every(f => {
-    if (!f.required) return true;
-    return values[f.name] && values[f.name].trim() !== "";
-  });
+  const currentGroupFields = allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
+
+  const validateField = (field: CardFieldConfig, nextValue?: string) => {
+    const rawValue = nextValue ?? values[field.name] ?? "";
+    const value = String(rawValue);
+
+    if (field.required && !value.trim()) {
+      return { valid: false, error: `${field.label} is required.` };
+    }
+
+    if (field.type === "email" && value) {
+      if (!/^\S+@\S+\.\S+$/.test(value)) {
+        return { valid: false, error: "Please enter a valid email address." };
+      }
+    }
+
+    if (field.name === "mobile" && value) {
+      if (!/^\+256\s\d{9}$/.test(value)) {
+        return { valid: false, error: "Phone number must be in format +256 7XXXXXXXX." };
+      }
+    }
+
+    if (field.name === "nin" && value) {
+      if (!/^(CM|CF)\d{11}$/.test(value)) {
+        return {
+          valid: false,
+          error: "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.",
+        };
+      }
+    }
+
+    if (field.type === "date" && value) {
+      const t = Date.parse(value);
+      if (Number.isNaN(t)) {
+        return { valid: false, error: "Please enter a valid date." };
+      }
+    }
+
+    return { valid: true, error: "" };
+  };
+
+  const allCurrentGroupFilled = currentGroupFields.every(f => validateField(f).valid);
+  const allStepFieldsValid = allVisibleFields.every(f => validateField(f).valid);
+
+  const handleConfirmField = (field: CardFieldConfig, nextValue?: string) => {
+    if (!autoAdvance) return;
+    if (!canGoNextGroup) return;
+
+    const idx = allVisibleFields.findIndex(f => f.name === field.name);
+    if (idx < 0) return;
+
+    const groupIndex = Math.floor(idx / groupSize);
+    if (groupIndex !== fieldGroup) return;
+
+    const groupEndIdx = Math.min(allVisibleFields.length - 1, (fieldGroup + 1) * groupSize - 1);
+    if (idx !== groupEndIdx) return;
+
+    const { valid } = validateField(field, nextValue);
+    if (!valid) return;
+
+    setFieldGroup(prev => Math.min(prev + 1, totalGroups - 1));
+  };
+
+  React.useEffect(() => {
+    if (!autoAdvance) return;
+    const nextIndex = fieldGroup * groupSize;
+    const nextField = allVisibleFields[nextIndex];
+    const first = nextField ?? visibleFields[0];
+    if (!first) return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(first.name) as HTMLInputElement | null;
+      el?.focus?.();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [autoAdvance, allVisibleFields, fieldGroup, groupSize, visibleFields]);
 
   // State for button active (clicked) effect
   const [nextActive, setNextActive] = React.useState(false);
   const handleNextMouseDown = () => setNextActive(true);
   const handleNextMouseUp = () => setNextActive(false);
   const handleNextMouseLeave = () => setNextActive(false);
+
+  const showBackButton = showBack || (!autoAdvance && hasMultipleGroups);
+  const backDisabled = !canGoPrevGroup && !showBack;
+  const handleBackClick = () => {
+    if (canGoPrevGroup) {
+      setFieldGroup(fieldGroup - 1);
+      return;
+    }
+    onBack?.();
+  };
+
+  const nextLabel = autoAdvance ? nextButtonLabel : (isLastGroup ? nextButtonLabel : "Next");
+  const handleNextClick = () => {
+    if (!autoAdvance && canGoNextGroup) {
+      setFieldGroup(fieldGroup + 1);
+      return;
+    }
+    onNext?.();
+  };
 
   return (
     <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center overflow-y-auto" style={{ minWidth: 340, maxHeight: 520, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
@@ -94,23 +195,8 @@ const CardForm: React.FC<CardFormProps> = ({
             }
           }
           // Validation logic
-          let error = "";
           const value = values[field.name] || "";
-          if (field.required && !value.trim()) {
-            error = `${field.label} is required.`;
-          } else if (field.type === "email" && value) {
-            if (!/^\S+@\S+\.\S+$/.test(value)) {
-              error = "Please enter a valid email address.";
-            }
-          } else if (field.name === "mobile" && value) {
-            if (!/^\+256\s\d{9}$/.test(value)) {
-              error = "Phone number must be in format +256 7XXXXXXXX.";
-            }
-          } else if (field.name === "nin" && value) {
-            if (!/^(CM|CF)\d{11}$/.test(value)) {
-              error = "NIN must be 13 characters, start with 'CM' or 'CF', and the rest must be digits.";
-            }
-          }
+          const { error } = validateField(field);
 
           // Repeatable group (e.g. Main Members)
           if (field.type === "repeatable-group" && Array.isArray(field.fields)) {
@@ -337,7 +423,10 @@ const CardForm: React.FC<CardFormProps> = ({
                         name={field.name}
                         value={opt.value}
                         checked={value === opt.value}
-                        onChange={() => onChange(field.name, opt.value)}
+                        onChange={() => {
+                          onChange(field.name, opt.value);
+                          handleConfirmField(field, opt.value);
+                        }}
                         className="accent-green-600"
                       />
                       <span>{opt.label}</span>
@@ -401,6 +490,13 @@ const CardForm: React.FC<CardFormProps> = ({
                 required={field.required}
                 value={value}
                 onChange={e => onChange(field.name, e.target.value)}
+                onBlur={() => handleConfirmField(field)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.currentTarget as HTMLInputElement).blur();
+                  }
+                }}
                 className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-green-50 focus:bg-white transition`}
                 placeholder={field.placeholder}
               />
@@ -410,36 +506,29 @@ const CardForm: React.FC<CardFormProps> = ({
         })}
       </form>
       <div className="flex justify-between mt-4 w-full gap-3">
-        {showBack && (
-          <button type="button" onClick={onBack} className="px-4 py-2 bg-gray-300 rounded">Back</button>
+        {showBackButton && (
+          <button
+            type="button"
+            onClick={handleBackClick}
+            disabled={backDisabled}
+            className={`px-4 py-2 rounded ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300'}`}
+          >
+            Back
+          </button>
         )}
         {showNext && (
-          (fieldGroup < Math.ceil(allVisibleFields.length / groupSize) - 1 && visibleFields.length > 0)
-            ? (
-              <button
-                type="button"
-                onClick={() => setFieldGroup(fieldGroup + 1)}
-                disabled={!allCurrentGroupFilled}
-                className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-                style={{ letterSpacing: 0.5 }}
-              >
-                {nextButtonLabel}
-              </button>
-            )
-            : (
-              <button
-                type="button"
-                onClick={onNext}
-                onMouseDown={handleNextMouseDown}
-                onMouseUp={handleNextMouseUp}
-                onMouseLeave={handleNextMouseLeave}
-                disabled={!allCurrentGroupFilled}
-                className={`mt-0 w-full py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${!allCurrentGroupFilled ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-                style={{ letterSpacing: 0.5 }}
-              >
-                {nextButtonLabel}
-              </button>
-            )
+          <button
+            type="button"
+            onClick={handleNextClick}
+            onMouseDown={handleNextMouseDown}
+            onMouseUp={handleNextMouseUp}
+            onMouseLeave={handleNextMouseLeave}
+            disabled={autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled}
+            className={`mt-0 ${showBackButton ? 'flex-1' : 'w-full'} py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${(autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+            style={{ letterSpacing: 0.5 }}
+          >
+            {nextLabel}
+          </button>
         )}
       </div>
       <div className="w-full mt-3 text-xs text-gray-500 text-center">
