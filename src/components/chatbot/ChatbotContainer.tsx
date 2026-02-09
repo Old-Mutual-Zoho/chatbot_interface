@@ -7,7 +7,7 @@ import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
 import ConversationScreen from "../../screens/ConversationScreen";
-import { ChatScreen } from "./screens";
+import { ChatScreen } from "../../screens/ChatScreen";
 import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import ProductScreen from "../../screens/ProductScreen";
 

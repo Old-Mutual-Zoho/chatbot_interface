@@ -60,23 +60,77 @@ const CardForm: React.FC<CardFormProps> = ({
     setRepeatableGroupState(prev => ({ ...prev, [fieldName]: idx }));
   };
 
+  // Combobox (searchable dropdown) state
+  const [openComboboxId, setOpenComboboxId] = React.useState<string | null>(null);
+  const [comboboxQuery, setComboboxQuery] = React.useState<string>("");
+  const [comboboxActiveIndex, setComboboxActiveIndex] = React.useState<number>(-1);
+  const comboboxMenuRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!openComboboxId) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (!target) return;
+      const root = target.closest(`[data-combobox-root="${openComboboxId}"]`);
+      if (!root) setOpenComboboxId(null);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [openComboboxId]);
+
   // Only show fields that are not hidden by showIf
   const allVisibleFields = fields.filter(field => {
     if (!field.showIf) return true;
     const depValue = values[field.showIf.field];
     return depValue === field.showIf.value;
   });
+
+  const openComboboxField = React.useMemo(() => {
+    if (!openComboboxId) return undefined;
+    const field = allVisibleFields.find((f) => f.name === openComboboxId);
+    if (!field) return undefined;
+    if (field.type !== "combobox") return undefined;
+    if (!Array.isArray(field.options)) return undefined;
+    return field;
+  }, [allVisibleFields, openComboboxId]);
+
+  const openComboboxFilteredOptions = React.useMemo(() => {
+    if (!openComboboxField) return [] as { label: string; value: string }[];
+    const q = comboboxQuery.trim().toLowerCase();
+    if (!q) return openComboboxField.options ?? [];
+    return (openComboboxField.options ?? []).filter((opt) => opt.label.toLowerCase().includes(q));
+  }, [comboboxQuery, openComboboxField]);
+
+  React.useEffect(() => {
+    if (!openComboboxId) return;
+    if (openComboboxFilteredOptions.length === 0) {
+      setComboboxActiveIndex(-1);
+      return;
+    }
+    setComboboxActiveIndex((idx) => {
+      if (idx < 0) return 0;
+      if (idx >= openComboboxFilteredOptions.length) return openComboboxFilteredOptions.length - 1;
+      return idx;
+    });
+  }, [openComboboxId, openComboboxFilteredOptions.length]);
+
+  React.useEffect(() => {
+    if (!openComboboxId) return;
+    if (comboboxActiveIndex < 0) return;
+    const root = comboboxMenuRef.current;
+    if (!root) return;
+    const el = root.querySelector('[data-combobox-active="true"]') as HTMLElement | null;
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [openComboboxId, comboboxActiveIndex]);
+
   const totalGroups = Math.ceil(allVisibleFields.length / groupSize);
   const hasMultipleGroups = totalGroups > 1;
   const isFirstGroup = fieldGroup <= 0;
   const isLastGroup = fieldGroup >= totalGroups - 1;
   const canGoPrevGroup = !autoAdvance && hasMultipleGroups && !isFirstGroup;
   const canGoNextGroup = hasMultipleGroups && !isLastGroup;
-  const visibleFields = autoAdvance
-    ? allVisibleFields.slice(0, Math.min(allVisibleFields.length, (fieldGroup + 1) * groupSize))
-    : allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
-
-  const currentGroupFields = allVisibleFields.slice(fieldGroup * groupSize, (fieldGroup + 1) * groupSize);
+  const currentGroupStart = fieldGroup * groupSize;
+  const currentGroupEnd = (fieldGroup + 1) * groupSize;
+  const currentGroupFields = allVisibleFields.slice(currentGroupStart, currentGroupEnd);
 
   const validateField = (field: CardFieldConfig, nextValue?: string) => {
     const rawValue = nextValue ?? values[field.name] ?? "";
@@ -117,6 +171,30 @@ const CardForm: React.FC<CardFormProps> = ({
     return { valid: true, error: "" };
   };
 
+  // Progressive reveal within each group: show 1 field at a time.
+  // The next field appears only after the previous one validates.
+  const getRevealCountForGroup = (groupFields: CardFieldConfig[]) => {
+    if (groupFields.length <= 1) return groupFields.length;
+
+    for (let i = 0; i < groupFields.length; i++) {
+      const { valid } = validateField(groupFields[i]);
+      if (!valid) {
+        return i + 1;
+      }
+    }
+    return groupFields.length;
+  };
+
+  const revealCount = getRevealCountForGroup(currentGroupFields);
+  const revealedCurrentGroupFields = currentGroupFields.slice(0, Math.max(1, revealCount));
+
+  const visibleFields = autoAdvance
+    ? [
+        ...allVisibleFields.slice(0, currentGroupStart),
+        ...revealedCurrentGroupFields,
+      ]
+    : revealedCurrentGroupFields;
+
   const allCurrentGroupFilled = currentGroupFields.every(f => validateField(f).valid);
   const allStepFieldsValid = allVisibleFields.every(f => validateField(f).valid);
 
@@ -143,14 +221,14 @@ const CardForm: React.FC<CardFormProps> = ({
     if (!autoAdvance) return;
     const nextIndex = fieldGroup * groupSize;
     const nextField = allVisibleFields[nextIndex];
-    const first = nextField ?? visibleFields[0];
+    const first = nextField;
     if (!first) return;
     const t = window.setTimeout(() => {
       const el = document.getElementById(first.name) as HTMLInputElement | null;
       el?.focus?.();
     }, 0);
     return () => window.clearTimeout(t);
-  }, [autoAdvance, allVisibleFields, fieldGroup, groupSize, visibleFields]);
+  }, [autoAdvance, allVisibleFields, fieldGroup, groupSize]);
 
   // State for button active (clicked) effect
   const [nextActive, setNextActive] = React.useState(false);
@@ -178,7 +256,7 @@ const CardForm: React.FC<CardFormProps> = ({
   };
 
   return (
-    <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center overflow-y-auto" style={{ minWidth: 340, maxHeight: 520, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
+    <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center overflow-visible" style={{ minWidth: 340, maxHeight: 520, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
       <div className="w-full mb-4">
         <h2 className="text-xl font-bold text-center" style={{ color: '#00A651' }}>
           {title}
@@ -186,7 +264,8 @@ const CardForm: React.FC<CardFormProps> = ({
         <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />           
       </div>
       <form className="w-full flex flex-col gap-5">
-        {visibleFields.map((field) => {
+        <div className="w-full flex flex-col gap-5 overflow-y-auto pr-1" style={{ maxHeight: 320 }}>
+          {visibleFields.map((field) => {
           // Conditional rendering for fields with showIf
           if (field.showIf) {
             const depValue = values[field.showIf.field];
@@ -476,6 +555,126 @@ const CardForm: React.FC<CardFormProps> = ({
             );
           }
 
+          // Render combobox fields (searchable select)
+          if (field.type === "combobox" && Array.isArray(field.options)) {
+            const selectedOption = field.options.find((opt) => opt.value === value);
+            const isOpen = openComboboxId === field.name;
+            const displayValue = isOpen ? comboboxQuery : (selectedOption?.label ?? "");
+            const filteredOptions = isOpen ? openComboboxFilteredOptions : field.options;
+
+            return (
+              <div
+                key={field.name}
+                className="mb-2 relative"
+                data-combobox-root={field.name}
+              >
+                <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                  {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
+                </label>
+
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type="text"
+                  value={displayValue}
+                  placeholder={field.placeholder || "Search..."}
+                  autoComplete="off"
+                  onFocus={() => {
+                    setOpenComboboxId(field.name);
+                    setComboboxQuery("");
+                    setComboboxActiveIndex(0);
+                  }}
+                  onChange={(e) => {
+                    if (!isOpen) setOpenComboboxId(field.name);
+                    setComboboxQuery(e.target.value);
+                    setComboboxActiveIndex(0);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setOpenComboboxId(null);
+                      return;
+                    }
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      if (!isOpen) setOpenComboboxId(field.name);
+                      setComboboxActiveIndex((idx) => {
+                        if (filteredOptions.length === 0) return -1;
+                        const next = idx < 0 ? 0 : Math.min(filteredOptions.length - 1, idx + 1);
+                        return next;
+                      });
+                      return;
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      if (!isOpen) setOpenComboboxId(field.name);
+                      setComboboxActiveIndex((idx) => {
+                        if (filteredOptions.length === 0) return -1;
+                        const next = idx < 0 ? 0 : Math.max(0, idx - 1);
+                        return next;
+                      });
+                      return;
+                    }
+                    if (e.key === "Home") {
+                      e.preventDefault();
+                      if (filteredOptions.length > 0) setComboboxActiveIndex(0);
+                      return;
+                    }
+                    if (e.key === "End") {
+                      e.preventDefault();
+                      if (filteredOptions.length > 0) setComboboxActiveIndex(filteredOptions.length - 1);
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const chosen =
+                        comboboxActiveIndex >= 0 && comboboxActiveIndex < filteredOptions.length
+                          ? filteredOptions[comboboxActiveIndex]
+                          : filteredOptions[0];
+                      if (!chosen) return;
+                      onChange(field.name, chosen.value);
+                      handleConfirmField(field, chosen.value);
+                      setOpenComboboxId(null);
+                      setComboboxQuery("");
+                      setComboboxActiveIndex(-1);
+                    }
+                  }}
+                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-white transition`}
+                />
+
+                {isOpen && (
+                  <div ref={comboboxMenuRef} className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-green-200 shadow-lg max-h-72 overflow-y-auto">
+                    {filteredOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500">No matches</div>
+                    ) : (
+                      filteredOptions.map((opt, idx) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseDown={(evt) => evt.preventDefault()}
+                          onMouseEnter={() => setComboboxActiveIndex(idx)}
+                          onClick={() => {
+                            onChange(field.name, opt.value);
+                            handleConfirmField(field, opt.value);
+                            setOpenComboboxId(null);
+                            setComboboxQuery("");
+                            setComboboxActiveIndex(-1);
+                          }}
+                          data-combobox-active={idx === comboboxActiveIndex ? "true" : "false"}
+                          className={`w-full text-left px-4 py-2 text-sm transition ${idx === comboboxActiveIndex ? 'bg-green-100' : 'bg-white'} hover:bg-green-50 ${value === opt.value ? 'font-semibold' : ''}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+              </div>
+            );
+          }
+
           // Render select fields
           if (field.type === "select" && Array.isArray(field.options)) {
             const placeholderText = field.placeholder || "Select an option";
@@ -495,7 +694,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     handleConfirmField(field, e.target.value);
                   }}
                   onBlur={() => handleConfirmField(field)}
-                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-green-50 focus:bg-white transition`}
+                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-white transition`}
                 >
                   <option value="" disabled>
                     {placeholderText}
@@ -538,7 +737,8 @@ const CardForm: React.FC<CardFormProps> = ({
               {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
             </div>
           );
-        })}
+          })}
+        </div>
       </form>
       <div className="flex justify-between mt-4 w-full gap-3">
         {showBackButton && (

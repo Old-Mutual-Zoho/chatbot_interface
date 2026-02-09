@@ -1,15 +1,15 @@
-import popSound from "../../../assets/pop.mp3";
+import popSound from "../assets/pop.mp3";
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types";
-import { MessageRenderer } from "../messages/MessageRenderer";
-import WelcomeImage from "../../../assets/Welcome.png";
-import PatternImage from "../../../assets/pattern.jpg";
+import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
+import WelcomeImage from "../assets/Welcome.png";
+import PatternImage from "../assets/pattern.jpg";
 import { IoSend, IoArrowBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
-import Logo from "../../../assets/Logo.png";
+import Logo from "../assets/Logo.png";
 
-import type { ExtendedChatMessage } from "../messages/actionCardTypes";
-import type { ActionOption } from "../ActionCard";
-import { sendChatMessage, initiatePurchase } from "../../../services/api";
+import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
+import type { ActionOption } from "../components/chatbot/ActionCard";
+import { sendChatMessage, initiatePurchase } from "../services/api";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
