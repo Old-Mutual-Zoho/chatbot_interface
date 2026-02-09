@@ -643,7 +643,11 @@ const CardForm: React.FC<CardFormProps> = ({
                 />
 
                 {isOpen && (
-                  <div ref={comboboxMenuRef} className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-green-200 shadow-lg max-h-72 overflow-y-auto">
+                  <div
+                    ref={comboboxMenuRef}
+                    className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-green-200 shadow-lg max-h-72 overflow-y-auto overscroll-contain"
+                    onWheel={(e) => e.stopPropagation()}
+                  >
                     {filteredOptions.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-gray-500">No matches</div>
                     ) : (
