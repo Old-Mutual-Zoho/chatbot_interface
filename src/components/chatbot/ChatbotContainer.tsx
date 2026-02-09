@@ -34,6 +34,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const [chatSessionKey, setChatSessionKey] = useState(0);
   const [conversations, setConversations] = useState<ConversationSnapshot[]>(() => loadConversations());
   const latestMessagesRef = useRef<ConversationSnapshot["messages"]>([]);
+  const [latestMessages, setLatestMessages] = useState<ConversationSnapshot["messages"]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -211,9 +212,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             userId={userId}
             sessionId={sessionId}
             sessionLoading={!userId || !sessionId}
-            initialMessages={activeConversationId ? (conversations.find(c => c.id === activeConversationId)?.messages ?? []) : (latestMessagesRef.current.length > 0 ? latestMessagesRef.current : undefined)}
+            initialMessages={
+              activeConversationId
+                ? (conversations.find((c) => c.id === activeConversationId)?.messages ?? [])
+                : (latestMessages.length > 0 ? latestMessages : undefined)
+            }
             onMessagesChange={(messages) => {
               latestMessagesRef.current = messages;
+              setLatestMessages(messages);
             }}
             onShowQuoteForm={() => setScreen("quote")}
             isExpanded={isExpanded}

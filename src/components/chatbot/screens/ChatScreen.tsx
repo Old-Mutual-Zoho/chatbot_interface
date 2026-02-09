@@ -543,12 +543,12 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         }
         // If options are present, format them for display
         if (Array.isArray(response.options) && response.options.length > 0) {
-          let optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          const optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
           return `${response.message || response.response?.message || 'Please choose an option:'}\n${optionsText}`;
         }
         // If response has a message and options inside response.response
         if (response.response && Array.isArray(response.response.options)) {
-          let optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          const optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
           return `${response.response.message || 'Please choose an option:'}\n${optionsText}`;
         }
       }
@@ -705,7 +705,9 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         channel: "chatbot",
       });
 
-      if (response && (response as any).success !== false) {
+      const purchaseResponse = response as unknown as { success?: boolean; message?: string } | null;
+
+      if (purchaseResponse && purchaseResponse.success !== false) {
         // Show success after loading
         setTimeout(() => {
           dispatch({
@@ -714,7 +716,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           });
         }, 10000);
       } else {
-        throw new Error((response as any)?.message || "Payment initiation failed");
+        throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
     } catch (error) {
       console.error("Purchase error:", error);
@@ -746,13 +748,15 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         channel: "chatbot",
       });
 
-      if (response && (response as any).success !== false) {
+      const purchaseResponse = response as unknown as { success?: boolean; message?: string } | null;
+
+      if (purchaseResponse && purchaseResponse.success !== false) {
         dispatch({
           type: "PURCHASE_SUCCESS",
           payload: "✅ Payment request sent. Please complete payment on your phone.",
         });
       } else {
-        throw new Error((response as any)?.message || "Payment initiation failed");
+        throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
     } catch (error) {
       console.error("Purchase error:", error);

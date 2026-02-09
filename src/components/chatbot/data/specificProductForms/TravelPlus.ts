@@ -86,7 +86,12 @@ export const travelPlusQuoteFormSteps = [
         placeholder: "Enter number of travellers",
       },
 
-      // Not in provided images / not requested for quote
+      
+    ],
+  },
+];
+
+// Not requested for quote
       // {
       //   name: "purposeOfTravel",
       //   label: "Purpose of Travel",
@@ -100,10 +105,6 @@ export const travelPlusQuoteFormSteps = [
       //   ],
       //   placeholder: "Select purpose",
       // },
-    ],
-  },
-];
-
 // export const travelPlusPurchaseFormSteps = [
 //   {
 //     title: "Additional Details",

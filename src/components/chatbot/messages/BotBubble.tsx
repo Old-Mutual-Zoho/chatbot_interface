@@ -21,7 +21,7 @@ export const BotBubble: React.FC<BotBubbleProps> = ({ message }) => {
         audioRef.current.play().catch(() => {});
       }
     }
-  }, [message.id]);
+  }, [message.id, message.sender, message.type]);
 
   return (
     <div className="flex justify-start mb-2 animate-fade-in gap-2 items-end">
