@@ -1,3 +1,4 @@
+// Travel Sure Plus quote form steps.
 export const travelPlusQuoteFormSteps = [
   {
     title: "Travel Sure Plus Quote",
@@ -7,7 +8,6 @@ export const travelPlusQuoteFormSteps = [
       { name: "surname", label: "Surname", type: "text", required: true, placeholder: "Enter your surname" },
       { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your phone number" },
       { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter your email" },
-     
     ],
   },
   {
@@ -85,26 +85,25 @@ export const travelPlusQuoteFormSteps = [
         required: true,
         placeholder: "Enter number of travellers",
       },
-
-      
     ],
   },
 ];
 
 // Not requested for quote
-      // {
-      //   name: "purposeOfTravel",
-      //   label: "Purpose of Travel",
-      //   type: "select",
-      //   required: true,
-      //   options: [
-      //     { label: "Leisure", value: "leisure" },
-      //     { label: "Business", value: "business" },
-      //     { label: "Study", value: "study" },
-      //     { label: "Other", value: "other" },
-      //   ],
-      //   placeholder: "Select purpose",
-      // },
+// {
+//   name: "purposeOfTravel",
+//   label: "Purpose of Travel",
+//   type: "select",
+//   required: true,
+//   options: [
+//     { label: "Leisure", value: "leisure" },
+//     { label: "Business", value: "business" },
+//     { label: "Study", value: "study" },
+//     { label: "Other", value: "other" },
+//   ],
+//   placeholder: "Select purpose",
+// },
+
 // export const travelPlusPurchaseFormSteps = [
 //   {
 //     title: "Additional Details",

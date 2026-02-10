@@ -1,4 +1,4 @@
-//quote generation form steps.
+// Personal Accident quote form steps.
 export const personalAccidentFormSteps = [
   {
     title: "Personal Accident Quote",
@@ -83,6 +83,9 @@ export const personalAccidentFormSteps = [
 ];
 
 /*
+Old purchase form steps required to proceed th buy.
+Not used right now.
+
 export const personalAccidentPurchaseFormSteps = [
   {
     title: "Personal Details",

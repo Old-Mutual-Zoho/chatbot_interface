@@ -1,9 +1,6 @@
-// Serenicare full form configuration.
-// Serenicare uses a two-phase flow in QuoteFormScreen:
-// - main steps (personal/contact)
-// - product steps (plan selection, benefits, etc.)
+// Serenicare quote form steps.
 
-export const serenicareMainFormSteps = [
+export const serenicareFormSteps = [
   {
     title: "Personal Details",
     fields: [
@@ -22,11 +19,6 @@ export const serenicareMainFormSteps = [
       { name: "preferredContact", label: "Preferred Contact Method", type: "text", required: false, placeholder: "e.g. WhatsApp, Email, Phone Call", optionalLabel: "optional" },
     ],
   },
-];
-
-// Serenicare product-specific form steps
-
-export const serenicareFormSteps = [
   {
     title: "Select Plan",
     fields: [
@@ -39,10 +31,10 @@ export const serenicareFormSteps = [
           { label: "Essential", value: "essential" },
           { label: "Classic", value: "classic" },
           { label: "Comprehensive", value: "comprehensive" },
-          { label: "Premium", value: "premium" }
-        ]
-      }
-    ]
+          { label: "Premium", value: "premium" },
+        ],
+      },
+    ],
   },
   {
     title: "Optional Benefits",
@@ -57,25 +49,26 @@ export const serenicareFormSteps = [
           { label: "Maternity Cover", value: "maternity" },
           { label: "Dental Cover", value: "dental" },
           { label: "Optical Cover", value: "optical" },
-          { label: "COVID-19 Cover", value: "covid" }
-        ]
-      }
-    ]
+          { label: "COVID-19 Cover", value: "covid" },
+        ],
+      },
+    ],
   },
   {
     title: "Health Conditions",
     fields: [
       {
         name: "seriousConditions",
-        label: "Do you or any family members you wish to include in this plan have any of the following: Sickle Cells, Cancer(s), Leukaemia, or liver-related conditions?",
+        label:
+          "Do you or any family members you wish to include in this plan have any of the following: Sickle Cells, Cancer(s), Leukaemia, or liver-related conditions?",
         type: "radio",
         required: true,
         options: [
           { label: "Yes", value: "yes" },
-          { label: "No", value: "no" }
-        ]
-      }
-    ]
+          { label: "No", value: "no" },
+        ],
+      },
+    ],
   },
   {
     title: "Cover Personalization",
@@ -89,19 +82,19 @@ export const serenicareFormSteps = [
             name: "includeSpouse",
             label: "Include Spouse?",
             type: "checkbox",
-            required: false
+            required: false,
           },
           {
             name: "includeChildren",
             label: "Include Children?",
             type: "checkbox",
-            required: false
+            required: false,
           },
           { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
           { name: "age", label: "Age", type: "number", required: true, placeholder: "Age will be calculated" },
-          
-        ]
-      }
-    ]
-  }
+        ],
+      },
+    ],
+  },
 ];
+
