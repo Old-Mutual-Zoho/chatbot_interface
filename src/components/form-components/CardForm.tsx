@@ -305,8 +305,6 @@ const CardForm: React.FC<CardFormProps> = ({
           const { error } = validateField(field);
 
           // Only show error if showErrors is true (after Next is clicked)
-          const showFieldError = showErrors && error;
-          const errorBorder = showFieldError ? 'border-green-500' : 'border-gray-300';
           // Repeatable group (e.g. Main Members)
           if (field.type === "repeatable-group" && Array.isArray(field.fields)) {
             // Value is a JSON stringified array of member objects
@@ -349,7 +347,7 @@ const CardForm: React.FC<CardFormProps> = ({
                         <span className="font-semibold text-lg text-primary">Member {activeIdx + 1}</span>
                         <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-sm cursor-pointer">Remove</button>
                       </div>
-                      {field.fields.map((subField, idx) => {
+                      {field.fields.map((subField) => {
                         const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
                         // Render subfields (customize as needed)
                         return (
@@ -530,7 +528,7 @@ const CardForm: React.FC<CardFormProps> = ({
                       setComboboxActiveIndex(-1);
                     }
                   }}
-                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-green-50 focus:bg-white transition focus:outline-none`}
+                  className={`w-full px-4 py-2 border ${showErrors && error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-green-50 focus:bg-white transition focus:outline-none`}
                 />
 
                 {isOpen && (
@@ -565,7 +563,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   </div>
                 )}
 
-                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {showErrors && error && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -589,7 +587,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     handleConfirmField(field, e.target.value);
                   }}
                   onBlur={() => handleConfirmField(field)}
-                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-2 border ${showErrors && error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
                 >
                   <option value="" disabled>
                     {placeholderText}
@@ -600,7 +598,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     </option>
                   ))}
                 </select>
-                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {showErrors && error && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -617,14 +615,15 @@ const CardForm: React.FC<CardFormProps> = ({
                   id={field.name}
                   name={field.name}
                   selected={value ? new Date(value) : null}
-                  onChange={date => {
-                    onChange(field.name, date ? date.toISOString().split('T')[0] : "");
-                    handleConfirmField(field, date ? date.toISOString().split('T')[0] : "");
+                  onChange={(date: Date | null) => {
+                    const isoDate = date ? date.toISOString().split('T')[0] : "";
+                    onChange(field.name, isoDate);
+                    handleConfirmField(field, isoDate);
                   }}
                   onBlur={() => handleConfirmField(field)}
                   dateFormat="yyyy-MM-dd"
                   placeholderText={field.placeholder || "mm/dd/yyyy"}
-                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-2 border ${showErrors && error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
                   calendarClassName="om-datepicker-popup"
                   showMonthDropdown
                   showYearDropdown
@@ -646,7 +645,7 @@ const CardForm: React.FC<CardFormProps> = ({
                       (e.currentTarget as HTMLInputElement).blur();
                     }
                   }}
-                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-2 border ${showErrors && error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
                   placeholder={field.placeholder}
                 />
               )}
