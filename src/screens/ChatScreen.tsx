@@ -1,4 +1,3 @@
-import popSound from "../assets/pop.mp3";
 import { useReducer, useRef, useEffect } from "react";
 // import type { ChatMessage } from "../types";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
@@ -6,6 +5,7 @@ import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
 import { IoSend, IoArrowBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
 import Logo from "../assets/Logo.png";
+import QuoteFormScreen from "./QuoteFormScreen";
 
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
@@ -34,6 +34,8 @@ type State = {
   lastSelected: string | null;
   isPurchasing?: boolean;
   isPaymentMode?: boolean;
+  showQuoteForm: boolean;
+  quoteFormKey: number;
 };
 
 type Action =
@@ -44,6 +46,9 @@ type Action =
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SHOW_QUOTE_FORM" }
+  | { type: "HIDE_QUOTE_FORM" }
+  | { type: "QUOTE_FORM_SUBMITTED" }
   | { type: "START_BUY_FLOW" }
   | { type: "SHOW_PURCHASE_SUMMARY"; payload: { productName: string; price: string; duration: string } }
   | { type: "SHOW_PAYMENT_METHOD_SELECTOR" }
@@ -73,6 +78,8 @@ type Action =
       lastSelected: null,
       isPurchasing: false,
       isPaymentMode: false,
+      showQuoteForm: false,
+      quoteFormKey: 0,
     };
   }
   const welcomeMsg: ChatMessageWithTimestamp = {
@@ -104,6 +111,8 @@ type Action =
     lastSelected: null,
     isPurchasing: false,
     isPaymentMode: false,
+    showQuoteForm: false,
+    quoteFormKey: 0,
   };
 };
 
@@ -178,11 +187,6 @@ function reducer(state: State, action: Action): State {
             text: action.payload.response,
             timestamp: getTimeString(),
           });
-          // Play pop sound immediately when bot reply is added
-          if (typeof window !== 'undefined') {
-            const audio = new Audio(popSound);
-            audio.play().catch(() => {});
-          }
         }
         return {
           ...state,
@@ -228,11 +232,6 @@ function reducer(state: State, action: Action): State {
         timestamp: getTimeString(),
       };
       newMessages.push(botReply);
-      // Play pop sound immediately when bot reply is added (guided flow)
-      if (typeof window !== 'undefined') {
-        const audio = new Audio(popSound);
-        audio.play().catch(() => {});
-      }
       const remainingOptions = action.payload.remainingOptions;
       if (
         action.payload.response === "How can I help you today?" &&
@@ -291,6 +290,34 @@ function reducer(state: State, action: Action): State {
     }
     case "SET_LOADING": {
       return { ...state, loading: action.payload };
+    }
+    case "SHOW_QUOTE_FORM": {
+      return {
+        ...state,
+        showQuoteForm: true,
+        quoteFormKey: state.quoteFormKey + 1,
+      };
+    }
+    case "HIDE_QUOTE_FORM": {
+      return {
+        ...state,
+        showQuoteForm: false,
+      };
+    }
+    case "QUOTE_FORM_SUBMITTED": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      const confirmationMessage: ChatMessageWithTimestamp = {
+        id: `form-confirm-${Date.now()}`,
+        type: "text",
+        sender: "bot",
+        text: "Thank you! Your details have been submitted successfully. We'll get back to you shortly.",
+        timestamp: getTimeString(),
+      };
+      return {
+        ...state,
+        showQuoteForm: false,
+        messages: [...filtered, confirmationMessage],
+      };
     }
     case "START_BUY_FLOW": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
@@ -494,7 +521,7 @@ interface ChatScreenProps {
   onToggleExpand?: () => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[]; onShowQuoteForm?: () => void }> = ({
+export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
   onBackClick,
   onCloseClick,
   selectedProduct,
@@ -504,8 +531,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   isExpanded,
   onToggleExpand,
   onMessagesChange,
-  initialMessages,
-  onShowQuoteForm
+  initialMessages
 }) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
@@ -515,6 +541,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const quoteFormRef = useRef<HTMLDivElement>(null);
 
   // This function now calls the backend for real responses
   const fetchBotResponse = async (option: string) => {
@@ -585,6 +612,12 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   }, [state.messages, onMessagesChange]);
 
   useEffect(() => {
+    if (state.showQuoteForm) {
+      quoteFormRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [state.showQuoteForm, state.quoteFormKey]);
+
+  useEffect(() => {
     inputRef.current?.focus();
   }, []);
   useEffect(() => {
@@ -613,7 +646,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "quote") {
-      if (onShowQuoteForm) onShowQuoteForm();
+      dispatch({ type: "SHOW_QUOTE_FORM" });
       return;
     }
     
@@ -926,6 +959,20 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             </div>
           );
         })}
+
+        {state.showQuoteForm && (
+          <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
+            <div className="w-full">
+              <QuoteFormScreen
+                key={state.quoteFormKey}
+                embedded
+                selectedProduct={selectedProduct}
+                userId={userId}
+                onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+              />
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

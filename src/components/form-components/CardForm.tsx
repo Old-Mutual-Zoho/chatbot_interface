@@ -1,4 +1,6 @@
 import React from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export interface CardFieldConfig {
   name: string;
@@ -17,6 +19,7 @@ export interface CardFieldConfig {
 
 export interface CardFormProps {
   title: string;
+  description?: string;
   fields: CardFieldConfig[];
   values: Record<string, string>;
   onChange: (name: string, value: string) => void;
@@ -33,6 +36,7 @@ export interface CardFormProps {
 
 const CardForm: React.FC<CardFormProps> = ({
   title,
+  description,
   fields,
   values,
   onChange,
@@ -48,7 +52,7 @@ const CardForm: React.FC<CardFormProps> = ({
   const [fieldGroup, setFieldGroup] = React.useState(0);
   const groupSize = Math.max(1, groupSizeProp);
   React.useEffect(() => {
-    setFieldGroup(0);
+    // ...existing code...
   }, [fields, title, groupSize]);
 
   // Repeatable group state for active member index per group
@@ -147,8 +151,9 @@ const CardForm: React.FC<CardFormProps> = ({
     }
 
     if (field.name === "mobile" && value) {
-      if (!/^\+256\s\d{9}$/.test(value)) {
-        return { valid: false, error: "Phone number must be in format +256 7XXXXXXXX." };
+      // Accept Uganda formats: +2567XXXXXXXX (with or without space) and 07XXXXXXXX
+      if (!/^(\+256\s?7\d{8}|07\d{8})$/.test(value)) {
+        return { valid: false, error: "Wrong Phone number format" };
       }
     }
 
@@ -232,13 +237,20 @@ const CardForm: React.FC<CardFormProps> = ({
 
   // State for button active (clicked) effect
   const [nextActive, setNextActive] = React.useState(false);
+  const [showErrors, setShowErrors] = React.useState(false);
   const handleNextMouseDown = () => setNextActive(true);
   const handleNextMouseUp = () => setNextActive(false);
   const handleNextMouseLeave = () => setNextActive(false);
 
+  const [transitionDir, setTransitionDir] = React.useState<"next" | "back" | null>(null);
+  const [transitionKey, setTransitionKey] = React.useState(0);
+
   const showBackButton = showBack || (!autoAdvance && hasMultipleGroups);
   const backDisabled = !canGoPrevGroup && !showBack;
   const handleBackClick = () => {
+    setTransitionDir("back");
+    setTransitionKey((k) => k + 1);
+    setShowErrors(false);
     if (canGoPrevGroup) {
       setFieldGroup(fieldGroup - 1);
       return;
@@ -248,20 +260,35 @@ const CardForm: React.FC<CardFormProps> = ({
 
   const nextLabel = autoAdvance ? nextButtonLabel : (isLastGroup ? nextButtonLabel : "Next");
   const handleNextClick = () => {
+    setShowErrors(true);
+    setTransitionDir("next");
+    setTransitionKey((k) => k + 1);
     if (!autoAdvance && canGoNextGroup) {
       setFieldGroup(fieldGroup + 1);
+      setShowErrors(false);
       return;
     }
     onNext?.();
   };
 
+  const transitionClass = transitionDir === "next" ? "om-slide-in-right" : transitionDir === "back" ? "om-slide-in-left" : "";
+
   return (
-    <div className="max-w-md mx-auto mt-2 rounded-2xl p-8 flex flex-col items-center overflow-visible" style={{ minWidth: 340, maxHeight: 520, background: '#E6F9ED', boxShadow: '0 12px 48px 0 rgba(0,166,81,0.28)', border: '2px solid #8FE3B0' }}>
+    <div
+      className="w-full mt-2 rounded-2xl p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200"
+      style={{ maxHeight: 520 }}
+    >
+      <div key={transitionKey} className={transitionClass}>
       <div className="w-full mb-4">
         <h2 className="text-xl font-bold text-center" style={{ color: '#00A651' }}>
           {title}
         </h2>
-        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />           
+        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />
+        {description && (
+          <p className="mt-2 text-center text-sm text-gray-600 leading-snug">
+            {description}
+          </p>
+        )}
       </div>
       <form className="w-full flex flex-col gap-5">
         <div className="w-full flex flex-col gap-5 overflow-y-auto pr-1" style={{ maxHeight: 320 }}>
@@ -277,6 +304,9 @@ const CardForm: React.FC<CardFormProps> = ({
           const value = values[field.name] || "";
           const { error } = validateField(field);
 
+          // Only show error if showErrors is true (after Next is clicked)
+          const showFieldError = showErrors && error;
+          const errorBorder = showFieldError ? 'border-green-500' : 'border-gray-300';
           // Repeatable group (e.g. Main Members)
           if (field.type === "repeatable-group" && Array.isArray(field.fields)) {
             // Value is a JSON stringified array of member objects
@@ -304,183 +334,46 @@ const CardForm: React.FC<CardFormProps> = ({
             };
 
             return (
-              <div key={field.name} className="mb-4">
-                <label className="block text-base font-medium text-gray-700 mb-3">{field.label}</label>
+              <div key={field.name} className="w-full">
+                <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                  {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
+                </label>
                 {groupValue.length === 0 && (
-                  <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded">Add Member</button>
+                  <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Member</button>
                 )}
                 {groupValue.length > 0 && (
                   <div className="mb-2 px-4 py-3 bg-white rounded-xl border border-green-200 shadow-sm flex flex-row items-start gap-6 max-w-2xl mx-auto">
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-3">
                         <span className="font-semibold text-lg text-primary">Member {activeIdx + 1}</span>
-                        <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-sm">Remove</button>
+                        <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-sm cursor-pointer">Remove</button>
                       </div>
-                      {/* Render subfields for this member */}
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                        {field.fields.map((subField: CardFieldConfig, idx) => {
-                      const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
-                      
-                      if (subField.showIf) {
-                        const depValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.showIf.field] ?? "" : "";
-                        if (depValue !== subField.showIf.value) {
-                          return null;
-                        }
-                      }
-                      
-                      const calculateAge = (dob: string) => {
-                        if (!dob) return 0;
-                        const birthDate = new Date(dob);
-                        const today = new Date();
-                        let age = today.getFullYear() - birthDate.getFullYear();
-                        const monthDiff = today.getMonth() - birthDate.getMonth();
-                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                          age--;
-                        }
-                        return age;
-                      };
-                      
-                      const handleDateChange = (idx: number, dateName: string, ageName: string, dateValue: string, minAge?: number) => {
-                        const age = calculateAge(dateValue);
-                        handleFieldChange(idx, dateName, dateValue);
-                        handleFieldChange(idx, ageName, age.toString());
-                        
-                        if (minAge && age > 0 && age < minAge) {
-                          setTimeout(() => {
-                            alert(`Minimum age requirement is ${minAge} years. Current age: ${age} years.`);
-                          }, 100);
-                        }
-                      };
-                      
-                          if (
-                            subField.type === "checkbox" &&
-                            Array.isArray(field.fields) &&
-                            idx < field.fields.length - 1 &&
-                            field.fields[idx + 1]?.type === "checkbox"
-                          ) {
-                            const nextField = field.fields[idx + 1];
-                            const nextValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[nextField.name] ?? "" : "";
-                            return (
-                              <div key={subField.name + "_row"} className="col-span-2 flex flex-row gap-8 mb-2">
-                                <label className="flex items-center text-base text-gray-700 mb-0.5">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!subValue}
-                                    onChange={e => handleFieldChange(activeIdx, subField.name, e.target.checked ? "true" : "")}
-                                    className="mr-2"
-                                  />
-                                  {subField.label}
-                                </label>
-                                <label className="flex items-center text-base text-gray-700 mb-0.5">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!nextValue}
-                                    onChange={e => handleFieldChange(activeIdx, nextField.name, e.target.checked ? "true" : "")}
-                                    className="mr-2"
-                                  />
-                                  {nextField.label}
-                                </label>
-                              </div>
-                            );
-                          }
-                      if (
-                        subField.type === "checkbox" &&
-                        Array.isArray(field.fields) &&
-                        idx > 0 &&
-                        field.fields[idx - 1]?.type === "checkbox"
-                      ) {
-                        return null;
-                      }
-                      
-                      const isSpouseIncluded = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)["includeSpouse"] === "true" : false;
-                      
-                      if (subField.name === "dob" && subField.type === "date") {
-                        const maxDate = isSpouseIncluded ? (() => {
-                          const d = new Date();
-                          d.setFullYear(d.getFullYear() - 19);
-                          return d.toISOString().split('T')[0];
-                        })() : undefined;
-                        
+                      {field.fields.map((subField, idx) => {
+                        const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
+                        // Render subfields (customize as needed)
                         return (
                           <div key={subField.name} className="col-span-2 mb-2">
-                            <label className="block text-base text-gray-700 mb-2">
-                              {subField.label} 
-                              {isSpouseIncluded && <span className="text-sm text-gray-500"> (Min. age 19 for spouse)</span>}
-                              {subField.required && <span className="text-red-500"> *</span>}
-                            </label>
+                            {subField.label && <label className="block text-base text-gray-700 mb-2">{subField.label}</label>}
                             <input
-                              type="date"
+                              type={subField.type}
                               value={subValue as string}
-                              max={maxDate}
-                              onChange={e => handleDateChange(activeIdx, "dob", "age", e.target.value, isSpouseIncluded ? 19 : undefined)}
+                              onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
                               className="w-full px-3 py-3 border border-gray-300 rounded text-base"
                               placeholder={subField.placeholder}
                             />
                           </div>
                         );
-                      }
-                      
-                      if (subField.name === "age" && subField.type === "number") {
-                        const dobValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)["dob"] ?? "" : "";
-                        if (dobValue && !subValue) {
-                          const calculatedAge = calculateAge(dobValue as string);
-                          if (calculatedAge > 0) {
-                            setTimeout(() => {
-                              handleFieldChange(activeIdx, "age", calculatedAge.toString());
-                            }, 0);
-                          }
-                        }
-                        
-                        return (
-                          <div key={subField.name} className="col-span-2 mb-2">
-                            <label className="block text-base text-gray-700 mb-2">{subField.label || "Age"}</label>
-                            <input
-                              type="text"
-                              value={subValue as string}
-                              readOnly
-                              className="w-full px-3 py-3 border border-gray-300 rounded text-base bg-gray-100"
-                              placeholder={subField.placeholder}
-                            />
-                          </div>
-                        );
-                      }
-                      
-                          if (!subField.label && subField.placeholder) {
-                            return (
-                              <div key={subField.name} className="col-span-2 mb-2">
-                                <input
-                                  type={subField.type}
-                                  value={subValue as string}
-                                  onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
-                                  className="w-full px-3 py-3 border border-gray-300 rounded text-base"
-                                  placeholder={subField.placeholder}
-                                />
-                              </div>
-                            );
-                          }
-                          return (
-                            <div key={subField.name} className="col-span-2 mb-2">
-                              <label className="block text-base text-gray-700 mb-2">{subField.label}</label>
-                              <input
-                                type={subField.type}
-                                value={subValue as string}
-                                onChange={e => handleFieldChange(activeIdx, subField.name, e.target.value)}
-                                className="w-full px-3 py-3 border border-gray-300 rounded text-base"
-                                placeholder={subField.placeholder}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                      })}
                       <div className="flex justify-between mt-2">
-                        <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Back</button>
-                        <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400' : 'bg-primary text-white'}`}>Next</button>
+                        <button type="button" disabled={activeIdx === 0} onClick={() => handleSetActiveIdx(field.name, activeIdx - 1)} className={`px-3 py-1 rounded ${activeIdx === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-primary text-white cursor-pointer'}`}>Back</button>
+                        <button type="button" disabled={activeIdx === groupValue.length - 1} onClick={() => handleSetActiveIdx(field.name, activeIdx + 1)} className={`px-3 py-1 rounded ${activeIdx === groupValue.length - 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-primary text-white cursor-pointer'}`}>Next</button>
                       </div>
                     </div>
                   </div>
                 )}
                 {groupValue.length > 0 && (
-                  <button type="button" onClick={handleAdd} className="mt-2 px-3 py-1 bg-primary text-white rounded">Add Member</button>
+                  <button type="button" onClick={handleAdd} className="mt-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Member</button>
                 )}
               </div>
             );
@@ -512,7 +405,6 @@ const CardForm: React.FC<CardFormProps> = ({
                     </label>
                   ))}
                 </div>
-                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -550,7 +442,6 @@ const CardForm: React.FC<CardFormProps> = ({
                     </label>
                   ))}
                 </div>
-                {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -639,7 +530,7 @@ const CardForm: React.FC<CardFormProps> = ({
                       setComboboxActiveIndex(-1);
                     }
                   }}
-                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-white transition`}
+                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-green-50 focus:bg-white transition focus:outline-none`}
                 />
 
                 {isOpen && (
@@ -698,12 +589,12 @@ const CardForm: React.FC<CardFormProps> = ({
                     handleConfirmField(field, e.target.value);
                   }}
                   onBlur={() => handleConfirmField(field)}
-                  className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-white transition`}
+                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
                 >
                   <option value="" disabled>
                     {placeholderText}
                   </option>
-                  {field.options.map((opt) => (
+                  {field.options && field.options.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -721,24 +612,44 @@ const CardForm: React.FC<CardFormProps> = ({
                 {field.label} {field.required && <span className="text-red-500">*</span>}
                 {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
               </label>
-              <input
-                id={field.name}
-                name={field.name}
-                type={field.type}
-                required={field.required}
-                value={value}
-                onChange={e => onChange(field.name, e.target.value)}
-                onBlur={() => handleConfirmField(field)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    (e.currentTarget as HTMLInputElement).blur();
-                  }
-                }}
-                className={`w-full px-4 py-2 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651] bg-green-50 focus:bg-white transition`}
-                placeholder={field.placeholder}
-              />
-              {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+              {field.type === "date" ? (
+                <DatePicker
+                  id={field.name}
+                  name={field.name}
+                  selected={value ? new Date(value) : null}
+                  onChange={date => {
+                    onChange(field.name, date ? date.toISOString().split('T')[0] : "");
+                    handleConfirmField(field, date ? date.toISOString().split('T')[0] : "");
+                  }}
+                  onBlur={() => handleConfirmField(field)}
+                  dateFormat="yyyy-MM-dd"
+                  placeholderText={field.placeholder || "mm/dd/yyyy"}
+                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  calendarClassName="om-datepicker-popup"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  popperPlacement="bottom"
+                />
+              ) : (
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type}
+                  required={field.required}
+                  value={value}
+                  onChange={e => onChange(field.name, e.target.value)}
+                  onBlur={() => handleConfirmField(field)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLInputElement).blur();
+                    }
+                  }}
+                  className={`w-full px-4 py-2 border ${error ? 'border-green-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  placeholder={field.placeholder}
+                />
+              )}
             </div>
           );
           })}
@@ -750,7 +661,7 @@ const CardForm: React.FC<CardFormProps> = ({
             type="button"
             onClick={handleBackClick}
             disabled={backDisabled}
-            className={`px-4 py-2 rounded ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300'}`}
+            className={`w-[45%] px-4 py-2 rounded ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300 cursor-pointer'}`}
           >
             Back
           </button>
@@ -763,7 +674,7 @@ const CardForm: React.FC<CardFormProps> = ({
             onMouseUp={handleNextMouseUp}
             onMouseLeave={handleNextMouseLeave}
             disabled={autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled}
-            className={`mt-0 ${showBackButton ? 'flex-1' : 'w-full'} py-2 px-4 bg-gradient-to-r from-[#00A651] to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${(autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) ? ' opacity-50 cursor-not-allowed' : ''} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+            className={`w-[45%] mt-0 py-2 px-4 bg-linear-to-r from-primary to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${(autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer'} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
             style={{ letterSpacing: 0.5 }}
           >
             {nextLabel}
@@ -772,6 +683,7 @@ const CardForm: React.FC<CardFormProps> = ({
       </div>
       <div className="w-full mt-3 text-xs text-gray-500 text-center">
         Fields marked with <span className="text-red-500">*</span> are compulsory.
+      </div>
       </div>
     </div>
   );

@@ -3,12 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { createSession } from "../../services/api";
 import { type TopCategoryId } from "./productTree";
 import type { ConversationSnapshot } from "../../screens/ConversationScreen";
-import ChatHeader from "./ChatHeader";
 import FadeWrapper from "./FadeWrapper";
 import HomeScreen from "../../screens/HomeScreen";
 import ConversationScreen from "../../screens/ConversationScreen";
 import { ChatScreen } from "../../screens/ChatScreen";
-import QuoteFormScreen from "../../screens/QuoteFormScreen";
 import ProductScreen from "../../screens/ProductScreen";
 
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
@@ -28,7 +26,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   };
 
   // UI and chat state
-  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations" | "quote">("home");
+  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations">("home");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [chatSessionKey, setChatSessionKey] = useState(0);
@@ -65,20 +63,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
       })();
     }
   }, [screen, userId, sessionId]);
-
-  const handleFormSubmission = () => {
-    const confirmationMessage = {
-      id: `form-confirm-${Date.now()}`,
-      type: "text" as const,
-      sender: "bot" as const,
-      text: "Thank you! Your details have been submitted successfully. We'll get back to you shortly.",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    };
-    
-    latestMessagesRef.current = [...latestMessagesRef.current, confirmationMessage];
-    setChatSessionKey((k) => k + 1);
-    setScreen("chat");
-  };
 
   const resetChat = () => {
     setSelectedProduct(null);
@@ -160,14 +144,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         transition: "width 200ms ease",
       }}
     >
-      {/* Main header: show for all screens except home */}
-      {screen !== "home" && (
-        <ChatHeader
-          title="Mutual Intelligence Assistant"
-          onBack={screen === "products" ? () => setScreen("home") : undefined}
-          onClose={onClose}
-        />
-      )}
       {/* Screens */}
       <div className="flex-1 relative">
         {/* HOME */}
@@ -193,6 +169,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             onStartNew={() => startNewConversation()}
             onOpenConversation={openConversation}
             onDeleteConversation={deleteConversation}
+            onClose={() => {
+              saveOrArchiveConversationIfAny();
+              onClose();
+            }}
           />
         </FadeWrapper>
         <FadeWrapper isVisible={screen === "chat"}>
@@ -221,16 +201,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
               latestMessagesRef.current = messages;
               setLatestMessages(messages);
             }}
-            onShowQuoteForm={() => setScreen("quote")}
             isExpanded={isExpanded}
             onToggleExpand={() => setIsExpanded((prev) => !prev)}
-          />
-        </FadeWrapper>
-        <FadeWrapper isVisible={screen === "quote"}>
-          <QuoteFormScreen 
-            selectedProduct={selectedProduct}
-            userId={userId}
-            onFormSubmitted={handleFormSubmission}
           />
         </FadeWrapper>
         {/* PRODUCTS */}
@@ -239,6 +211,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             <ProductScreen
               categoryId={selectedCategoryId}
               onBack={() => setScreen("home")}
+              onClose={() => {
+                saveOrArchiveConversationIfAny();
+                onClose();
+              }}
               onSendProduct={(product) => {
                 saveOrArchiveConversationIfAny();
                 setActiveConversationId(null);

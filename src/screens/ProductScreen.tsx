@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { IoClose } from "react-icons/io5";
 import {
   BUSINESS_SUBCATEGORIES,
   PRODUCT_CATEGORIES,
@@ -13,6 +14,7 @@ import {
 interface ProductScreenProps {
   categoryId: TopCategoryId;
   onBack: () => void;
+  onClose: () => void;
   onSendProduct?: (product: string) => void;
 }
 
@@ -22,7 +24,7 @@ const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
   savings: "Savings & Investment",
 };
 
-export default function ProductScreen({ categoryId, onBack, onSendProduct }: ProductScreenProps) {
+export default function ProductScreen({ categoryId, onBack, onClose, onSendProduct }: ProductScreenProps) {
   const categoryNode = findProductNodeById(categoryId);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
   const [selectedBusinessSubcategory, setSelectedBusinessSubcategory] =
@@ -69,6 +71,15 @@ export default function ProductScreen({ categoryId, onBack, onSendProduct }: Pro
           ←
         </button>
         <h2 className="text-lg font-semibold">{headerLabel}</h2>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xl cursor-pointer"
+          aria-label="Close"
+        >
+          <IoClose />
+        </button>
       </div>
 
       {/* PRODUCTS */}

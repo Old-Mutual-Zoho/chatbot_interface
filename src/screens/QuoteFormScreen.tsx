@@ -1,5 +1,3 @@
-
-
 import React, { useState } from "react";
 import { startGuidedQuote } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
@@ -12,9 +10,18 @@ interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
   onFormSubmitted?: () => void;
+  embedded?: boolean;
 }
 
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, onFormSubmitted }) => {
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, onFormSubmitted, embedded = false }) => {
+  const getDescriptionForTitle = (title: string | undefined) => {
+    const normalized = (title ?? "").trim().toLowerCase();
+    if (normalized === "get a quote") {
+      return "Provide a few details so we can tailor your quote.";
+    }
+    return undefined;
+  };
+
   // All hooks must be called unconditionally and in the same order
   const [phase, setPhase] = useState<'main' | 'product'>('main');
   const [mainStep, setMainStep] = useState(0);
@@ -122,16 +129,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   if (selectedProduct === 'Serenicare') {
     const serenicareMainSteps = serenicareMainFormSteps;
+    const currentTitle = phase === 'main' ? serenicareMainSteps[mainStep]?.title : serenicareFormSteps[productStep]?.title;
+    const description = getDescriptionForTitle(currentTitle);
     return (
-      <div className="flex flex-col h-full bg-white">
-        <div className="p-4 mt-6">
-          <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
-          <p className="text-center text-gray-600 mb-3 text-sm">
-            To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
-          </p>
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-6"}>
           {phase === 'main' && (
             <CardForm
               title={serenicareMainSteps[mainStep].title}
+              description={description}
               fields={serenicareMainSteps[mainStep].fields}
               values={mainFormData}
               onChange={handleMainChange}
@@ -145,6 +151,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
             <>
                <CardForm
                 title={serenicareFormSteps[productStep].title}
+                description={description}
                 fields={serenicareFormSteps[productStep].fields}
                 values={productFormData}
                 onChange={handleProductChange}
@@ -169,9 +176,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   if (!selectedProduct || allSteps.length === 0) {
     return (
-      <div className="flex flex-col h-full bg-white">
-        <div className="p-4 mt-12">
-          <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
           <p className="text-center text-gray-600 mb-1 text-sm">
             Please select a product to continue.
           </p>
@@ -180,15 +186,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     );
   }
 
+  const description = getDescriptionForTitle(allSteps[step]?.title);
+
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-4 mt-12">
-          <h2 className="text-2xl font-bold mb-1 text-primary text-center">Get My Quote</h2>
-          <p className="text-center text-gray-600 mb-1 text-sm">
-            To get your personalized quote, please provide the information below. This helps us tailor your quote just for you.
-          </p>
+    <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+      <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
         <CardForm
           title={allSteps[step].title}
+          description={description}
           fields={allSteps[step].fields}
           values={{ ...formData, selectedProduct: selectedProduct || "" }}
           onChange={handleChange}

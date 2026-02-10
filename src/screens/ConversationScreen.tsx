@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { IoChevronBack, IoChatbubbles, IoHome, IoTrashOutline } from "react-icons/io5";
+import { IoChevronBack, IoChatbubbles, IoClose, IoHome, IoTrashOutline } from "react-icons/io5";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { ChatMessage } from "../components/chatbot/types";
 
@@ -30,12 +30,14 @@ export default function ConversationScreen({
   onStartNew,
   onOpenConversation,
   onDeleteConversation,
+  onClose,
 }: {
   conversations: ConversationSnapshot[];
   onBack: () => void;
   onStartNew: () => void;
   onOpenConversation: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
+  onClose: () => void;
 }) {
   const sorted = useMemo(
     () => [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -49,6 +51,10 @@ export default function ConversationScreen({
           <IoChevronBack />
         </button>
         <h2 className="text-lg font-semibold">Conversations</h2>
+        <div className="flex-1" />
+        <button onClick={onClose} className="text-xl cursor-pointer" aria-label="Close">
+          <IoClose />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
