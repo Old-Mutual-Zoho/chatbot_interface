@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { createSession } from "../../services/api";
 import { type TopCategoryId } from "./productTree";
@@ -10,13 +9,16 @@ import { ChatScreen } from "../../screens/ChatScreen";
 import ProductScreen from "../../screens/ProductScreen";
 
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
-  // Local conversation storage
+  // Main wrapper for the chatbot screens.
+
+  // Key used to save chats in localStorage.
   const STORAGE_KEY = "om_chatbot_conversations_v1";
   const loadConversations = (): ConversationSnapshot[] => {
     try {
       if (typeof window === "undefined") return [];
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return [];
+      // If the saved data is broken, just start fresh.
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return [];
       return parsed as ConversationSnapshot[];
@@ -25,31 +27,41 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   };
 
-  // UI and chat state
+  // Simple local router for the widget.
   const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations">("home");
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+
+  // Used as a key to reset ChatScreen.
   const [chatSessionKey, setChatSessionKey] = useState(0);
+
+  // Saved conversations.
   const [conversations, setConversations] = useState<ConversationSnapshot[]>(() => loadConversations());
+
+  // Keep the latest messages so we can save them when leaving chat.
   const latestMessagesRef = useRef<ConversationSnapshot["messages"]>([]);
   const [latestMessages, setLatestMessages] = useState<ConversationSnapshot["messages"]>([]);
+
+  // The conversation we are viewing (if any).
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
+  // Toggle the wide view.
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Backend session state
+  // Backend session ids.
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Persist conversations to localStorage
+  // Save conversations when they change.
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
     } catch {
-      // Ignore storage quota / private mode errors
+      // Ignore storage errors.
     }
   }, [conversations]);
 
-  // Create backend session when chat opens
+  // Create a backend session when chat opens.
   useEffect(() => {
     if (screen === "chat" && !userId && !sessionId) {
       (async () => {
@@ -58,7 +70,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
           setUserId(user_id);
           setSessionId(session_id);
         } catch {
-          // Optionally handle error
+          // Ignore errors.
         }
       })();
     }
@@ -77,12 +89,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
 
   const saveOrArchiveConversationIfAny = () => {
     const messages = latestMessagesRef.current;
+
+    // Do not save empty chats.
     const hasUserText = messages.some(
       (m) => m.sender === "user" && m.type === "text" && typeof m.text === "string" && m.text.trim() !== "",
     );
     if (!hasUserText) return;
 
-    // If we are currently viewing an existing conversation, update it in-place.
+    // If we opened a saved chat, update it.
     if (activeConversationId) {
       const updatedAt = Date.now();
       setConversations((prev) =>

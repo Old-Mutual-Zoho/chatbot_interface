@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
+
+// Guided option buttons shown as a bot message.
 
 export type ActionOption = {
   label: string;
@@ -13,6 +15,7 @@ type ActionCardProps = {
 };
 
 export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loading, lastSelected }) => {
+  // Lock after first click to avoid double submits.
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   return (
@@ -31,6 +34,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
       }}
     >
       {options.map((opt, idx) => {
+        // Keep the chosen option highlighted during loading.
         const isActive = (activeIdx === idx) || (lastSelected && opt.value === lastSelected);
         return (
           <button
@@ -54,8 +58,10 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
             }}
             onClick={() => {
               setActiveIdx(idx);
+              // Brief delay so the active state is visible.
               setTimeout(() => onSelect(opt), 200);
             }}
+            // Disable while loading and after the first click.
             disabled={loading || activeIdx !== null}
           >
             {opt.label}

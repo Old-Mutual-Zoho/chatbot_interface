@@ -1,14 +1,19 @@
 export interface ProductNode {
+  // A short id we use in code.
   id: string;
+  // The name the user sees.
   label: string;
+  // Child items (if any).
   children?: ProductNode[];
 }
 
+// Main categories shown in the product list.
 export type TopCategoryId = "personal" | "business" | "savings";
 
+// Find a node in the tree by id.
 export function findProductNodeById(
   id: string,
-  nodes: ProductNode[] = productTree,
+  nodes: ProductNode[],
 ): ProductNode | undefined {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -20,6 +25,7 @@ export function findProductNodeById(
   return undefined;
 }
 
+// The product tree used by the UI.
 export const productTree: ProductNode[] = [
   {
     id: "personal",

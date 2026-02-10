@@ -8,6 +8,7 @@ import {
 } from "../components/chatbot/data/products";
 import {
   findProductNodeById,
+  productTree,
   type TopCategoryId,
 } from "../components/chatbot/productTree";
 
@@ -25,7 +26,7 @@ const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
 };
 
 export default function ProductScreen({ categoryId, onBack, onClose, onSendProduct }: ProductScreenProps) {
-  const categoryNode = findProductNodeById(categoryId);
+  const categoryNode = findProductNodeById(categoryId, productTree);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
   const [selectedBusinessSubcategory, setSelectedBusinessSubcategory] =
     useState<BusinessSubcategoryId | null>(null);

@@ -4,10 +4,11 @@ import { IoClose } from "react-icons/io5";
 import AiProfileImage from "../../assets/ai-profile.jpeg";
 
 export default function ChatbotWidget() {
+  // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
 
-  // Show the "We're Online" teaser 4s after page load
+  // Teaser appears shortly after load to invite the user in.
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowTeaser(true);
@@ -16,15 +17,13 @@ export default function ChatbotWidget() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Sync teaser visibility with widget open/close state
+  // Keep teaser and panel mutually exclusive.
   const handleToggleOpen = () => {
     const nextOpen = !open;
     setOpen(nextOpen);
     if (nextOpen) {
-      // Opening chat: hide teaser
       setShowTeaser(false);
     } else {
-      // Closing chat: bring teaser back (with animation)
       setShowTeaser(true);
     }
   };
@@ -41,6 +40,7 @@ export default function ChatbotWidget() {
                 type="button"
                 aria-label="Close online message"
                 onClick={(e) => {
+                  // Don’t toggle the widget when dismissing the teaser.
                   e.stopPropagation();
                   setShowTeaser(false);
                 }}
