@@ -58,7 +58,7 @@ export function useChatWebSocket(userId: string) {
         if (data.response && data.session_id) {
           setLastMessage(data as ChatResponsePayload);
         } else {
-          // You may also handle { error: ... } shapes here
+          // You may also handle { error: ... } 
           console.warn("Non-chat payload:", data);
         }
       } catch (e) {

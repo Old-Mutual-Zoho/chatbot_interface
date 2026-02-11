@@ -1,4 +1,5 @@
 import { useReducer, useRef, useEffect } from "react";
+// import type { ChatMessage } from "../types";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
@@ -10,8 +11,6 @@ import type { ExtendedChatMessage } from "../components/chatbot/messages/actionC
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 
-
-// Returns current time as HH:MM string
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 
@@ -63,47 +62,12 @@ type Action =
 
 
 
-
-  // Initializes chat state for guided or free chat flows
   const initialState = (opts: ChatInitOptions): State => {
-    const { selectedProduct, isGuidedFlow } = opts;
-    const initialMessages = opts.initialMessages;
-    if (initialMessages && initialMessages.length > 0) {
-      return {
-        messages: initialMessages,
-        availableOptions: ACTION_OPTIONS,
-        showWelcomeCard: true,
-        showActionCard: false,
-        inputValue: "",
-        isSending: false,
-        isGuidedFlow,
-        loading: false,
-        lastSelected: null,
-        isPurchasing: false,
-        isPaymentMode: false,
-        showQuoteForm: false,
-        quoteFormKey: 0,
-      };
-    }
-    const welcomeMsg: ChatMessageWithTimestamp = {
-      id: "welcome-1",
-      type: "custom-welcome",
-      sender: "bot",
-      text: "",
-      timestamp: getTimeString(),
-    };
-    const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
-    if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
-      messages.push({
-        id: `product-${Date.now()}`,
-        type: "text",
-        sender: "user",
-        text: selectedProduct,
-        timestamp: getTimeString(),
-      });
-    }
+  const { selectedProduct, isGuidedFlow } = opts;
+  const initialMessages = opts.initialMessages;
+  if (initialMessages && initialMessages.length > 0) {
     return {
-      messages,
+      messages: initialMessages,
       availableOptions: ACTION_OPTIONS,
       showWelcomeCard: true,
       showActionCard: false,
@@ -117,13 +81,45 @@ type Action =
       showQuoteForm: false,
       quoteFormKey: 0,
     };
+  }
+  const welcomeMsg: ChatMessageWithTimestamp = {
+    id: "welcome-1",
+    type: "custom-welcome",
+    sender: "bot",
+    text: "",
+    timestamp: getTimeString(),
   };
+  const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
+  if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
+    messages.push({
+      id: `product-${Date.now()}`,
+      type: "text",
+      sender: "user",
+      text: selectedProduct,
+      timestamp: getTimeString(),
+    });
+  }
+  return {
+    messages,
+    availableOptions: ACTION_OPTIONS,
+    showWelcomeCard: true,
+    showActionCard: false,
+    inputValue: "",
+    isSending: false,
+    isGuidedFlow,
+    loading: false,
+    lastSelected: null,
+    isPurchasing: false,
+    isPaymentMode: false,
+    showQuoteForm: false,
+    quoteFormKey: 0,
+  };
+};
 
-// Main reducer for chat state transitions
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "RESET": {
-      // Reset chat state when product changes
+      // Pass correct ChatInitOptions to initialState
       return initialState({
         selectedProduct: action.selectedProduct,
         isGuidedFlow: !!action.selectedProduct,
@@ -133,7 +129,6 @@ function reducer(state: State, action: Action): State {
       return { ...state, inputValue: action.payload };
     }
     case "SEND_MESSAGE": {
-      // Add user message and show loading bubble
       if (state.inputValue.trim() === "") return state;
       const userMessage: ChatMessageWithTimestamp = {
         id: Date.now().toString(),
@@ -157,7 +152,6 @@ function reducer(state: State, action: Action): State {
       };
     }
     case "RECEIVE_BOT_REPLY": {
-      // Replace loading bubble with bot reply
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       const botReply: ChatMessageWithTimestamp = {
         id: `${Date.now()}-bot`,
@@ -527,11 +521,7 @@ interface ChatScreenProps {
   onToggleExpand?: () => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps & {
-  onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void;
-  initialMessages?: ChatMessageWithTimestamp[];
-  renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
-}> = ({
+export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
   onBackClick,
   onCloseClick,
   selectedProduct,
@@ -541,8 +531,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
   isExpanded,
   onToggleExpand,
   onMessagesChange,
-  initialMessages,
-  renderCustomContent
+  initialMessages
 }) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
@@ -554,7 +543,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
-  // Fetches bot response from backend for a given user message or option
+  // This function now calls the backend for real responses
   const fetchBotResponse = async (option: string) => {
     if (!userId || !sessionId) {
       return "Connecting to chat...";
@@ -599,7 +588,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
 
 
 
-  // Reset chat state when selectedProduct changes
+  // Reset all chat state when selectedProduct changes
   useEffect(() => {
     dispatch({ type: "RESET", selectedProduct });
     const followupTimeout = setTimeout(() => {
@@ -615,7 +604,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     return () => clearTimeout(followupTimeout);
   }, [selectedProduct]);
 
-  // Scroll to bottom and notify parent on message change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     if (onMessagesChange) {
@@ -623,14 +611,12 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   }, [state.messages, onMessagesChange]);
 
-  // Scroll to quote form when shown
   useEffect(() => {
     if (state.showQuoteForm) {
       quoteFormRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [state.showQuoteForm, state.quoteFormKey]);
 
-  // Focus input on mount and after sending
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -642,7 +628,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
 
 
 
-  // Handles sending a user message and fetching bot reply
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
     dispatch({ type: "SEND_MESSAGE" });
@@ -652,7 +637,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     })();
   };
 
-  // Handles Enter key to send message
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !state.isSending) {
       e.preventDefault();
@@ -660,7 +644,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
-  // Handles selection of an action card option (guided flow)
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "quote") {
       dispatch({ type: "SHOW_QUOTE_FORM" });
@@ -712,7 +695,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }, 900);
   };
 
-  // Handles payment method selection in buy flow
   const handleSelectPaymentMethod = (method: "mobile" | "card" | "flexipay") => {
     dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
 
@@ -732,7 +714,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
-  // Handles mobile money payment submission
   const handleSubmitMobilePayment = async (phoneNumber: string) => {
     if (!selectedProduct || !userId || !sessionId) {
       dispatch({
@@ -781,7 +762,6 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
-  // Handles confirmation of payment after mobile money
   const handleConfirmPayment = async () => {
     if (!selectedProduct || !userId || !sessionId) {
       dispatch({
@@ -855,150 +835,145 @@ export const ChatScreen: React.FC<ChatScreenProps & {
         </div>
       </div>
 
-      {/* Messages/Form Container */}
+      {/* Messages Container */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
-        {renderCustomContent
-          ? renderCustomContent({ selectedProduct, userId })
-          : <>
-            {state.messages
-              .filter((msg) => {
-                // In payment mode, only show payment-related messages
-                if (state.isPaymentMode) {
-                  return (
-                    msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                    msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                    msg.type === "payment-method-selector" ||
-                    msg.type === "mobile-money-form" ||
-                    msg.type === "payment-loading-screen" ||
-                    msg.type === "loading" ||
-                    (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                    (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-                  );
-                }
-                return true;
-              })
-              .map((message, idx) => {
-                if (message.type === "custom-welcome" && !state.showWelcomeCard) {
-                  return null;
-                }
-                if (message.type === "custom-welcome" && state.showWelcomeCard) {
-                  return (
-                    <div key={message.id} className="flex justify-start animate-fade-in mb-4">
-                      <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
-                        <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                        <div className="px-4 pt-3 pb-2">
-                          <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
-                          <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
-                          <div className="flex justify-end">
-                            <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
-                          </div>
-                        </div>
-                      </div>
+        {state.messages
+          .filter((msg) => {
+            // In payment mode, only show payment-related messages
+            if (state.isPaymentMode) {
+              return (
+                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                msg.type === "payment-method-selector" ||
+                msg.type === "mobile-money-form" ||
+                msg.type === "payment-loading-screen" ||
+                msg.type === "loading" ||
+                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+              );
+            }
+            return true;
+          })
+          .map((message, idx) => {
+          if (message.type === "custom-welcome" && !state.showWelcomeCard) {
+            return null;
+          }
+          if (message.type === "custom-welcome" && state.showWelcomeCard) {
+            return (
+              <div key={message.id} className="flex justify-start animate-fade-in mb-4">
+                <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
+                  <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                  <div className="px-4 pt-3 pb-2">
+                    <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                    <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
+                    <div className="flex justify-end">
+                      <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
                     </div>
-                  );
-                }
-                // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
-                const filteredMessages = state.isPaymentMode
-                  ? state.messages.filter((msg) => 
-                      msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                      msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                      msg.type === "payment-method-selector" ||
-                      msg.type === "mobile-money-form" ||
-                      msg.type === "payment-loading-screen" ||
-                      msg.type === "loading" ||
-                      (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                      (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-                    )
-                  : state.messages;
-                const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
-                let spacingClass = "";
-                if (prevMsg) {
-                  // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
-                  const prevSender = isGuidedFlow
-                    ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
-                    : prevMsg.sender;
-                  const currSender = isGuidedFlow
-                    ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
-                    : message.sender;
-                  if (prevSender !== currSender) {
-                    spacingClass = "mb-6"; // More space between different senders
-                  } else if (idx !== filteredMessages.length - 1) {
-                    spacingClass = "mb-2"; // Minimal space between same sender
-                  }
-                }
-
-                // Only show action card and guided UI if isGuidedFlow is true
-                const shouldShowActionCard =
-                  isGuidedFlow &&
-                  state.showActionCard &&
-                  state.availableOptions.length > 0 &&
-                  (
-                    (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
-                    (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
-                  );
-                if (shouldShowActionCard) {
-                  return (
-                    <>
-                      <div key={message.id} className={spacingClass}>
-                        <MessageRenderer
-                          message={message}
-                          onConfirmPayment={handleConfirmPayment}
-                          onSelectPaymentMethod={handleSelectPaymentMethod}
-                          onSubmitMobilePayment={handleSubmitMobilePayment}
-                        />
-                      </div>
-                      <div key={"action-card-" + message.id} className="flex justify-start mt-0">
-                        <MessageRenderer
-                          message={{
-                            id: "dynamic-action-card",
-                            sender: "bot",
-                            type: "action-card",
-                            options: state.availableOptions,
-                          }}
-                          onActionCardSelect={handleActionCardSelect}
-                          onConfirmPayment={handleConfirmPayment}
-                          onSelectPaymentMethod={handleSelectPaymentMethod}
-                          onSubmitMobilePayment={handleSubmitMobilePayment}
-                          loading={state.loading}
-                          lastSelected={state.lastSelected}
-                        />
-                      </div>
-                    </>
-                  );
-                }
-                if (message.type === "action-card") {
-                  // Do not render action cards from the messages array (handled above)
-                  return null;
-                }
-                // Add standard spacing between messages
-                return (
-                  <div key={message.id} className={spacingClass}>
-                    <MessageRenderer
-                      message={message}
-                      onConfirmPayment={handleConfirmPayment}
-                      onSelectPaymentMethod={handleSelectPaymentMethod}
-                      onSubmitMobilePayment={handleSubmitMobilePayment}
-                    />
                   </div>
-                );
-              })}
-
-            {state.showQuoteForm && (
-              <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
-                <div className="w-full">
-                  <QuoteFormScreen
-                    key={state.quoteFormKey}
-                    embedded
-                    selectedProduct={selectedProduct}
-                    userId={userId}
-                    onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
-                  />
                 </div>
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </>
-        }
+            );
+          }
+          // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
+          const filteredMessages = state.isPaymentMode
+            ? state.messages.filter((msg) => 
+                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                msg.type === "payment-method-selector" ||
+                msg.type === "mobile-money-form" ||
+                msg.type === "payment-loading-screen" ||
+                msg.type === "loading" ||
+                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+              )
+            : state.messages;
+          const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+          let spacingClass = "";
+          if (prevMsg) {
+            // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
+            const prevSender = isGuidedFlow
+              ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+              : prevMsg.sender;
+            const currSender = isGuidedFlow
+              ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+              : message.sender;
+            if (prevSender !== currSender) {
+              spacingClass = "mb-6"; // More space between different senders
+            } else if (idx !== filteredMessages.length - 1) {
+              spacingClass = "mb-2"; // Minimal space between same sender
+            }
+          }
+
+          // Only show action card and guided UI if isGuidedFlow is true
+          const shouldShowActionCard =
+            isGuidedFlow &&
+            state.showActionCard &&
+            state.availableOptions.length > 0 &&
+            (
+              (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
+              (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+            );
+          if (shouldShowActionCard) {
+            return (
+              <>
+                <div key={message.id} className={spacingClass}>
+                  <MessageRenderer
+                    message={message}
+                    onConfirmPayment={handleConfirmPayment}
+                    onSelectPaymentMethod={handleSelectPaymentMethod}
+                    onSubmitMobilePayment={handleSubmitMobilePayment}
+                  />
+                </div>
+                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                  <MessageRenderer
+                    message={{
+                      id: "dynamic-action-card",
+                      sender: "bot",
+                      type: "action-card",
+                      options: state.availableOptions,
+                    }}
+                    onActionCardSelect={handleActionCardSelect}
+                    onConfirmPayment={handleConfirmPayment}
+                    onSelectPaymentMethod={handleSelectPaymentMethod}
+                    onSubmitMobilePayment={handleSubmitMobilePayment}
+                    loading={state.loading}
+                    lastSelected={state.lastSelected}
+                  />
+                </div>
+              </>
+            );
+          }
+          if (message.type === "action-card") {
+            // Do not render action cards from the messages array (handled above)
+            return null;
+          }
+          // Add standard spacing between messages
+          return (
+            <div key={message.id} className={spacingClass}>
+              <MessageRenderer
+                message={message}
+                onConfirmPayment={handleConfirmPayment}
+                onSelectPaymentMethod={handleSelectPaymentMethod}
+                onSubmitMobilePayment={handleSubmitMobilePayment}
+              />
+            </div>
+          );
+        })}
+
+        {state.showQuoteForm && (
+          <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
+            <div className="w-full">
+              <QuoteFormScreen
+                key={state.quoteFormKey}
+                embedded
+                selectedProduct={selectedProduct}
+                userId={userId}
+                onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+              />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}

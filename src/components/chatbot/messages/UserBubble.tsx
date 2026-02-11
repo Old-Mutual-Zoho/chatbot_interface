@@ -1,5 +1,3 @@
-
-
 import type { ChatMessage } from "../types";
 import UserIcon from "../../../assets/user.png";
 
