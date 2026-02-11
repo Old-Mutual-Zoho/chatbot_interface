@@ -521,7 +521,11 @@ interface ChatScreenProps {
   onToggleExpand?: () => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
+export const ChatScreen: React.FC<ChatScreenProps & {
+  onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void;
+  initialMessages?: ChatMessageWithTimestamp[];
+  renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
+}> = ({
   onBackClick,
   onCloseClick,
   selectedProduct,
@@ -531,7 +535,8 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   isExpanded,
   onToggleExpand,
   onMessagesChange,
-  initialMessages
+  initialMessages,
+  renderCustomContent
 }) => {
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
@@ -835,145 +840,150 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         </div>
       </div>
 
-      {/* Messages Container */}
+      {/* Messages/Form Container */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
-        {state.messages
-          .filter((msg) => {
-            // In payment mode, only show payment-related messages
-            if (state.isPaymentMode) {
-              return (
-                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                msg.type === "payment-method-selector" ||
-                msg.type === "mobile-money-form" ||
-                msg.type === "payment-loading-screen" ||
-                msg.type === "loading" ||
-                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-              );
-            }
-            return true;
-          })
-          .map((message, idx) => {
-          if (message.type === "custom-welcome" && !state.showWelcomeCard) {
-            return null;
-          }
-          if (message.type === "custom-welcome" && state.showWelcomeCard) {
-            return (
-              <div key={message.id} className="flex justify-start animate-fade-in mb-4">
-                <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
-                  <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                  <div className="px-4 pt-3 pb-2">
-                    <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
-                    <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
-                    <div className="flex justify-end">
-                      <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+        {renderCustomContent
+          ? renderCustomContent({ selectedProduct, userId })
+          : <>
+            {state.messages
+              .filter((msg) => {
+                // In payment mode, only show payment-related messages
+                if (state.isPaymentMode) {
+                  return (
+                    msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                    msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                    msg.type === "payment-method-selector" ||
+                    msg.type === "mobile-money-form" ||
+                    msg.type === "payment-loading-screen" ||
+                    msg.type === "loading" ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+                  );
+                }
+                return true;
+              })
+              .map((message, idx) => {
+                if (message.type === "custom-welcome" && !state.showWelcomeCard) {
+                  return null;
+                }
+                if (message.type === "custom-welcome" && state.showWelcomeCard) {
+                  return (
+                    <div key={message.id} className="flex justify-start animate-fade-in mb-4">
+                      <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
+                        <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                        <div className="px-4 pt-3 pb-2">
+                          <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                          <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
+                          <div className="flex justify-end">
+                            <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  );
+                }
+                // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
+                const filteredMessages = state.isPaymentMode
+                  ? state.messages.filter((msg) => 
+                      msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                      msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                      msg.type === "payment-method-selector" ||
+                      msg.type === "mobile-money-form" ||
+                      msg.type === "payment-loading-screen" ||
+                      msg.type === "loading" ||
+                      (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                      (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+                    )
+                  : state.messages;
+                const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+                let spacingClass = "";
+                if (prevMsg) {
+                  // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
+                  const prevSender = isGuidedFlow
+                    ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+                    : prevMsg.sender;
+                  const currSender = isGuidedFlow
+                    ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+                    : message.sender;
+                  if (prevSender !== currSender) {
+                    spacingClass = "mb-6"; // More space between different senders
+                  } else if (idx !== filteredMessages.length - 1) {
+                    spacingClass = "mb-2"; // Minimal space between same sender
+                  }
+                }
+
+                // Only show action card and guided UI if isGuidedFlow is true
+                const shouldShowActionCard =
+                  isGuidedFlow &&
+                  state.showActionCard &&
+                  state.availableOptions.length > 0 &&
+                  (
+                    (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
+                    (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+                  );
+                if (shouldShowActionCard) {
+                  return (
+                    <>
+                      <div key={message.id} className={spacingClass}>
+                        <MessageRenderer
+                          message={message}
+                          onConfirmPayment={handleConfirmPayment}
+                          onSelectPaymentMethod={handleSelectPaymentMethod}
+                          onSubmitMobilePayment={handleSubmitMobilePayment}
+                        />
+                      </div>
+                      <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                        <MessageRenderer
+                          message={{
+                            id: "dynamic-action-card",
+                            sender: "bot",
+                            type: "action-card",
+                            options: state.availableOptions,
+                          }}
+                          onActionCardSelect={handleActionCardSelect}
+                          onConfirmPayment={handleConfirmPayment}
+                          onSelectPaymentMethod={handleSelectPaymentMethod}
+                          onSubmitMobilePayment={handleSubmitMobilePayment}
+                          loading={state.loading}
+                          lastSelected={state.lastSelected}
+                        />
+                      </div>
+                    </>
+                  );
+                }
+                if (message.type === "action-card") {
+                  // Do not render action cards from the messages array (handled above)
+                  return null;
+                }
+                // Add standard spacing between messages
+                return (
+                  <div key={message.id} className={spacingClass}>
+                    <MessageRenderer
+                      message={message}
+                      onConfirmPayment={handleConfirmPayment}
+                      onSelectPaymentMethod={handleSelectPaymentMethod}
+                      onSubmitMobilePayment={handleSubmitMobilePayment}
+                    />
                   </div>
+                );
+              })}
+
+            {state.showQuoteForm && (
+              <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
+                <div className="w-full">
+                  <QuoteFormScreen
+                    key={state.quoteFormKey}
+                    embedded
+                    selectedProduct={selectedProduct}
+                    userId={userId}
+                    onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+                  />
                 </div>
               </div>
-            );
-          }
-          // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
-          const filteredMessages = state.isPaymentMode
-            ? state.messages.filter((msg) => 
-                msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                msg.type === "payment-method-selector" ||
-                msg.type === "mobile-money-form" ||
-                msg.type === "payment-loading-screen" ||
-                msg.type === "loading" ||
-                (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-              )
-            : state.messages;
-          const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
-          let spacingClass = "";
-          if (prevMsg) {
-            // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
-            const prevSender = isGuidedFlow
-              ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
-              : prevMsg.sender;
-            const currSender = isGuidedFlow
-              ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
-              : message.sender;
-            if (prevSender !== currSender) {
-              spacingClass = "mb-6"; // More space between different senders
-            } else if (idx !== filteredMessages.length - 1) {
-              spacingClass = "mb-2"; // Minimal space between same sender
-            }
-          }
-
-          // Only show action card and guided UI if isGuidedFlow is true
-          const shouldShowActionCard =
-            isGuidedFlow &&
-            state.showActionCard &&
-            state.availableOptions.length > 0 &&
-            (
-              (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
-              (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
-            );
-          if (shouldShowActionCard) {
-            return (
-              <>
-                <div key={message.id} className={spacingClass}>
-                  <MessageRenderer
-                    message={message}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                  />
-                </div>
-                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
-                  <MessageRenderer
-                    message={{
-                      id: "dynamic-action-card",
-                      sender: "bot",
-                      type: "action-card",
-                      options: state.availableOptions,
-                    }}
-                    onActionCardSelect={handleActionCardSelect}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                    loading={state.loading}
-                    lastSelected={state.lastSelected}
-                  />
-                </div>
-              </>
-            );
-          }
-          if (message.type === "action-card") {
-            // Do not render action cards from the messages array (handled above)
-            return null;
-          }
-          // Add standard spacing between messages
-          return (
-            <div key={message.id} className={spacingClass}>
-              <MessageRenderer
-                message={message}
-                onConfirmPayment={handleConfirmPayment}
-                onSelectPaymentMethod={handleSelectPaymentMethod}
-                onSubmitMobilePayment={handleSubmitMobilePayment}
-              />
-            </div>
-          );
-        })}
-
-        {state.showQuoteForm && (
-          <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
-            <div className="w-full">
-              <QuoteFormScreen
-                key={state.quoteFormKey}
-                embedded
-                selectedProduct={selectedProduct}
-                userId={userId}
-                onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
-              />
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+            )}
+            <div ref={messagesEndRef} />
+          </>
+        }
       </div>
 
       {/* Input Area */}
