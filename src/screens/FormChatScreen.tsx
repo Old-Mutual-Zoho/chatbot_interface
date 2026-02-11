@@ -1,5 +1,5 @@
 import React from "react";
-import ChatScreen from "./ChatScreen";
+import { ChatScreen } from "./ChatScreen";
 import QuoteFormScreen from "./QuoteFormScreen";
 
 interface FormChatScreenProps {
@@ -20,7 +20,7 @@ const FormChatScreen: React.FC<FormChatScreenProps> = (props) => {
       initialMessages={[]}
       // Always show the quote form on this screen
       // We use a custom key to force remount if needed
-      renderCustomContent={({ selectedProduct, userId }) => (
+      renderCustomContent={({ selectedProduct, userId }: { selectedProduct?: string | null; userId: string | null }) => (
         <div className="flex justify-start animate-fade-in mb-4 w-full">
           <QuoteFormScreen
             embedded
