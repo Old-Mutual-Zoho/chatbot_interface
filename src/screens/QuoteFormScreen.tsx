@@ -10,7 +10,9 @@ interface QuoteFormScreenProps {
   embedded?: boolean;
 }
 
+
 const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, onFormSubmitted, embedded = false }) => {
+  // Returns description for a given form step title
   const getDescriptionForTitle = (title: string | undefined) => {
     const normalized = (title ?? "").trim().toLowerCase();
     if (normalized === "get a quote") {
@@ -19,19 +21,22 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     return undefined;
   };
 
-  // All hooks must be called unconditionally and in the same order.
+  // Step state and form data
   const [step, setStep] = useState<number>(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
 
+  // Compute steps for selected product
   const steps = useMemo(() => {
     if (!selectedProduct) return [];
     return getProductFormSteps(selectedProduct);
   }, [selectedProduct]);
 
+  // Handle field value change
   const handleChange = (name: string, value: string) => {
     setFormData((prev: Record<string, string>) => ({ ...prev, [name]: value }));
   };
 
+  // Handle next/submit action
   const handleNext = async () => {
     if (step < steps.length - 1) {
       setStep((prev) => prev + 1);
@@ -65,13 +70,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       onFormSubmitted?.();
     }
   };
+
+  // Handle back action
   const handleBack = () => {
     if (step > 0) {
       setStep(step - 1);
     }
   };
+
   const isLastStep = step === steps.length - 1;
 
+
+  // Show prompt if no product is selected
   if (!selectedProduct || steps.length === 0) {
     return (
       <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
@@ -86,6 +96,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   const description = getDescriptionForTitle(steps[step]?.title);
 
+  // Render current form step
   return (
     <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
       <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>

@@ -56,7 +56,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   return (
     <div className="flex flex-col w-full h-full bg-white">
 
-      {/* HEADER */}
+      {/* Header: navigation and close */}
       <div className="h-14 bg-primary text-white flex items-center px-4">
         <button
           onClick={() => {
@@ -83,7 +83,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
         </button>
       </div>
 
-      {/* PRODUCTS */}
+      {/* Product/subcategory selection */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
           <div className="text-sm text-gray-500 mb-3">
@@ -98,37 +98,37 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
               const isSelected = selectedProduct === label;
 
               return (
-              <button
-                key={isBusinessSubcategoryList ? (item as string) : label}
-                type="button"
-                onClick={() => {
-                  if (isBusinessSubcategoryList) {
-                    setSelectedBusinessSubcategory(item as BusinessSubcategoryId);
-                    setSelectedProduct(null);
-                    return;
-                  }
-                  setSelectedProduct((current) => {
-                    const newValue = current === label ? null : label;
-                    if (onSendProduct && newValue) {
-                      onSendProduct(newValue);
+                <button
+                  key={isBusinessSubcategoryList ? (item as string) : label}
+                  type="button"
+                  onClick={() => {
+                    if (isBusinessSubcategoryList) {
+                      setSelectedBusinessSubcategory(item as BusinessSubcategoryId);
+                      setSelectedProduct(null);
+                      return;
                     }
-                    return newValue;
-                  });
-                }}
-                title={label}
-                style={
-                  isSelected
-                    ? { backgroundColor: "var(--color-primary-dark)", color: "#FFFFFF" }
-                    : undefined
-                }
-                className={
-                  isSelected
-                    ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate cursor-pointer"
-                    : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
-                }
-              >
-                {label}
-              </button>
+                    setSelectedProduct((current) => {
+                      const newValue = current === label ? null : label;
+                      if (onSendProduct && newValue) {
+                        onSendProduct(newValue);
+                      }
+                      return newValue;
+                    });
+                  }}
+                  title={label}
+                  style={
+                    isSelected
+                      ? { backgroundColor: "var(--color-primary-dark)", color: "#FFFFFF" }
+                      : undefined
+                  }
+                  className={
+                    isSelected
+                      ? "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border transition max-w-full truncate cursor-pointer"
+                      : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
+                  }
+                >
+                  {label}
+                </button>
               );
             })}
           </div>

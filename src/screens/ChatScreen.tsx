@@ -1,5 +1,4 @@
 import { useReducer, useRef, useEffect } from "react";
-// import type { ChatMessage } from "../types";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
@@ -11,6 +10,8 @@ import type { ExtendedChatMessage } from "../components/chatbot/messages/actionC
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 
+
+// Returns current time as HH:MM string
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 
@@ -62,12 +63,47 @@ type Action =
 
 
 
+
+  // Initializes chat state for guided or free chat flows
   const initialState = (opts: ChatInitOptions): State => {
-  const { selectedProduct, isGuidedFlow } = opts;
-  const initialMessages = opts.initialMessages;
-  if (initialMessages && initialMessages.length > 0) {
+    const { selectedProduct, isGuidedFlow } = opts;
+    const initialMessages = opts.initialMessages;
+    if (initialMessages && initialMessages.length > 0) {
+      return {
+        messages: initialMessages,
+        availableOptions: ACTION_OPTIONS,
+        showWelcomeCard: true,
+        showActionCard: false,
+        inputValue: "",
+        isSending: false,
+        isGuidedFlow,
+        loading: false,
+        lastSelected: null,
+        isPurchasing: false,
+        isPaymentMode: false,
+        showQuoteForm: false,
+        quoteFormKey: 0,
+      };
+    }
+    const welcomeMsg: ChatMessageWithTimestamp = {
+      id: "welcome-1",
+      type: "custom-welcome",
+      sender: "bot",
+      text: "",
+      timestamp: getTimeString(),
+    };
+    const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
+    if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
+      messages.push({
+        id: `product-${Date.now()}`,
+        type: "text",
+        sender: "user",
+        text: selectedProduct,
+        timestamp: getTimeString(),
+      });
+    }
     return {
-      messages: initialMessages,
+      messages,
       availableOptions: ACTION_OPTIONS,
       showWelcomeCard: true,
       showActionCard: false,
@@ -81,45 +117,13 @@ type Action =
       showQuoteForm: false,
       quoteFormKey: 0,
     };
-  }
-  const welcomeMsg: ChatMessageWithTimestamp = {
-    id: "welcome-1",
-    type: "custom-welcome",
-    sender: "bot",
-    text: "",
-    timestamp: getTimeString(),
   };
-  const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
-  if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
-    messages.push({
-      id: `product-${Date.now()}`,
-      type: "text",
-      sender: "user",
-      text: selectedProduct,
-      timestamp: getTimeString(),
-    });
-  }
-  return {
-    messages,
-    availableOptions: ACTION_OPTIONS,
-    showWelcomeCard: true,
-    showActionCard: false,
-    inputValue: "",
-    isSending: false,
-    isGuidedFlow,
-    loading: false,
-    lastSelected: null,
-    isPurchasing: false,
-    isPaymentMode: false,
-    showQuoteForm: false,
-    quoteFormKey: 0,
-  };
-};
 
+// Main reducer for chat state transitions
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "RESET": {
-      // Pass correct ChatInitOptions to initialState
+      // Reset chat state when product changes
       return initialState({
         selectedProduct: action.selectedProduct,
         isGuidedFlow: !!action.selectedProduct,
@@ -129,6 +133,7 @@ function reducer(state: State, action: Action): State {
       return { ...state, inputValue: action.payload };
     }
     case "SEND_MESSAGE": {
+      // Add user message and show loading bubble
       if (state.inputValue.trim() === "") return state;
       const userMessage: ChatMessageWithTimestamp = {
         id: Date.now().toString(),
@@ -152,6 +157,7 @@ function reducer(state: State, action: Action): State {
       };
     }
     case "RECEIVE_BOT_REPLY": {
+      // Replace loading bubble with bot reply
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       const botReply: ChatMessageWithTimestamp = {
         id: `${Date.now()}-bot`,
@@ -548,7 +554,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
-  // This function now calls the backend for real responses
+  // Fetches bot response from backend for a given user message or option
   const fetchBotResponse = async (option: string) => {
     if (!userId || !sessionId) {
       return "Connecting to chat...";
@@ -593,7 +599,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
 
 
 
-  // Reset all chat state when selectedProduct changes
+  // Reset chat state when selectedProduct changes
   useEffect(() => {
     dispatch({ type: "RESET", selectedProduct });
     const followupTimeout = setTimeout(() => {
@@ -609,6 +615,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     return () => clearTimeout(followupTimeout);
   }, [selectedProduct]);
 
+  // Scroll to bottom and notify parent on message change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     if (onMessagesChange) {
@@ -616,12 +623,14 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   }, [state.messages, onMessagesChange]);
 
+  // Scroll to quote form when shown
   useEffect(() => {
     if (state.showQuoteForm) {
       quoteFormRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [state.showQuoteForm, state.quoteFormKey]);
 
+  // Focus input on mount and after sending
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -633,6 +642,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
 
 
 
+  // Handles sending a user message and fetching bot reply
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
     dispatch({ type: "SEND_MESSAGE" });
@@ -642,6 +652,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     })();
   };
 
+  // Handles Enter key to send message
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !state.isSending) {
       e.preventDefault();
@@ -649,6 +660,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
+  // Handles selection of an action card option (guided flow)
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "quote") {
       dispatch({ type: "SHOW_QUOTE_FORM" });
@@ -700,6 +712,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }, 900);
   };
 
+  // Handles payment method selection in buy flow
   const handleSelectPaymentMethod = (method: "mobile" | "card" | "flexipay") => {
     dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
 
@@ -719,6 +732,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
+  // Handles mobile money payment submission
   const handleSubmitMobilePayment = async (phoneNumber: string) => {
     if (!selectedProduct || !userId || !sessionId) {
       dispatch({
@@ -767,6 +781,7 @@ export const ChatScreen: React.FC<ChatScreenProps & {
     }
   };
 
+  // Handles confirmation of payment after mobile money
   const handleConfirmPayment = async () => {
     if (!selectedProduct || !userId || !sessionId) {
       dispatch({

@@ -60,7 +60,7 @@ export default function HomeScreen({
       <div className="mt-6 px-4 pb-4">
         <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-sm bg-white">
           <div className="grid grid-cols-3 gap-3">
-            {/* PERSONAL */}
+            {/* Personal category */}
             <button
               onClick={() => onSelectCategory("personal")}
               className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
@@ -77,7 +77,7 @@ export default function HomeScreen({
               </span>
             </button>
 
-            {/* BUSINESS */}
+            {/* Business category */}
             <button
               onClick={() => onSelectCategory("business")}
               className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
@@ -94,7 +94,7 @@ export default function HomeScreen({
               </span>
             </button>
 
-            {/* SAVINGS */}
+            {/* Savings & Investment category */}
             <button
               onClick={() => onSelectCategory("savings")}
               className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"

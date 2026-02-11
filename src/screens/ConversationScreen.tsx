@@ -39,6 +39,8 @@ export default function ConversationScreen({
   onDeleteConversation: (conversationId: string) => void;
   onClose: () => void;
 }) {
+
+  // Sort conversations by most recently updated
   const sorted = useMemo(
     () => [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
     [conversations],
@@ -46,6 +48,7 @@ export default function ConversationScreen({
 
   return (
     <div className="flex flex-col h-full w-full bg-white">
+      {/* Header: navigation and close */}
       <div className="h-14 bg-primary text-white flex items-center px-4">
         <button onClick={onBack} className="mr-3 text-xl cursor-pointer" aria-label="Back">
           <IoChevronBack />
@@ -57,7 +60,9 @@ export default function ConversationScreen({
         </button>
       </div>
 
+      {/* Conversation list */}
       <div className="flex-1 overflow-y-auto p-4 pb-24">
+        {/* Show empty state or list of conversations */}
         {sorted.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6">
             <div className="text-gray-800 font-semibold mb-2">No previous conversations</div>
@@ -82,6 +87,7 @@ export default function ConversationScreen({
               Start new conversation
             </button>
 
+            {/* Render each conversation snapshot */}
             {sorted.map((c) => {
               const lastText = [...c.messages].reverse().find((m) => {
                 if (!isTextMessage(m)) return false;
@@ -136,7 +142,7 @@ export default function ConversationScreen({
         )}
       </div>
 
-      {/* Bottom Nav */}
+      {/* Bottom navigation */}
       <div className="mt-auto bg-gray-50 border-t border-gray-200 px-10 py-4 pl-15 pr-15 flex justify-between items-center">
         <button
           type="button"
