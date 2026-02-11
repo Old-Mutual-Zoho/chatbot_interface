@@ -519,6 +519,7 @@ interface ChatScreenProps {
   sessionLoading?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
@@ -530,6 +531,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   sessionLoading,
   isExpanded,
   onToggleExpand,
+  renderCustomContent,
   onMessagesChange,
   initialMessages
 }) => {
@@ -960,7 +962,9 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           );
         })}
 
-        {state.showQuoteForm && (
+            {renderCustomContent?.({ selectedProduct, userId })}
+
+            {state.showQuoteForm && (
           <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
             <div className="w-full">
               <QuoteFormScreen
