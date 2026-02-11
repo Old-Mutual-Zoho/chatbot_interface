@@ -1,7 +1,6 @@
 import { MOTOR_PRIVATE_VEHICLE_MAKE_OPTIONS } from "../vehicleMakes";
 
 // Motor Private Insurance form steps.
-// This file is only the form setup (no UI code).
 export const motorPrivateQuoteFormSteps = [
 	{
 		title: "Get A Quote",

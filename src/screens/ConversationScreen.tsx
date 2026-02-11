@@ -3,8 +3,10 @@ import { IoChevronBack, IoChatbubbles, IoClose, IoHome, IoTrashOutline } from "r
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { ChatMessage } from "../components/chatbot/types";
 
+// Chat messages with an optional timestamp.
 export type ConversationMessage = ExtendedChatMessage & { timestamp?: string };
 
+// What we store for each conversation.
 export type ConversationSnapshot = {
   id: string;
   createdAt: number;
@@ -14,10 +16,12 @@ export type ConversationSnapshot = {
   messages: ConversationMessage[];
 };
 
+// Helper: is this a text message?
 function isTextMessage(msg: ConversationMessage): msg is ChatMessage & { type: "text"; timestamp?: string } {
   return msg.type === "text";
 }
 
+// Helper: ignore action cards and loading bubbles.
 function isDisplayableMessage(
   msg: ConversationMessage,
 ): msg is Exclude<ConversationMessage, { type: "action-card" } | { type: "loading" }> {
@@ -39,7 +43,6 @@ export default function ConversationScreen({
   onDeleteConversation: (conversationId: string) => void;
   onClose: () => void;
 }) {
-
   // Sort conversations by most recently updated
   const sorted = useMemo(
     () => [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -87,14 +90,17 @@ export default function ConversationScreen({
               Start new conversation
             </button>
 
-            {/* Render each conversation snapshot */}
+            {/* Each saved conversation */}
             {sorted.map((c) => {
+              // Preview: last non-empty text.
               const lastText = [...c.messages].reverse().find((m) => {
                 if (!isTextMessage(m)) return false;
                 return typeof m.text === "string" && m.text.trim() !== "";
               });
 
               const preview = lastText && isTextMessage(lastText) ? lastText.text ?? "" : "";
+
+              // Last updated time.
               const updated = new Date(c.updatedAt).toLocaleString([], {
                 year: "numeric",
                 month: "short",
@@ -103,6 +109,7 @@ export default function ConversationScreen({
                 minute: "2-digit",
               });
 
+              // Count only “real” messages.
               const displayMessages = c.messages.filter(isDisplayableMessage);
 
               return (
@@ -123,6 +130,7 @@ export default function ConversationScreen({
                           type="button"
                           aria-label="Delete conversation"
                           onClick={(e) => {
+                            // Don't open the chat when deleting.
                             e.preventDefault();
                             e.stopPropagation();
                             onDeleteConversation(c.id);

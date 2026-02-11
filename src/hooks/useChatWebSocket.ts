@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-
+// Message shape we send to the backend over WebSocket.
 export interface ChatMessagePayload {
   message?: string;
   session_id?: string | null;
@@ -9,7 +9,7 @@ export interface ChatMessagePayload {
   form_data?: Record<string, unknown> | null;
 }
 
-
+// Message shape we expect back from the backend.
 export interface ChatResponsePayload {
   response: unknown;
   session_id: string;
@@ -20,21 +20,29 @@ export interface ChatResponsePayload {
 type ReadyState = "connecting" | "open" | "closing" | "closed";
 
 export function useChatWebSocket(userId: string) {
+  // Connection status + last server message.
   const [readyState, setReadyState] = useState<ReadyState>("connecting");
   const [lastMessage, setLastMessage] = useState<ChatResponsePayload | null>(null);
+
+  // Keep the WebSocket instance in a ref so it survives re-renders.
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Used to stop reconnect attempts when the hook unmounts.
+  const shouldReconnectRef = useRef(true);
 
-  // Use a ref to always have the latest connect function for reconnect
+  // Keep the latest connect function for the reconnect timer.
   const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
+    // No userId = no socket.
     if (!userId) return;
 
+    // Build a ws:// or wss:// URL from the API base URL.
     const baseUrl = import.meta.env.VITE_API_BASE_URL; // e.g. "https://your-app.railway.app"
     const apiKey = import.meta.env.VITE_API_KEY;
     const wsUrl = `${baseUrl.replace(/^http/, "ws")}/ws/chat?api_key=${encodeURIComponent(apiKey)}`;
 
+    // Open a new WebSocket connection.
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
     setReadyState("connecting");
@@ -43,22 +51,35 @@ export function useChatWebSocket(userId: string) {
 
     ws.onclose = () => {
       setReadyState("closed");
-      // Optional: basic reconnect
-      setTimeout(() => connectRef.current(), 2000);
+      // Simple reconnect after a short delay.
+      if (shouldReconnectRef.current) {
+        setTimeout(() => connectRef.current(), 2000);
+      }
     };
 
     ws.onerror = () => {
+      // On error we close the socket to trigger the onclose handler.
       setReadyState("closing");
       ws.close();
     };
 
     ws.onmessage = (event) => {
       try {
+        // Backend sends JSON.
         const data = JSON.parse(event.data);
-        if (data.response && data.session_id) {
+        // Accept chat responses even when response is an empty object.
+        if (
+          data &&
+          typeof data === "object" &&
+          "session_id" in data &&
+          "response" in data
+        ) {
           setLastMessage(data as ChatResponsePayload);
-        } else {
-          // You may also handle { error: ... } 
+          return;
+        }
+
+        {
+          // Could also be { error: ... } or other server events.
           console.warn("Non-chat payload:", data);
         }
       } catch (e) {
@@ -67,17 +88,19 @@ export function useChatWebSocket(userId: string) {
     };
   }, [userId]);
 
-  // Always keep connectRef up to date
+  // Always keep connectRef up to date.
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
 
   useEffect(() => {
-    // Avoid calling setState synchronously in effect
+    // Connect on mount, and close the socket on unmount.
+    shouldReconnectRef.current = true;
     const timeout = setTimeout(() => {
       connect();
     }, 0);
     return () => {
+      shouldReconnectRef.current = false;
       clearTimeout(timeout);
       wsRef.current?.close();
     };
@@ -85,8 +108,10 @@ export function useChatWebSocket(userId: string) {
 
   const send = useCallback(
     (payload: Omit<ChatMessagePayload, "user_id"> & { user_id?: string }) => {
+      // Only send when the socket is open.
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
       const data: ChatMessagePayload = {
+        // Always use the hook's userId.
         user_id: userId,
         ...payload,
       };
