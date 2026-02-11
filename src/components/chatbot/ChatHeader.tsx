@@ -1,5 +1,6 @@
 import { IoChevronBack, IoClose } from "react-icons/io5";
-import Logo from "../../assets/Logo.png";
+// import Logo from "../../assets/Logo.png";
+import bot from "../../assets/bot.png";
 
 type ChatHeaderProps = {
   title: string;
@@ -21,7 +22,7 @@ export default function ChatHeader({ title, onBack, onClose }: ChatHeaderProps) 
       )}
       {/* Brand + assistant name + screen title */}
       <div className="flex items-center gap-2 flex-1">
-        <img src={Logo} alt="Old Mutual" className="w-7 h-7 object-contain" />
+        <img src={bot} alt="Old Mutual" className="w-7 h-7 object-contain" />
         <span className="text-lg font-semibold">MIA</span>
         <span className="text-base font-normal ml-2">{title}</span>
       </div>
