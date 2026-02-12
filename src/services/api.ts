@@ -121,6 +121,24 @@ export async function startGuidedQuote(payload: StartGuidedQuotePayload) {
 	const { data } = await api.post('/chat/start-guided', payload);
 	return data;
 }
+
+// --- Motor Private full-form quote ---
+export interface MotorPrivateFullFormRequest {
+	user_id: string;
+	data: Record<string, unknown>;
+}
+
+export interface MotorPrivateFullFormResponse {
+	quote_id: string;
+	product_name: string;
+	total_premium: number;
+	breakdown: Record<string, unknown>;
+}
+
+export async function submitMotorPrivateFullForm(payload: MotorPrivateFullFormRequest) {
+	const { data } = await api.post<MotorPrivateFullFormResponse>('/forms/motor-private/full', payload);
+	return data;
+}
 // --- Purchase Flow ---
 export interface InitiatePurchasePayload {
 	user_id: string;

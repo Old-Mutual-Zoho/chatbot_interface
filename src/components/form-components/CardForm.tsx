@@ -22,6 +22,8 @@ export interface CardFormProps {
   description?: string;
   fields: CardFieldConfig[];
   values: Record<string, string>;
+  // Optional backend field-level errors (e.g. from API 422 responses)
+  fieldErrors?: Record<string, string>;
   onChange: (name: string, value: string) => void;
   onNext?: () => void;
   onBack?: () => void;
@@ -39,6 +41,7 @@ const CardForm: React.FC<CardFormProps> = ({
   description,
   fields,
   values,
+  fieldErrors,
   onChange,
   onNext,
   onBack,
@@ -302,7 +305,9 @@ const CardForm: React.FC<CardFormProps> = ({
           }
           // Validation logic
           const value = values[field.name] || "";
-          const { error } = validateField(field);
+          const validation = validateField(field);
+          const backendError = fieldErrors?.[field.name] || "";
+          const error = backendError || validation.error;
 
           // Only show error if showErrors is true (after Next is clicked)
           // Repeatable group (e.g. Main Members)

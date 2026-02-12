@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { startGuidedQuote } from '../services/api';
+import { startGuidedQuote, submitMotorPrivateFullForm } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { getProductFormSteps } from '../utils/getProductFormSteps';
 
@@ -24,6 +24,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // Step state and form data
   const [step, setStep] = useState<number>(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [backendErrors, setBackendErrors] = useState<Record<string, string>>({});
 
   // Compute steps for selected product
   const steps = useMemo(() => {
@@ -38,6 +39,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Handle next/submit action
   const handleNext = async () => {
+    // Clear previous backend errors on each submit attempt
+    setBackendErrors({});
+
     if (step < steps.length - 1) {
       setStep((prev) => prev + 1);
       return;
@@ -51,23 +55,40 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     };
 
     const flow_name = selectedProduct ? flowNameByProduct[selectedProduct] : undefined;
-    if (!flow_name) {
-      onFormSubmitted?.();
-      return;
-    }
-
     try {
       const user_id = userId || '';
-      const product_id = selectedProduct ? String(selectedProduct) : '';
-      const initial_data = {
-        product_id,
-        ...formData,
-      };
-      await startGuidedQuote({ user_id, flow_name, initial_data });
+
+      if (selectedProduct === "Motor Private Insurance") {
+        // Submit full Motor Private form directly to its dedicated endpoint.
+        await submitMotorPrivateFullForm({
+          user_id,
+          data: {
+            ...formData,
+            selectedProduct,
+          },
+        });
+        // Only call onFormSubmitted on success
+        onFormSubmitted?.();
+        return;
+      } else if (flow_name) {
+        const product_id = selectedProduct ? String(selectedProduct) : '';
+        const initial_data = {
+          product_id,
+          ...formData,
+        };
+        await startGuidedQuote({ user_id, flow_name, initial_data });
+        onFormSubmitted?.();
+      }
     } catch (error) {
       console.error('Form submission error:', error);
-    } finally {
-      onFormSubmitted?.();
+      // Surface backend validation errors from Motor Private endpoint
+      if (selectedProduct === "Motor Private Insurance") {
+        const anyErr = error as any;
+        const fieldErrors = anyErr?.response?.data?.detail?.field_errors;
+        if (fieldErrors && typeof fieldErrors === 'object') {
+          setBackendErrors(fieldErrors as Record<string, string>);
+        }
+      }
     }
   };
 
@@ -105,6 +126,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           description={description}
           fields={steps[step].fields}
           values={{ ...formData, selectedProduct: selectedProduct || "" }}
+          fieldErrors={backendErrors}
           onChange={handleChange}
           onNext={handleNext}
           onBack={handleBack}
