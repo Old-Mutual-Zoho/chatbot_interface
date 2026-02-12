@@ -1,3 +1,5 @@
+import { TRAVEL_DESTINATION_COUNTRY_OPTIONS } from "../destinationcountries";
+
 // Travel Sure Plus quote form steps.
 export const travelPlusQuoteFormSteps = [
   {
@@ -34,39 +36,6 @@ export const travelPlusQuoteFormSteps = [
     title: "Trip Details",
     fields: [
       {
-        name: "departureCountry",
-        label: "Departure Country",
-        type: "text",
-        required: true,
-        placeholder: "Enter departure country",
-      },
-      {
-        name: "destinationCountries",
-        label: "Destination Countries/Country",
-        type: "text",
-        required: true,
-        placeholder: "Enter destination countries/country",
-      },
-      {
-        name: "travelStartDate",
-        label: "Travel Start Date",
-        type: "date",
-        required: true,
-      },
-      {
-        name: "travelEndDate",
-        label: "Travel End Date",
-        type: "date",
-        required: true,
-      },
-      {
-        name: "durationOfTravel",
-        label: "Number of days for the trip",
-        type: "number",
-        required: true,
-        placeholder: "Enter number of days",
-      },
-      {
         name: "whoAreYouCovering",
         label: "Who are you covering",
         type: "radio",
@@ -85,6 +54,47 @@ export const travelPlusQuoteFormSteps = [
         required: true,
         placeholder: "Enter number of travellers",
       },
+      {
+        name: "departureCountry",
+        label: "Departure Country",
+        type: "text",
+        required: true,
+        placeholder: "Uganda",
+        readOnly: true,
+      },
+      {
+        name: "destinationCountries",
+        label: "Destination Countries/Country",
+        type: "combobox",
+        required: true,
+        placeholder: "Select destination country",
+        options: TRAVEL_DESTINATION_COUNTRY_OPTIONS,
+      },
+      {
+        name: "travelStartDate",
+        label: "Travel Start Date",
+        type: "date",
+        required: true,
+        minDate: "today+1",
+      },
+      {
+        name: "travelEndDate",
+        label: "Travel End Date",
+        type: "date",
+        required: true,
+        minDate: "today",
+        minDateField: "travelStartDate",
+        minDateFieldMessage: "End date must be on or after the start date.",
+      },
+      {
+        name: "durationOfTravel",
+        label: "Number of days for the trip",
+        type: "number",
+        required: true,
+        placeholder: "Auto-calculated from your dates",
+        readOnly: true,
+      },      
+      
     ],
   },
 ];

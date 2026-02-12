@@ -9,6 +9,7 @@ export interface CardFieldConfig {
   required?: boolean;
   placeholder?: string;
   optionalLabel?: string;
+  readOnly?: boolean;
   // Optional validation helpers (keeps forms declarative)
   minLength?: number;
   maxLength?: number;
@@ -20,6 +21,11 @@ export interface CardFieldConfig {
   // ISO date (YYYY-MM-DD) or relative like "today", "today+30", "today-1"
   minDate?: string;
   maxDate?: string;
+  // Cross-field date constraints (compares this field's date against another field's date value)
+  minDateField?: string;
+  maxDateField?: string;
+  minDateFieldMessage?: string;
+  maxDateFieldMessage?: string;
   // Age validation for date fields (typically DOB). Age is calculated against today's date.
   minAgeYears?: number;
   maxAgeYears?: number;
@@ -64,12 +70,19 @@ const CardForm: React.FC<CardFormProps> = ({
   groupSize: groupSizeProp = 2,
   autoAdvance = false,
 }) => {
+  const stepKey = React.useMemo(() => {
+    const fieldKey = fields.map((f) => `${f.name}:${f.type}`).join("|");
+    return `${String(title ?? "").trim()}::${fieldKey}`;
+  }, [fields, title]);
+
   // Unified progressive reveal logic for all forms
   const [fieldGroup, setFieldGroup] = React.useState(0);
   const groupSize = Math.max(1, groupSizeProp);
   React.useEffect(() => {
-    // ...existing code...
-  }, [fields, title, groupSize]);
+    // Reset progressive reveal when the step changes.
+    // (If we don't, moving from a multi-group step to a single-field step can slice an empty group.)
+    setFieldGroup(0);
+  }, [stepKey]);
 
   // Repeatable group state for active member index per group
   const [repeatableGroupState, setRepeatableGroupState] = React.useState<{ [key: string]: number }>({});
@@ -103,6 +116,12 @@ const CardForm: React.FC<CardFormProps> = ({
     const depValue = values[field.showIf.field];
     return depValue === field.showIf.value;
   });
+
+  React.useEffect(() => {
+    // Safety: keep fieldGroup in range as visible fields change (e.g. showIf).
+    const maxGroup = Math.max(0, Math.ceil(allVisibleFields.length / groupSize) - 1);
+    setFieldGroup((prev) => Math.min(prev, maxGroup));
+  }, [allVisibleFields.length, groupSize]);
 
   const openComboboxField = React.useMemo(() => {
     if (!openComboboxId) return undefined;
@@ -246,6 +265,40 @@ const CardForm: React.FC<CardFormProps> = ({
       }
       if (maxD && d > maxD) {
         return { valid: false, error: `${field.label} cannot be after ${maxD.toISOString().slice(0, 10)}.` };
+      }
+
+      if (field.minDateField) {
+        const otherRaw = values[field.minDateField];
+        if (otherRaw) {
+          const otherT = Date.parse(otherRaw);
+          if (!Number.isNaN(otherT)) {
+            const otherD = new Date(otherT);
+            otherD.setHours(0, 0, 0, 0);
+            if (d < otherD) {
+              return {
+                valid: false,
+                error: field.minDateFieldMessage || `${field.label} cannot be before ${field.minDateField}.`,
+              };
+            }
+          }
+        }
+      }
+
+      if (field.maxDateField) {
+        const otherRaw = values[field.maxDateField];
+        if (otherRaw) {
+          const otherT = Date.parse(otherRaw);
+          if (!Number.isNaN(otherT)) {
+            const otherD = new Date(otherT);
+            otherD.setHours(0, 0, 0, 0);
+            if (d > otherD) {
+              return {
+                valid: false,
+                error: field.maxDateFieldMessage || `${field.label} cannot be after ${field.maxDateField}.`,
+              };
+            }
+          }
+        }
       }
 
       const ref = new Date();
@@ -503,7 +556,10 @@ const CardForm: React.FC<CardFormProps> = ({
         )}
       </div>
       <form className="w-full flex flex-col gap-5">
-        <div className="w-full flex flex-col gap-5 overflow-y-auto pr-1" style={{ maxHeight: 320 }}>
+        <div
+          className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-y-auto"}`}
+          style={{ maxHeight: 320 }}
+        >
           {visibleFields.map((field) => {
           // Conditional rendering for fields with showIf
           if (field.showIf) {
@@ -854,6 +910,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   }}
                   dateFormat="yyyy-MM-dd"
                   placeholderText={field.placeholder || "mm/dd/yyyy"}
+                  readOnly={field.readOnly}
                   className={`w-full px-4 py-2 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
                   calendarClassName="om-datepicker-popup"
                   showMonthDropdown
@@ -868,6 +925,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   type={field.type}
                   required={field.required}
                   value={value}
+                  readOnly={field.readOnly}
                   maxLength={effectiveMaxLen}
                   onChange={e => {
                     markTouched(field.name);

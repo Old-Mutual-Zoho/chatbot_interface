@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { startGuidedQuote } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { getProductFormSteps } from '../utils/getProductFormSteps';
@@ -36,8 +36,47 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Handle field value change
   const handleChange = (name: string, value: string) => {
-    setFormData((prev: Record<string, string>) => ({ ...prev, [name]: value }));
+    const computeInclusiveDayCount = (startIso?: string, endIso?: string) => {
+      if (!startIso || !endIso) return "";
+      const startT = Date.parse(startIso);
+      const endT = Date.parse(endIso);
+      if (Number.isNaN(startT) || Number.isNaN(endT)) return "";
+      const start = new Date(startT);
+      const end = new Date(endT);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      const diffMs = end.getTime() - start.getTime();
+      if (diffMs < 0) return "";
+      const days = Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
+      return String(days);
+    };
+
+    setFormData((prev: Record<string, string>) => {
+      const next = { ...prev, [name]: value };
+
+      if (selectedProduct === "Travel Sure Plus") {
+        // Departure country is fixed
+        if (name === "departureCountry") {
+          next.departureCountry = "Uganda";
+        }
+
+        const startIso = name === "travelStartDate" ? value : next.travelStartDate;
+        const endIso = name === "travelEndDate" ? value : next.travelEndDate;
+        const days = computeInclusiveDayCount(startIso, endIso);
+        next.durationOfTravel = days;
+      }
+
+      return next;
+    });
   };
+
+  useEffect(() => {
+    if (selectedProduct !== "Travel Sure Plus") return;
+    setFormData((prev) => {
+      if (prev.departureCountry === "Uganda") return prev;
+      return { ...prev, departureCountry: "Uganda" };
+    });
+  }, [selectedProduct]);
 
   // Handle next/submit action
   const handleNext = async () => {
