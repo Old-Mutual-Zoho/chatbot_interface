@@ -20,6 +20,9 @@ export interface CardFieldConfig {
   // ISO date (YYYY-MM-DD) or relative like "today", "today+30", "today-1"
   minDate?: string;
   maxDate?: string;
+  // Age validation for date fields (typically DOB). Age is calculated against today's date.
+  minAgeYears?: number;
+  maxAgeYears?: number;
   // For radio/select/checkbox-group fields
   options?: { label: string; value: string }[];
   // For conditional fields
@@ -243,6 +246,27 @@ const CardForm: React.FC<CardFormProps> = ({
       }
       if (maxD && d > maxD) {
         return { valid: false, error: `${field.label} cannot be after ${maxD.toISOString().slice(0, 10)}.` };
+      }
+
+      const ref = new Date();
+      ref.setHours(0, 0, 0, 0);
+
+      if (typeof field.minAgeYears === "number" && Number.isFinite(field.minAgeYears)) {
+        const minAgeCutoff = new Date(ref);
+        minAgeCutoff.setFullYear(minAgeCutoff.getFullYear() - field.minAgeYears);
+        minAgeCutoff.setHours(0, 0, 0, 0);
+        if (d > minAgeCutoff) {
+          return { valid: false, error: `You must be at least ${field.minAgeYears} years old.` };
+        }
+      }
+
+      if (typeof field.maxAgeYears === "number" && Number.isFinite(field.maxAgeYears)) {
+        const maxAgeCutoff = new Date(ref);
+        maxAgeCutoff.setFullYear(maxAgeCutoff.getFullYear() - field.maxAgeYears);
+        maxAgeCutoff.setHours(0, 0, 0, 0);
+        if (d < maxAgeCutoff) {
+          return { valid: false, error: `Age cannot be more than ${field.maxAgeYears} years.` };
+        }
       }
     }
 

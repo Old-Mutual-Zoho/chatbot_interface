@@ -57,16 +57,20 @@ export const personalAccidentFormSteps = [
     title: "Personal Accident Quote",
     fields: [
       {
-        name: "dob",
-        label: "Date of birth",
-        type: "date",
-        required: true,
-      },
-      {
         name: "policyStartDate",
         label: "Policy start date",
         type: "date",
         required: true,
+        minDate: "today+1",
+      },
+      {
+        name: "dob",
+        label: "Date of birth",
+        type: "date",
+        required: true,
+        minAgeYears: 18,
+        maxAgeYears: 65,
+        maxDate: "today",
       },
     ],
   },

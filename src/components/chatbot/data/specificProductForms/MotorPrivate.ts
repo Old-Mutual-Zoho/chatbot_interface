@@ -95,7 +95,7 @@ export const motorPrivateQuoteFormSteps = [
 				label: "Cover start date",
 				type: "date",
 				required: true,
-				minDate: "today",
+				minDate: "today+1",
 				maxDate: "today+90",
 			},
 			{
