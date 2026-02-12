@@ -10,6 +10,8 @@ export const personalAccidentFormSteps = [
         type: "text",
         required: true,
         placeholder: "Enter your first name",
+        minLength: 2,
+        maxLength: 50,
       },
       {
         name: "lastName",
@@ -17,6 +19,8 @@ export const personalAccidentFormSteps = [
         type: "text",
         required: true,
         placeholder: "Enter your surname",
+        minLength: 2,
+        maxLength: 50,
       },
       {
         name: "middleName",
@@ -25,6 +29,7 @@ export const personalAccidentFormSteps = [
         required: false,
         placeholder: "Enter your middle name",
         optionalLabel: "optional",
+        maxLength: 50,
       },
     ],
   },
@@ -44,6 +49,7 @@ export const personalAccidentFormSteps = [
         type: "email",
         required: true,
         placeholder: "name@example.com",
+        maxLength: 100,
       },
     ],
   },

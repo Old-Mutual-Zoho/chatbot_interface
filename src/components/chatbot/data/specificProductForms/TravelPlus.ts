@@ -3,11 +3,11 @@ export const travelPlusQuoteFormSteps = [
   {
     title: "Travel Sure Plus Quote",
     fields: [
-      { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter your first name" },
-      { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional" },
-      { name: "surname", label: "Surname", type: "text", required: true, placeholder: "Enter your surname" },
+      { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter your first name", minLength: 2, maxLength: 50 },
+      { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional", maxLength: 50 },
+      { name: "surname", label: "Surname", type: "text", required: true, placeholder: "Enter your surname", minLength: 2, maxLength: 50 },
       { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your phone number" },
-      { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter your email" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter your email", maxLength: 100 },
     ],
   },
   {

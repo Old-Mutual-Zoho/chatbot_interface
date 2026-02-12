@@ -1,5 +1,7 @@
 import { MOTOR_PRIVATE_VEHICLE_MAKE_OPTIONS } from "../vehicleMakes";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 // Motor Private Insurance form steps.
 export const motorPrivateQuoteFormSteps = [
 	{
@@ -27,6 +29,8 @@ export const motorPrivateQuoteFormSteps = [
 				type: "text",
 				required: true,
 				placeholder: "Enter your first name",
+				minLength: 2,
+				maxLength: 50,
 			},
 			{
 				name: "middleName",
@@ -35,6 +39,7 @@ export const motorPrivateQuoteFormSteps = [
 				required: false,
 				placeholder: "Enter your middle name",
 				optionalLabel: "optional",
+				maxLength: 50,
 			},
 			{
 				name: "surname",
@@ -42,6 +47,8 @@ export const motorPrivateQuoteFormSteps = [
 				type: "text",
 				required: true,
 				placeholder: "Enter your surname",
+				minLength: 2,
+				maxLength: 50,
 			},
 			{
 				name: "mobile",
@@ -56,6 +63,7 @@ export const motorPrivateQuoteFormSteps = [
 				type: "email",
 				required: true,
 				placeholder: "name@example.com",
+				maxLength: 100,
 			},
 		],
 	},
@@ -78,12 +86,17 @@ export const motorPrivateQuoteFormSteps = [
 				type: "number",
 				required: true,
 				placeholder: "e.g. 2015",
+				integer: true,
+				min: 1980,
+				max: CURRENT_YEAR + 1,
 			},
 			{
 				name: "coverStartDate",
 				label: "Cover start date",
 				type: "date",
 				required: true,
+				minDate: "today",
+				maxDate: "today+90",
 			},
 			{
 				name: "isRareModel",
@@ -111,6 +124,9 @@ export const motorPrivateQuoteFormSteps = [
 				type: "number",
 				required: true,
 				placeholder: "Enter value of vehicle",
+				integer: true,
+				min: 100000,
+				max: 10000000000,
 			},
 			{
 				name: "isFirstRegistrationForThisInsurance",

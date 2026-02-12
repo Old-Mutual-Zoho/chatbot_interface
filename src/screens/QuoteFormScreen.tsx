@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { startGuidedQuote } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { getProductFormSteps } from '../utils/getProductFormSteps';
@@ -24,6 +24,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // Step state and form data
   const [step, setStep] = useState<number>(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const submitLockRef = useRef(false);
 
   // Compute steps for selected product
   const steps = useMemo(() => {
@@ -43,6 +46,13 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       return;
     }
 
+    // Last step: block double-submit (double-clicks, retries after success)
+    if (hasSubmitted || isSubmitting || submitLockRef.current) {
+      return;
+    }
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
     const flowNameByProduct: Record<string, string> = {
       "Travel Sure Plus": "travel_sure_plus",
       "Personal Accident": "personal_accident",
@@ -52,6 +62,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
     const flow_name = selectedProduct ? flowNameByProduct[selectedProduct] : undefined;
     if (!flow_name) {
+      setHasSubmitted(true);
+      setIsSubmitting(false);
       onFormSubmitted?.();
       return;
     }
@@ -64,9 +76,13 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         ...formData,
       };
       await startGuidedQuote({ user_id, flow_name, initial_data });
+      setHasSubmitted(true);
     } catch (error) {
       console.error('Form submission error:', error);
+      // Allow retry if submission failed.
+      submitLockRef.current = false;
     } finally {
+      setIsSubmitting(false);
       onFormSubmitted?.();
     }
   };
@@ -79,6 +95,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   };
 
   const isLastStep = step === steps.length - 1;
+  const submitDisabled = isLastStep && (isSubmitting || hasSubmitted);
 
 
   // Show prompt if no product is selected
@@ -110,6 +127,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           onBack={handleBack}
           showBack={step > 0}
           showNext={true}
+          nextDisabled={submitDisabled}
           nextButtonLabel={isLastStep ? "Submit" : "Next"}
         />
       </div>
