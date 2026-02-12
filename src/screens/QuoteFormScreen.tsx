@@ -60,6 +60,41 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           next.departureCountry = "Uganda";
         }
 
+        // Traveller DOB capture
+        if (name === "whoAreYouCovering") {
+          const groupLike = value === "group" || value === "myself_and_someone_else";
+          if (groupLike) {
+            // Ensure at least one traveller slot so the user can fill DOB immediately.
+            if (!next.travellers) {
+              next.travellers = JSON.stringify([{}]);
+            }
+            // Clear single-field DOB when switching to group-like
+            next.travellerDob = "";
+          } else {
+            // Switching to single-traveller flow
+            next.travellers = "";
+          }
+        }
+
+        if (name === "travellerDob") {
+          next.travellers = JSON.stringify([{ dob: value }]);
+        }
+
+        if (name === "travellers") {
+          try {
+            const parsed = value ? JSON.parse(value) : [];
+            const count = Array.isArray(parsed) ? parsed.length : 0;
+            next.numberOfTravellers = count > 0 ? String(count) : "";
+          } catch {
+            next.numberOfTravellers = "";
+          }
+        }
+
+        // If we have a single-traveller DOB mapped into travellers, keep count in sync.
+        if (name === "travellerDob") {
+          next.numberOfTravellers = value ? "1" : "";
+        }
+
         const startIso = name === "travelStartDate" ? value : next.travelStartDate;
         const endIso = name === "travelEndDate" ? value : next.travelEndDate;
         const days = computeInclusiveDayCount(startIso, endIso);

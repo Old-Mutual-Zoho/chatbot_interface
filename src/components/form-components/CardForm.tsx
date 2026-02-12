@@ -32,7 +32,9 @@ export interface CardFieldConfig {
   // For radio/select/checkbox-group fields
   options?: { label: string; value: string }[];
   // For conditional fields
-  showIf?: { field: string; value: string | boolean };
+  showIf?: { field: string; value: string | boolean | Array<string | boolean> };
+  // If true, hide this field once it's valid and the next field is revealed.
+  hideWhenValid?: boolean;
   // For repeatable-group fields
   fields?: CardFieldConfig[];
 }
@@ -110,11 +112,19 @@ const CardForm: React.FC<CardFormProps> = ({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [openComboboxId]);
 
+  const showIfMatches = React.useCallback((showIf: CardFieldConfig["showIf"]) => {
+    if (!showIf) return true;
+    const depValue = values[showIf.field];
+    const expected = showIf.value;
+    if (Array.isArray(expected)) {
+      return expected.includes(depValue as any);
+    }
+    return depValue === expected;
+  }, [values]);
+
   // Only show fields that are not hidden by showIf
   const allVisibleFields = fields.filter(field => {
-    if (!field.showIf) return true;
-    const depValue = values[field.showIf.field];
-    return depValue === field.showIf.value;
+    return showIfMatches(field.showIf);
   });
 
   React.useEffect(() => {
@@ -196,10 +206,45 @@ const CardForm: React.FC<CardFormProps> = ({
     return d;
   };
 
-  const validateField = (field: CardFieldConfig, nextValue?: string) => {
+  const validateField = (
+    field: CardFieldConfig,
+    nextValue?: string
+  ): { valid: boolean; error: string } => {
     const rawValue = nextValue ?? values[field.name] ?? "";
     const value = String(rawValue);
     const trimmed = value.trim();
+
+    if (field.type === "repeatable-group") {
+      let groupValue: Array<Record<string, unknown>> = [];
+      try {
+        const parsed = trimmed ? JSON.parse(trimmed) : [];
+        groupValue = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        groupValue = [];
+      }
+
+      if (field.required && groupValue.length === 0) {
+        return { valid: false, error: `${field.label} is required.` };
+      }
+
+      if (!Array.isArray(field.fields) || field.fields.length === 0) {
+        return { valid: true, error: "" };
+      }
+
+      for (let i = 0; i < groupValue.length; i++) {
+        const member = groupValue[i] ?? {};
+        for (const subField of field.fields) {
+          const subRaw = (member as Record<string, unknown>)[subField.name];
+          const subValue = subRaw == null ? "" : String(subRaw);
+          const res: { valid: boolean; error: string } = validateField(subField, subValue);
+          if (!res.valid) {
+            return { valid: false, error: `Travellor ${i + 1}: ${res.error}` };
+          }
+        }
+      }
+
+      return { valid: true, error: "" };
+    }
 
     if (field.required && !trimmed) {
       return { valid: false, error: `${field.label} is required.` };
@@ -360,12 +405,19 @@ const CardForm: React.FC<CardFormProps> = ({
   const revealCount = getRevealCountForGroup(currentGroupFields);
   const revealedCurrentGroupFields = currentGroupFields.slice(0, Math.max(1, revealCount));
 
+  const displayedCurrentGroupFields = revealedCurrentGroupFields.filter((field, idx) => {
+    if (!field.hideWhenValid) return true;
+    // Never hide the last currently revealed field.
+    if (idx >= revealedCurrentGroupFields.length - 1) return true;
+    return !validateField(field).valid;
+  });
+
   const visibleFields = autoAdvance
     ? [
         ...allVisibleFields.slice(0, currentGroupStart),
-        ...revealedCurrentGroupFields,
+        ...displayedCurrentGroupFields,
       ]
-    : revealedCurrentGroupFields;
+    : displayedCurrentGroupFields;
 
   const allCurrentGroupFilled = currentGroupFields.every(f => validateField(f).valid);
   const allStepFieldsValid = allVisibleFields.every(f => validateField(f).valid);
@@ -557,16 +609,13 @@ const CardForm: React.FC<CardFormProps> = ({
       </div>
       <form className="w-full flex flex-col gap-5">
         <div
-          className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-y-auto"}`}
+          className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-y-auto om-show-scrollbar"}`}
           style={{ maxHeight: 320 }}
         >
           {visibleFields.map((field) => {
           // Conditional rendering for fields with showIf
           if (field.showIf) {
-            const depValue = values[field.showIf.field];
-            if (depValue !== field.showIf.value) {
-              return null;
-            }
+            if (!showIfMatches(field.showIf)) return null;
           }
           // Validation logic
           const value = values[field.name] || "";
@@ -607,13 +656,13 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
                 {groupValue.length === 0 && (
-                  <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Member</button>
+                  <button type="button" onClick={handleAdd} className="mb-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Travellor</button>
                 )}
                 {groupValue.length > 0 && (
                   <div className="mb-2 px-4 py-3 bg-white rounded-xl border border-green-200 shadow-sm flex flex-row items-start gap-6 max-w-2xl mx-auto">
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-3">
-                        <span className="font-semibold text-lg text-primary">Member {activeIdx + 1}</span>
+                        <span className="font-semibold text-lg text-primary">Travellor {activeIdx + 1}</span>
                         <button type="button" onClick={() => handleRemove(activeIdx)} className="text-red-500 text-sm cursor-pointer">Remove</button>
                       </div>
                       {field.fields.map((subField) => {
@@ -642,7 +691,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   </div>
                 )}
                 {groupValue.length > 0 && (
-                  <button type="button" onClick={handleAdd} className="mt-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Member</button>
+                  <button type="button" onClick={handleAdd} className="mt-2 px-3 py-1 bg-primary text-white rounded cursor-pointer">Add Travellor</button>
                 )}
               </div>
             );

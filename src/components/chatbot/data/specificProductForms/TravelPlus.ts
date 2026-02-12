@@ -40,6 +40,7 @@ export const travelPlusQuoteFormSteps = [
         label: "Who are you covering",
         type: "radio",
         required: true,
+        hideWhenValid: true,
         options: [
           { label: "Myself", value: "myself" },
           { label: "Someone else", value: "someone_else" },
@@ -48,11 +49,26 @@ export const travelPlusQuoteFormSteps = [
         ],
       },
       {
-        name: "numberOfTravellers",
-        label: "Number of travellers",
-        type: "number",
+        name: "travellerDob",
+        label: "Date of Birth of the traveller",
+        type: "date",
         required: true,
-        placeholder: "Enter number of travellers",
+        showIf: { field: "whoAreYouCovering", value: ["myself", "someone_else"] },
+      },
+      {
+        name: "travellers",
+        label: "Date of birth for all travellers",
+        type: "repeatable-group",
+        required: true,
+        showIf: { field: "whoAreYouCovering", value: ["group", "myself_and_someone_else"] },
+        fields: [
+          {
+            name: "dob",
+            label: "Date of Birth",
+            type: "date",
+            required: true,
+          },
+        ],
       },
       {
         name: "departureCountry",
