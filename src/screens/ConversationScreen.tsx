@@ -113,7 +113,7 @@ export default function ConversationScreen({
               const displayMessages = c.messages.filter(isDisplayableMessage);
 
               return (
-                <div key={c.id} className="border border-gray-200 rounded-2xl bg-white shadow-sm overflow-hidden">
+                <div key={c.id} className="border border-gray-200 rounded-2xl bg-white shadow-sm overflow-hidden flex items-center">
                   <button
                     type="button"
                     onClick={() => onOpenConversation(c.id)}
@@ -126,22 +126,21 @@ export default function ConversationScreen({
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="text-xs text-gray-500 whitespace-nowrap">{updated}</div>
-                        <button
-                          type="button"
-                          aria-label="Delete conversation"
-                          onClick={(e) => {
-                            // Don't open the chat when deleting.
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDeleteConversation(c.id);
-                          }}
-                          className="text-red-600 hover:text-red-700 transition cursor-pointer p-1"
-                        >
-                          <IoTrashOutline size={18} />
-                        </button>
                       </div>
                     </div>
                     <div className="mt-2 text-xs text-gray-500">{displayMessages.length} messages</div>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Delete conversation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDeleteConversation(c.id);
+                    }}
+                    className="text-red-600 hover:text-red-700 transition cursor-pointer p-1 ml-2"
+                  >
+                    <IoTrashOutline size={18} />
                   </button>
                 </div>
               );

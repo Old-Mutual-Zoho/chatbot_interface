@@ -549,53 +549,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   // --- Robust session management logic ---
   // Backend form submission handler for chat
-  const handleBackendFormSubmit = async (formData: Record<string, unknown>) => {
-    if (!userId || !sessionId) {
-      dispatch({
-        type: "RECEIVE_BOT_REPLY",
-        payload: "⚠️ Could not submit form. Please try again or contact support.",
-      });
-      return;
-    }
-    dispatch({ type: "SEND_MESSAGE" });
-    try {
-      const response = await sendChatMessage({
-        user_id: userId,
-        session_id: sessionId,
-        form_data: formData,
-      });
-      // Update sessionId if backend returns a new one
-      if (response && typeof response === 'object') {
-        if ('session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
-          setSessionId(response.session_id);
-        } else if (
-          response.response &&
-          typeof response.response === 'object' &&
-          'session_id' in response.response &&
-          typeof response.response.session_id === 'string' &&
-          response.response.session_id !== sessionId
-        ) {
-          setSessionId(response.response.session_id);
-        }
-      }
-      let reply = "Form submitted successfully.";
-      if (typeof response === 'object' && response !== null) {
-        if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
-          reply = response.response.response;
-        } else if (typeof response.response === 'string') {
-          reply = response.response;
-        } else if (typeof response.message === 'string') {
-          reply = response.message;
-        }
-      }
-      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
-    } catch {
-      dispatch({
-        type: "RECEIVE_BOT_REPLY",
-        payload: "⚠️ Could not submit form. Please try again or contact support.",
-      });
-    }
-  };
 
   // Fetch bot response and manage sessionId
   const fetchBotResponse = async (option: string) => {
@@ -1040,7 +993,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                 userId={userId}
                 sessionId={sessionId}
                 onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
-                onBackendFormSubmit={handleBackendFormSubmit}
               />
             </div>
           </div>
