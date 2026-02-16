@@ -1,0 +1,395 @@
+import React, { useMemo, useState } from "react";
+import CardForm from "./CardForm";
+import type { CardFieldConfig } from "./CardForm";
+import type { GuidedStepResponse } from "../../services/api";
+
+interface GuidedStepRendererProps {
+  step: GuidedStepResponse | null;
+  values: Record<string, string>;
+  errors?: Record<string, string>;
+  onClearError?: (name: string) => void;
+  onChange: (name: string, value: string) => void;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onBack?: () => void;
+  loading?: boolean;
+  titleFallback?: string;
+}
+
+export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
+  step,
+  values,
+  errors,
+  onClearError,
+  onChange,
+  onSubmit,
+  onBack,
+  loading = false,
+  titleFallback = "Details",
+}) => {
+  // This component shows ONE “step” at a time.
+  // A “step” is a small piece of the guided flow that the backend sends us.
+  if (!step) return null;
+
+  // React has a rule: `useState` / `useMemo` must be called in the same order every time.
+  // To keep things safe and simple, we use one small component per step type.
+
+  switch (step.type) {
+    case "form":
+      // A normal form with one or more fields.
+      return (
+        <FormStep
+          step={step}
+          titleFallback={titleFallback}
+          values={values}
+          errors={errors}
+          onClearError={onClearError}
+          onChange={onChange}
+          onSubmit={onSubmit}
+          onBack={onBack}
+          loading={loading}
+        />
+      );
+    case "premium_summary":
+      // A summary card showing prices and action buttons.
+      return <PremiumSummaryStep step={step} onSubmit={onSubmit} loading={loading} />;
+    case "yes_no_details":
+      // A yes/no (or choice) question that may show an extra textbox.
+      return <YesNoDetailsStep step={step} onSubmit={onSubmit} loading={loading} />;
+    case "checkbox":
+      // A list of checkboxes (multi-select).
+      return <CheckboxStep step={step} onSubmit={onSubmit} loading={loading} />;
+    case "file_upload":
+      // A file picker. For now we only send the filename (no real upload yet).
+      return <FileUploadStep step={step} onSubmit={onSubmit} loading={loading} />;
+    case "final_confirmation":
+      // The last step: confirm / proceed.
+      return <FinalConfirmationStep step={step} onSubmit={onSubmit} onBack={onBack} loading={loading} />;
+    case "message":
+      // Just show a message.
+      return <MessageStep step={step} />;
+    default:
+      return null;
+  }
+};
+
+const FormStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "form" }>;
+  titleFallback: string;
+  values: Record<string, string>;
+  errors?: Record<string, string>;
+  onClearError?: (name: string) => void;
+  onChange: (name: string, value: string) => void;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onBack?: () => void;
+  loading: boolean;
+}> = ({ step, titleFallback, values, errors, onClearError, onChange, onSubmit, onBack, loading }) => {
+  const fields: CardFieldConfig[] = useMemo(() => {
+    // Convert backend field data into the shape our CardForm component expects.
+    return (step.fields ?? []).map((f) => ({
+      name: f.name,
+      label: f.label ?? f.name,
+      type: f.type,
+      required: f.required,
+      placeholder: f.placeholder,
+      minLength: f.minLength,
+      maxLength: f.maxLength,
+      options: (f.options ?? []).map((o) => ({ label: o.label, value: o.value })),
+    }));
+  }, [step.fields]);
+
+  return (
+    <CardForm
+      title={step.message ?? titleFallback}
+      fields={fields}
+      values={values}
+      externalErrors={errors}
+      onClearExternalError={onClearError}
+      onChange={onChange}
+      onNext={() => {
+        // When the user clicks Next, we build the object we will send back.
+        // It’s usually: { fieldName: fieldValue } for each form field.
+        const payload: Record<string, unknown> = {};
+        for (const f of step.fields ?? []) {
+          const raw = values[f.name] ?? "";
+          const t = String(f.type ?? "").toLowerCase();
+
+          if (t === "number" || t === "integer") {
+            // Turn number text into a real number (but keep empty as "" if nothing was typed).
+            const trimmed = String(raw).trim();
+            if (!trimmed) {
+              payload[f.name] = "";
+            } else {
+              const n = t === "integer" ? Number.parseInt(trimmed, 10) : Number(trimmed);
+              payload[f.name] = Number.isFinite(n) ? n : trimmed;
+            }
+            continue;
+          }
+
+          if (t === "checkbox-group") {
+            // Some checkbox groups come back as "a, b, c". Convert that into ["a","b","c"].
+            const trimmed = String(raw).trim();
+            payload[f.name] = trimmed ? trimmed.split(",").map((s) => s.trim()).filter(Boolean) : [];
+            continue;
+          }
+
+          payload[f.name] = raw;
+        }
+        onSubmit(payload);
+      }}
+      onBack={onBack}
+      showBack={!!onBack}
+      showNext
+      nextButtonLabel="Next"
+      nextDisabled={loading}
+    />
+  );
+};
+
+const PremiumSummaryStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "premium_summary" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? "Your premium"}</h3>
+      <p className="text-2xl font-bold text-gray-900">UGX {Number(step.monthly_premium ?? 0).toLocaleString()} / month</p>
+      <p className="text-sm text-gray-600">UGX {Number(step.annual_premium ?? 0).toLocaleString()} / year</p>
+      <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(step.cover_limit_ugx ?? 0).toLocaleString()}</div>
+
+      {(step.benefits?.length ?? 0) > 0 && (
+        <ul className="mt-4 list-disc list-inside text-sm text-gray-700">
+          {step.benefits.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(step.actions ?? []).map((a) => (
+          <button
+            key={a.type}
+            type="button"
+            disabled={loading}
+            onClick={() => onSubmit({ action: a.type })}
+            className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const YesNoDetailsStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "yes_no_details" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [choice, setChoice] = useState<string>("");
+  const [details, setDetails] = useState<string>("");
+
+  const showDetails = useMemo(() => {
+    // Some questions need an extra textbox when a certain option is chosen.
+    if (!step.details_field) return false;
+    return choice === step.details_field.show_when;
+  }, [choice, step.details_field]);
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {(step.options ?? []).map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            disabled={loading}
+            onClick={() => setChoice(o.id)}
+            className={`px-4 py-2 rounded-lg border ${choice === o.id ? "bg-primary text-white border-primary" : "border-gray-300"} disabled:opacity-60`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {showDetails && step.details_field && (
+        <input
+          type="text"
+          placeholder={step.details_field.label}
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          className="w-full px-3 py-2 border rounded-lg"
+        />
+      )}
+
+      <button
+        type="button"
+        disabled={loading || !choice}
+        onClick={() => {
+          // We send the selected option back using the question_id as the key.
+          const payload: Record<string, unknown> = { [step.question_id]: choice };
+          if (showDetails && step.details_field) {
+            // Also send the extra text if it is visible.
+            payload[step.details_field.name] = details;
+          }
+          onSubmit(payload);
+        }}
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
+const CheckboxStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "checkbox" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [other, setOther] = useState<string>("");
+
+  const toggle = (id: string) => {
+    // Add/remove this option from the selected list.
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
+      <div className="flex flex-col gap-2">
+        {(step.options ?? []).map((o) => (
+          <label key={o.id} className="flex items-center gap-2">
+            <input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} />
+            <span>{o.label}</span>
+          </label>
+        ))}
+      </div>
+
+      {step.other_field && (
+        <input
+          type="text"
+          placeholder={step.other_field.label}
+          value={other}
+          onChange={(e) => setOther(e.target.value)}
+          className="mt-3 w-full px-3 py-2 border rounded-lg"
+        />
+      )}
+
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => {
+          // The backend tells us which key name it wants for the selected list.
+          // If it’s missing, we use a safe default name.
+          const selectedFieldName = step.field_name && step.field_name.trim() ? step.field_name : "risky_activities";
+          const payload: Record<string, unknown> = { [selectedFieldName]: selected };
+          if (step.other_field) {
+            // Optional “Other (please specify)” text input.
+            payload[step.other_field.name] = other;
+          } else if (other.trim()) {
+            // Old fallback key if the backend did not provide `other_field`.
+            payload["risky_activity_other"] = other;
+          }
+          onSubmit(payload);
+        }}
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
+const FileUploadStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "file_upload" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [fileRef, setFileRef] = useState<string>("");
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
+      <input
+        type="file"
+        accept={step.accept ?? "application/pdf"}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          // For now we only keep the filename.
+          // (A real upload can be added later when the backend provides an endpoint.)
+          setFileRef(f.name);
+        }}
+      />
+      <button
+        type="button"
+        disabled={loading || !fileRef}
+        // Send back something like { document: "myfile.pdf" }.
+        onClick={() => onSubmit({ [step.field_name]: fileRef })}
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
+const FinalConfirmationStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "final_confirmation" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onBack?: () => void;
+  loading: boolean;
+}> = ({ step, onSubmit, onBack, loading }) => {
+  // Some flows give us multiple buttons to show here.
+  // If not provided, we show one default confirm button.
+  const actions = step.actions ?? [];
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-3">{step.message ?? "Review and confirm"}</p>
+      <div className="flex gap-2 mt-4">
+        {onBack && (
+          <button type="button" onClick={onBack} disabled={loading} className="px-4 py-2 border rounded-lg disabled:opacity-60">
+            Edit
+          </button>
+        )}
+        {actions.length > 0 ? (
+          actions.map((a) => (
+            <button
+              key={a.type}
+              type="button"
+              disabled={loading}
+              // We send { action: "..." } so the backend knows which button was clicked.
+              onClick={() => onSubmit({ action: a.type })}
+              className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+            >
+              {a.label}
+            </button>
+          ))
+        ) : (
+          <button
+            type="button"
+            disabled={loading}
+            // Default action if no buttons were provided.
+            onClick={() => onSubmit({ action: "confirm" })}
+            className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+          >
+            Confirm & Proceed
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MessageStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "message" }>;
+}> = ({ step }) => {
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="text-gray-900">{step.message}</p>
+    </div>
+  );
+};

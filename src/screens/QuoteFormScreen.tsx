@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { startGuidedQuote } from '../services/api';
+import { deleteFormDraft, getFormDraft, getSessionState, sendChatMessage, startGuidedQuote } from '../services/api';
+import type { GuidedStepResponse, StartGuidedResponse } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
+import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
 import { getProductFormSteps } from '../utils/getProductFormSteps';
 
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
+  sessionId?: string | null;
   onFormSubmitted?: () => void;
   embedded?: boolean;
 }
-
-
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, onFormSubmitted, embedded = false }) => {
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, sessionId, onFormSubmitted, embedded = false }) => {
   // Returns description for a given form step title
   const getDescriptionForTitle = (title: string | undefined) => {
     const normalized = (title ?? "").trim().toLowerCase();
@@ -27,6 +28,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const submitLockRef = useRef(false);
+
+  // --- Backend-driven Personal Accident guided flow state ---
+  const FLOW_NAME_PA = 'personal_accident';
+  const isBackendDrivenPA = selectedProduct === 'Personal Accident';
+  const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
+  const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [paLoading, setPaLoading] = useState(false);
+  const [paComplete, setPaComplete] = useState(false);
+  const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
 
   // Compute steps for selected product
   const steps = useMemo(() => {
@@ -103,6 +113,175 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
       return next;
     });
+
+    // Guided PA: clear backend field error as the user edits.
+    if (isBackendDrivenPA) {
+      setPaFieldErrors((prev) => {
+        if (!prev[name]) return prev;
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+    }
+  };
+
+  // Reset PA state when product/session changes
+  useEffect(() => {
+    setPaSessionId(sessionId ?? null);
+    setPaStepPayload(null);
+    setPaLoading(false);
+    setPaComplete(false);
+    setPaFieldErrors({});
+  }, [selectedProduct, sessionId]);
+
+  // Start/resume backend-driven PA flow (prefer draft if present)
+  useEffect(() => {
+    if (!isBackendDrivenPA) return;
+    if (!userId) return;
+
+    const sid = paSessionId ?? sessionId;
+    if (!sid) return;
+
+    let cancelled = false;
+    (async () => {
+      setPaLoading(true);
+      try {
+        // Only try fetching a draft if the backend indicates this session is already in a PA guided flow.
+        // This avoids an expected-but-noisy 404 when there is no draft yet.
+        try {
+          const state = await getSessionState(sid);
+          const shouldTryDraft = state?.mode === 'guided' && state?.current_flow === FLOW_NAME_PA;
+
+          if (shouldTryDraft) {
+            const draft = await getFormDraft(sid, FLOW_NAME_PA);
+            if (cancelled) return;
+            setPaSessionId(draft.session_id);
+
+            // Best-effort flatten: backend may store nested keys, keep simple string values.
+            const flat: Record<string, string> = {};
+            const cd = draft.collected_data ?? {};
+            Object.entries(cd).forEach(([k, v]) => {
+              if (v == null) return;
+              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+                flat[k] = String(v);
+              }
+            });
+            setFormData((prev) => ({ ...prev, ...flat }));
+          }
+        } catch {
+          // ignore session-state/draft probe failures; we'll still start the flow below.
+        }
+
+        // No schema-refetch endpoint; start (or resume) to get the current step payload.
+        const startRes = await startGuidedQuote({
+          user_id: userId,
+          flow_name: FLOW_NAME_PA,
+          session_id: sid,
+          initial_data: { product_id: 'Personal Accident' },
+        });
+        if (cancelled) return;
+        // Always follow the backend's session_id in case it creates/returns a new session.
+        const typedStart = startRes as StartGuidedResponse;
+        if (typedStart?.session_id && typedStart.session_id !== sid) {
+          setPaSessionId(typedStart.session_id);
+        }
+        setPaStepPayload(typedStart.response ?? null);
+      } catch (e) {
+        console.error('Failed to start Personal Accident flow:', e);
+      } finally {
+        if (!cancelled) setPaLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBackendDrivenPA, paSessionId, sessionId, userId]);
+
+  // Ensure guided PA form steps have stable keys in state (avoid undefined dropping).
+  useEffect(() => {
+    if (!isBackendDrivenPA) return;
+    if (!paStepPayload) return;
+    if (paStepPayload.type !== 'form') return;
+    const stepFields = paStepPayload.fields;
+    if (!Array.isArray(stepFields) || stepFields.length === 0) return;
+
+    setFormData((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const f of stepFields) {
+        const name = f?.name;
+        if (typeof name !== 'string' || !name) continue;
+        if (next[name] === undefined) {
+          next[name] = "";
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [isBackendDrivenPA, paStepPayload]);
+
+  const submitPersonalAccidentStep = async (payload: Record<string, unknown>) => {
+    const sid = paSessionId ?? sessionId;
+    if (!sid || !userId) return;
+    setPaLoading(true);
+    try {
+      setPaFieldErrors({});
+      console.log('[PA] submit step', { stepType: paStepPayload?.type, payload });
+      const res = await sendChatMessage({
+        session_id: sid,
+        user_id: userId,
+        form_data: payload,
+      });
+
+      // when backend returns a session_id; keep following it.
+      if (res?.session_id && res.session_id !== sid) {
+        setPaSessionId(res.session_id);
+      }
+
+      console.log('[PA] step response', res);
+
+      if (res?.response?.complete) {
+        setPaComplete(true);
+        onFormSubmitted?.();
+        return;
+      }
+      const next = res?.response?.response;
+      if (next) {
+        setPaStepPayload(next);
+      }
+    } catch (e) {
+      const anyErr = e as any;
+      const status = anyErr?.response?.status;
+      const data = anyErr?.response?.data;
+      console.error('Personal Accident step submit failed:', { status, data, error: e });
+
+      // If backend returns field-level validation errors, surface them in the UI.
+      const fieldErrors = data?.detail?.field_errors ?? data?.field_errors;
+      if (status === 422 && fieldErrors && typeof fieldErrors === 'object') {
+        const normalized: Record<string, string> = {};
+        Object.entries(fieldErrors as Record<string, unknown>).forEach(([k, v]) => {
+          if (v == null) return;
+          normalized[k] = Array.isArray(v) ? String(v[0] ?? '') : String(v);
+        });
+        setPaFieldErrors(normalized);
+      }
+    } finally {
+      setPaLoading(false);
+    }
+  };
+
+  const clearPersonalAccidentDraft = async () => {
+    const sid = paSessionId ?? sessionId;
+    if (!sid) return;
+    try {
+      await deleteFormDraft(sid, FLOW_NAME_PA);
+    } catch {
+      // ignore
+    }
+    setFormData({});
+    setPaStepPayload(null);
+    setPaComplete(false);
   };
 
   useEffect(() => {
@@ -115,6 +294,12 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Handle next/submit action
   const handleNext = async () => {
+    // Backend-driven PA: submit each step to /chat/message
+    if (isBackendDrivenPA) {
+      await submitPersonalAccidentStep({ ...formData });
+      return;
+    }
+
     if (step < steps.length - 1) {
       setStep((prev) => prev + 1);
       return;
@@ -173,13 +358,56 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
 
   // Show prompt if no product is selected
-  if (!selectedProduct || steps.length === 0) {
+  if (!selectedProduct || (!isBackendDrivenPA && steps.length === 0)) {
     return (
       <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
         <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
           <p className="text-center text-gray-600 mb-1 text-sm">
             Please select a product to continue.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Backend-driven Personal Accident rendering
+  if (isBackendDrivenPA) {
+    return (
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
+          {paLoading && !paStepPayload ? (
+            <p className="text-center text-gray-600 text-sm">Loading...</p>
+          ) : paComplete ? (
+            <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+              <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
+              <button
+                type="button"
+                onClick={clearPersonalAccidentDraft}
+                className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+              >
+                Start over
+              </button>
+            </div>
+          ) : (
+            <GuidedStepRenderer
+              step={paStepPayload}
+              values={formData}
+              errors={paFieldErrors}
+              onClearError={(name) => {
+                setPaFieldErrors((prev) => {
+                  if (!prev[name]) return prev;
+                  const copy = { ...prev };
+                  delete copy[name];
+                  return copy;
+                });
+              }}
+              onChange={handleChange}
+              onSubmit={submitPersonalAccidentStep}
+              onBack={undefined}
+              loading={paLoading}
+              titleFallback="Personal Accident"
+            />
+          )}
         </div>
       </div>
     );

@@ -7,8 +7,7 @@ export const serenicareFormSteps = [
       { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter your first name", minLength: 2, maxLength: 50 },
       { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter your last name", minLength: 2, maxLength: 50 },
       { name: "middleName", label: "Middle Name", type: "text", required: false, placeholder: "Enter your middle name", optionalLabel: "optional", maxLength: 50 },
-      { name: "dob", label: "Date of Birth", type: "date", required: false },
-      { name: "professionalOccupation", label: "Professional Occupation", type: "text", required: true, placeholder: "Enter your occupation", maxLength: 80 },
+           
     ],
   },
   {
@@ -16,7 +15,6 @@ export const serenicareFormSteps = [
     fields: [
       { name: "mobile", label: "Phone Number", type: "tel", required: true, placeholder: "Enter your mobile number" },
       { name: "email", label: "Email Address", type: "email", required: true, placeholder: "Enter your email address", maxLength: 100 },
-      { name: "preferredContact", label: "Preferred Contact Method", type: "text", required: false, placeholder: "e.g. WhatsApp, Email, Phone Call", optionalLabel: "optional", maxLength: 80 },
     ],
   },
   {
@@ -80,18 +78,31 @@ export const serenicareFormSteps = [
         fields: [
           {
             name: "includeSpouse",
-            label: "Include Spouse?",
+            label: "Spouse?",
             type: "checkbox",
             required: false,
           },
           {
             name: "includeChildren",
-            label: "Include Children?",
+            label: "Children?",
             type: "checkbox",
             required: false,
           },
-          { name: "dob", label: "Date of Birth", type: "date", required: true, placeholder: "Select date of birth" },
-          { name: "age", label: "Age", type: "number", required: true, placeholder: "Age will be calculated" },
+          
+          {
+            name: "D.O.B",
+            label: "D.O.B",
+            type: "date",
+            required: true,
+            placeholder: "Enter date of birth",
+          },
+          {
+            name: "age",
+            label: "Age",
+            type: "number",
+            required: true,
+            placeholder: "Enter age",
+          }
         ],
       },
     ],

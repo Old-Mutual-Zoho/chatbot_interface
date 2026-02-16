@@ -43,6 +43,66 @@ export interface ChatMessagePayload {
 	form_data?: Record<string, unknown>;
 }
 
+// --- Guided flow response types (backend step payloads) ---
+export interface GuidedFormField {
+	name: string;
+	label: string;
+	type: string;
+	required?: boolean;
+	placeholder?: string;
+	help?: string;
+	minLength?: number;
+	maxLength?: number;
+	options?: { value: string; label: string }[];
+	defaultValue?: string;
+}
+
+export type GuidedStepResponse =
+	| { type: 'form'; message?: string; fields: GuidedFormField[] }
+	| {
+			type: 'premium_summary';
+			message?: string;
+			monthly_premium: number;
+			annual_premium: number;
+			cover_limit_ugx: number;
+			benefits: string[];
+			actions: { type: string; label: string }[];
+	  }
+	| {
+			type: 'yes_no_details';
+			message: string;
+			question_id: string;
+			options: { id: string; label: string }[];
+			details_field?: { name: string; label: string; show_when: string };
+	  }
+	| {
+			type: 'checkbox';
+			message: string;
+			options: { id: string; label: string }[];
+			field_name?: string;
+			other_field?: { name: string; label: string };
+	  }
+	| { type: 'file_upload'; message: string; field_name: string; accept?: string }
+	| { type: 'final_confirmation'; message?: string; actions?: { type: string; label: string }[] }
+	| { type: 'message'; message: string };
+
+export interface StartGuidedResponse {
+	session_id: string;
+	mode?: string;
+	flow?: string;
+	step?: number;
+	response: GuidedStepResponse;
+}
+
+export interface ChatMessageResponse {
+	message?: string;
+	options?: Array<{ id?: string; value?: string; label: string }>;
+	response: { response?: GuidedStepResponse; complete?: boolean; [k: string]: unknown };
+	session_id?: string;
+	mode?: string;
+	[k: string]: unknown;
+}
+
 // --- API Functions ---
 export async function createSession(user_id: string) {
 	const { data } = await api.post<SessionResponse>('/session', { user_id });
@@ -55,7 +115,7 @@ export async function getSessionState(session_id: string) {
 }
 
 export async function sendChatMessage(payload: ChatMessagePayload) {
-	const { data } = await api.post('/chat/message', payload);
+	const { data } = await api.post<ChatMessageResponse>('/chat/message', payload);
 	return data;
 }
 
@@ -111,14 +171,32 @@ export async function getProductDetails(product_id: string) {
 export interface StartGuidedQuotePayload {
 	user_id: string;
 	flow_name: string;
-	initial_data: {
-		product_id: string;
-		[key: string]: unknown;
-	};
+	session_id?: string;
+	initial_data?: Record<string, unknown>;
 }
 
 export async function startGuidedQuote(payload: StartGuidedQuotePayload) {
-	const { data } = await api.post('/chat/start-guided', payload);
+	const { data } = await api.post<StartGuidedResponse>('/chat/start-guided', payload);
+	return data;
+}
+
+// --- Draft API (guided-flow drafts) ---
+export interface FormDraft {
+	session_id: string;
+	flow: string;
+	step: number;
+	collected_data: Record<string, unknown>;
+	status?: string;
+	updated_at?: string;
+}
+
+export async function getFormDraft(session_id: string, flow_name: string) {
+	const { data } = await api.get<FormDraft>(`/forms/draft/${session_id}/${flow_name}`);
+	return data;
+}
+
+export async function deleteFormDraft(session_id: string, flow_name: string) {
+	const { data } = await api.delete<{ status: string }>(`/forms/draft/${session_id}/${flow_name}`);
 	return data;
 }
 // --- Purchase Flow ---

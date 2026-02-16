@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect } from "react";
+import { useReducer, useRef, useEffect, useState } from "react";
 // import type { ChatMessage } from "../types";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
@@ -527,7 +527,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   onCloseClick,
   selectedProduct,
   userId,
-  sessionId,
+  sessionId: sessionIdProp,
   sessionLoading,
   isExpanded,
   onToggleExpand,
@@ -535,6 +535,8 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   onMessagesChange,
   initialMessages
 }) => {
+  // Robust session management: persist sessionId from backend, update on backend response, use for all requests, reset only on new conversation/session expiry
+  const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
   const isGuidedFlow = !!selectedProduct;
   const [state, dispatch] = useReducer(
     reducer,
@@ -545,43 +547,96 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
-  // This function now calls the backend for real responses
-  const fetchBotResponse = async (option: string) => {
+  // --- Robust session management logic ---
+  // Backend form submission handler for chat
+  const handleBackendFormSubmit = async (formData: Record<string, unknown>) => {
     if (!userId || !sessionId) {
+      dispatch({
+        type: "RECEIVE_BOT_REPLY",
+        payload: "⚠️ Could not submit form. Please try again or contact support.",
+      });
+      return;
+    }
+    dispatch({ type: "SEND_MESSAGE" });
+    try {
+      const response = await sendChatMessage({
+        user_id: userId,
+        session_id: sessionId,
+        form_data: formData,
+      });
+      // Update sessionId if backend returns a new one
+      if (response && typeof response === 'object') {
+        if ('session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
+          setSessionId(response.session_id);
+        } else if (
+          response.response &&
+          typeof response.response === 'object' &&
+          'session_id' in response.response &&
+          typeof response.response.session_id === 'string' &&
+          response.response.session_id !== sessionId
+        ) {
+          setSessionId(response.response.session_id);
+        }
+      }
+      let reply = "Form submitted successfully.";
+      if (typeof response === 'object' && response !== null) {
+        if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
+          reply = response.response.response;
+        } else if (typeof response.response === 'string') {
+          reply = response.response;
+        } else if (typeof response.message === 'string') {
+          reply = response.message;
+        }
+      }
+      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
+    } catch {
+      dispatch({
+        type: "RECEIVE_BOT_REPLY",
+        payload: "⚠️ Could not submit form. Please try again or contact support.",
+      });
+    }
+  };
+
+  // Fetch bot response and manage sessionId
+  const fetchBotResponse = async (option: string) => {
+    if (!userId) {
       return "Connecting to chat...";
     }
     try {
-      const response = await sendChatMessage({ user_id: userId, session_id: sessionId, message: option });
-      console.log('DEBUG BOT RESPONSE:', response);
-      if (response && typeof response === 'object' && 'response' in response) {
-        console.log('DEBUG BOT RESPONSE.response:', response.response);
+      const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: option });
+      // Update sessionId if backend returns a new one
+      if (response && typeof response === 'object') {
+        if ('session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
+          setSessionId(response.session_id);
+        } else if (
+          response.response &&
+          typeof response.response === 'object' &&
+          'session_id' in response.response &&
+          typeof response.response.session_id === 'string' &&
+          response.response.session_id !== sessionId
+        ) {
+          setSessionId(response.response.session_id);
+        }
       }
-      // If response is an object with a nested response, extract it
       if (typeof response === 'object' && response !== null) {
-        // Deeply nested string response
         if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
           return response.response.response;
         }
-        // Direct string response
         if (typeof response.response === 'string') {
           return response.response;
         }
-        // Message field
         if (typeof response.message === 'string') {
           return response.message;
         }
-        // If options are present, format them for display
         if (Array.isArray(response.options) && response.options.length > 0) {
           const optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
           return `${response.message || response.response?.message || 'Please choose an option:'}\n${optionsText}`;
         }
-        // If response has a message and options inside response.response
         if (response.response && Array.isArray(response.response.options)) {
           const optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
           return `${response.response.message || 'Please choose an option:'}\n${optionsText}`;
         }
       }
-      // fallback: stringify
       return typeof response === 'string' ? response : 'Sorry, I could not understand the server response.';
     } catch {
       return "Sorry, I couldn't retrieve information from the server.";
@@ -590,8 +645,9 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
 
 
-  // Reset all chat state when selectedProduct changes
+  // Reset all chat state and sessionId when selectedProduct changes (new conversation)
   useEffect(() => {
+    setSessionId(sessionIdProp ?? null); // Reset sessionId to prop or null
     dispatch({ type: "RESET", selectedProduct });
     const followupTimeout = setTimeout(() => {
       dispatch({
@@ -604,7 +660,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       });
     }, 600);
     return () => clearTimeout(followupTimeout);
-  }, [selectedProduct]);
+  }, [selectedProduct, sessionIdProp]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -740,6 +796,11 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         channel: "chatbot",
       });
 
+      // Session management: update sessionId if backend returns a new one
+      if (response && typeof response === 'object' && 'session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
+        setSessionId(response.session_id);
+      }
+
       const purchaseResponse = response as unknown as { success?: boolean; message?: string } | null;
 
       if (purchaseResponse && purchaseResponse.success !== false) {
@@ -782,6 +843,11 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         product: selectedProduct,
         channel: "chatbot",
       });
+
+      // Session management: update sessionId if backend returns a new one
+      if (response && typeof response === 'object' && 'session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
+        setSessionId(response.session_id);
+      }
 
       const purchaseResponse = response as unknown as { success?: boolean; message?: string } | null;
 
@@ -972,7 +1038,9 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                 embedded
                 selectedProduct={selectedProduct}
                 userId={userId}
+                sessionId={sessionId}
                 onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+                onBackendFormSubmit={handleBackendFormSubmit}
               />
             </div>
           </div>

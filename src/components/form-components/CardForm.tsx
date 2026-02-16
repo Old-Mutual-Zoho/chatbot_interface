@@ -44,6 +44,8 @@ export interface CardFormProps {
   description?: string;
   fields: CardFieldConfig[];
   values: Record<string, string>;
+  externalErrors?: Record<string, string>;
+  onClearExternalError?: (name: string) => void;
   onChange: (name: string, value: string) => void;
   onNext?: () => void;
   onBack?: () => void;
@@ -62,6 +64,8 @@ const CardForm: React.FC<CardFormProps> = ({
   description,
   fields,
   values,
+  externalErrors,
+  onClearExternalError,
   onChange,
   onNext,
   onBack,
@@ -284,7 +288,6 @@ const CardForm: React.FC<CardFormProps> = ({
         return { valid: false, error: "Wrong Phone number format" };
       }
     }
-
     if (field.name === "nin" && trimmed) {
       if (!/^(CM|CF)\d{11}$/.test(trimmed)) {
         return {
@@ -346,9 +349,21 @@ const CardForm: React.FC<CardFormProps> = ({
         }
       }
 
+      // Custom logic: For Serenicare, if field is D.O.B and memberType is spouse, enforce min age 19
+      if (field.name === "D.O.B" && values && values["memberType"] === "spouse") {
+        const ref = new Date();
+        ref.setHours(0, 0, 0, 0);
+        const minAgeCutoff = new Date(ref);
+        minAgeCutoff.setFullYear(minAgeCutoff.getFullYear() - 19);
+        minAgeCutoff.setHours(0, 0, 0, 0);
+        if (d > minAgeCutoff) {
+          return { valid: false, error: `Spouse must be at least 19 years old.` };
+        }
+      }
+
+      // Default minAgeYears logic (for other products)
       const ref = new Date();
       ref.setHours(0, 0, 0, 0);
-
       if (typeof field.minAgeYears === "number" && Number.isFinite(field.minAgeYears)) {
         const minAgeCutoff = new Date(ref);
         minAgeCutoff.setFullYear(minAgeCutoff.getFullYear() - field.minAgeYears);
@@ -620,7 +635,9 @@ const CardForm: React.FC<CardFormProps> = ({
           // Validation logic
           const value = values[field.name] || "";
           const { error } = validateField(field);
+          const externalError = externalErrors?.[field.name];
           const shouldShowError = (showErrors || touchedFields[field.name]) && !!error;
+          const shouldShowExternalError = !!externalError;
           const effectiveMaxLen = getEffectiveMaxLength(field);
 
           // Repeatable group (e.g. Main Members)
@@ -669,6 +686,41 @@ const CardForm: React.FC<CardFormProps> = ({
                         const subValue = (groupValue[activeIdx] && typeof groupValue[activeIdx] === 'object') ? (groupValue[activeIdx] as Record<string, unknown>)[subField.name] ?? "" : "";
                         const subMaxLen = getEffectiveMaxLength(subField);
                         // Render subfields (customize as needed)
+                        // Mutually exclusive logic for Spouse/Children checkboxes
+                        if (
+                          (subField.name === "includeSpouse" || subField.name === "includeChildren") &&
+                          subField.type === "checkbox"
+                        ) {
+                          return (
+                            <div key={subField.name} className="col-span-2 mb-2">
+                              {subField.label && <label className="block text-base text-gray-700 mb-2">{subField.label}</label>}
+                              <input
+                                type="checkbox"
+                                checked={!!subValue}
+                                onChange={e => {
+                                  // If this is being checked, uncheck the other
+                                  let updated = { ...groupValue[activeIdx], [subField.name]: e.target.checked };
+                                  if (e.target.checked) {
+                                    if (subField.name === "includeSpouse") {
+                                      updated["includeChildren"] = false;
+                                    } else if (subField.name === "includeChildren") {
+                                      updated["includeSpouse"] = false;
+                                    }
+                                  }
+                                  handleFieldChange(activeIdx, subField.name, e.target.checked ? "true" : "");
+                                  // Also update the other field
+                                  if (subField.name === "includeSpouse") {
+                                    handleFieldChange(activeIdx, "includeChildren", "");
+                                  } else if (subField.name === "includeChildren") {
+                                    handleFieldChange(activeIdx, "includeSpouse", "");
+                                  }
+                                }}
+                                className="w-5 h-5 accent-green-600"
+                              />
+                            </div>
+                          );
+                        }
+                        // Default rendering for other fields
                         return (
                           <div key={subField.name} className="col-span-2 mb-2">
                             {subField.label && <label className="block text-base text-gray-700 mb-2">{subField.label}</label>}
@@ -715,6 +767,7 @@ const CardForm: React.FC<CardFormProps> = ({
                         checked={value === opt.value}
                         onChange={() => {
                           markTouched(field.name);
+                          onClearExternalError?.(field.name);
                           onChange(field.name, opt.value);
                           handleConfirmField(field, opt.value);
                         }}
@@ -724,7 +777,8 @@ const CardForm: React.FC<CardFormProps> = ({
                     </label>
                   ))}
                 </div>
-                {shouldShowError && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
+                {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -749,6 +803,7 @@ const CardForm: React.FC<CardFormProps> = ({
                         checked={selected.includes(opt.value)}
                         onChange={() => {
                           markTouched(field.name);
+                          onClearExternalError?.(field.name);
                           let updated: string[];
                           if (selected.includes(opt.value)) {
                             updated = selected.filter((v) => v !== opt.value);
@@ -763,7 +818,8 @@ const CardForm: React.FC<CardFormProps> = ({
                     </label>
                   ))}
                 </div>
-                {shouldShowError && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
+                {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -800,6 +856,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   }}
                   onChange={(e) => {
                     markTouched(field.name);
+                    onClearExternalError?.(field.name);
                     if (!isOpen) setOpenComboboxId(field.name);
                     setComboboxQuery(e.target.value);
                     setComboboxActiveIndex(0);
@@ -876,6 +933,7 @@ const CardForm: React.FC<CardFormProps> = ({
                           onClick={() => {
                             onChange(field.name, opt.value);
                             markTouched(field.name);
+                            onClearExternalError?.(field.name);
                             handleConfirmField(field, opt.value);
                             setOpenComboboxId(null);
                             setComboboxQuery("");
@@ -891,7 +949,8 @@ const CardForm: React.FC<CardFormProps> = ({
                   </div>
                 )}
 
-                {shouldShowError && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
+                {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -912,6 +971,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   value={value}
                   onChange={(e) => {
                     markTouched(field.name);
+                    onClearExternalError?.(field.name);
                     onChange(field.name, e.target.value);
                     handleConfirmField(field, e.target.value);
                   }}
@@ -930,7 +990,8 @@ const CardForm: React.FC<CardFormProps> = ({
                     </option>
                   ))}
                 </select>
-                {shouldShowError && <div className="text-red-500 text-xs mt-1">{error}</div>}
+                {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
+                {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
               </div>
             );
           }
@@ -951,6 +1012,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     const isoDate = date ? date.toISOString().split('T')[0] : "";
                     onChange(field.name, isoDate);
                     markTouched(field.name);
+                    onClearExternalError?.(field.name);
                     handleConfirmField(field, isoDate);
                   }}
                   onBlur={() => {
@@ -978,6 +1040,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   maxLength={effectiveMaxLen}
                   onChange={e => {
                     markTouched(field.name);
+                    onClearExternalError?.(field.name);
                     const nextRaw = e.target.value;
                     onChange(field.name, applyInputCaps(field, nextRaw));
                   }}
@@ -1003,7 +1066,8 @@ const CardForm: React.FC<CardFormProps> = ({
                   placeholder={field.placeholder}
                 />
               )}
-              {shouldShowError && <div className="text-red-500 text-xs mt-1">{error}</div>}
+              {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
+              {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
             </div>
           );
           })}
