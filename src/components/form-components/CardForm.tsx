@@ -121,7 +121,7 @@ const CardForm: React.FC<CardFormProps> = ({
     const depValue = values[showIf.field];
     const expected = showIf.value;
     if (Array.isArray(expected)) {
-      return expected.includes(depValue as any);
+      return expected.includes(depValue as string);
     }
     return depValue === expected;
   }, [values]);
@@ -699,7 +699,7 @@ const CardForm: React.FC<CardFormProps> = ({
                                 checked={!!subValue}
                                 onChange={e => {
                                   // If this is being checked, uncheck the other
-                                  let updated = { ...groupValue[activeIdx], [subField.name]: e.target.checked };
+                                  const updated = { ...groupValue[activeIdx], [subField.name]: e.target.checked };
                                   if (e.target.checked) {
                                     if (subField.name === "includeSpouse") {
                                       updated["includeChildren"] = false;
@@ -1009,11 +1009,17 @@ const CardForm: React.FC<CardFormProps> = ({
                   name={field.name}
                   selected={value ? new Date(value) : null}
                   onChange={(date: Date | null) => {
-                    const isoDate = date ? date.toISOString().split('T')[0] : "";
-                    onChange(field.name, isoDate);
+                    let formattedDate = "";
+                    if (date) {
+                      const mm = String(date.getMonth() + 1).padStart(2, '0');
+                      const dd = String(date.getDate()).padStart(2, '0');
+                      const yyyy = date.getFullYear();
+                      formattedDate = `${mm}/${dd}/${yyyy}`;
+                    }
+                    onChange(field.name, formattedDate);
                     markTouched(field.name);
                     onClearExternalError?.(field.name);
-                    handleConfirmField(field, isoDate);
+                    handleConfirmField(field, formattedDate);
                   }}
                   onBlur={() => {
                     markTouched(field.name);

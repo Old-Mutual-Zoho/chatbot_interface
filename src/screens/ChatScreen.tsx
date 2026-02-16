@@ -549,7 +549,10 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   // --- Robust session management logic ---
   // Backend form submission handler for chat
+<<<<<<< HEAD
   // ...existing code...
+=======
+>>>>>>> Forms
 
   // Fetch bot response and manage sessionId
   const fetchBotResponse = async (option: string) => {
@@ -994,7 +997,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                 userId={userId}
                 sessionId={sessionId}
                 onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
-                // ...existing code...
               />
             </div>
           </div>
