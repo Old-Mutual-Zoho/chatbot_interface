@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
 import CardForm from "./CardForm";
 import type { CardFieldConfig } from "./CardForm";
 import type { GuidedStepResponse } from "../../services/api";
@@ -26,12 +27,97 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   loading = false,
   titleFallback = "Details",
 }) => {
+  // Confirmation summary state
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<Record<string, any> | null>(null);
+  const [confirmationLabels, setConfirmationLabels] = useState<Record<string, string>>({});
+  const [quoteVisible, setQuoteVisible] = useState(false);
+  const [quoteAmount, setQuoteAmount] = useState<string | number>("");
+  const [quoteDetails, setQuoteDetails] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
   // This component shows ONE “step” at a time.
   // A “step” is a small piece of the guided flow that the backend sends us.
   if (!step) return null;
 
   // React has a rule: `useState` / `useMemo` must be called in the same order every time.
   // To keep things safe and simple, we use one small component per step type.
+
+  // Modular handlers for loading and quote display
+  const showLoadingScreen = () => setLoading(true);
+  const hideLoadingScreen = () => setLoading(false);
+  const displayQuote = (amount: string | number, details: string) => {
+    setQuoteAmount(amount);
+    setQuoteDetails(details);
+    setQuoteVisible(true);
+  };
+  const hideQuote = () => setQuoteVisible(false);
+
+  // Simulate quote generation (replace with real logic as needed)
+  const generateQuote = (data: Record<string, any>) => {
+    // For demo, just return a fixed value and details
+    return { amount: 5000000, details: "This is your generated quote." };
+  };
+
+  if (showConfirmation && confirmationData) {
+    return (
+      <>
+        <ConfirmationCard
+          data={confirmationData}
+          labels={confirmationLabels}
+          onConfirm={() => {
+            // 1. Disable button
+            // 2. Show loading
+            // 3. Wait 5s, then hide loading, hide confirmation, show quote
+            setLoading(true);
+            // Button disables via prop below
+            setTimeout(() => {
+              setLoading(false);
+              setShowConfirmation(false);
+              setConfirmationData(null);
+              setConfirmationLabels({});
+              // Generate and show quote
+              const quote = generateQuote(confirmationData);
+              displayQuote(quote.amount, quote.details);
+            }, 5000);
+          }}
+          onEdit={() => {
+            setShowConfirmation(false);
+            setConfirmationData(null);
+            setConfirmationLabels({});
+            if (onBack) onBack();
+          }}
+          confirmDisabled={loading}
+        />
+        {loading && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+            {/* Use the existing loading bubble or animation here if needed */}
+            <div className="bg-white rounded-lg shadow-lg p-8 animate-fade-in">
+              <div className="flex flex-col items-center">
+                <div className="loader mb-4" />
+                <span className="text-green-700 font-semibold">Generating your quote...</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (quoteVisible) {
+    return (
+      <div className="animate-fade-in">
+        {/* Use the existing QuoteDisplay component */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md">
+            <div className="w-full">
+              {/* @ts-ignore */}
+              <QuoteDisplay quoteAmount={quoteAmount} details={quoteDetails} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   switch (step.type) {
     case "form":
@@ -44,7 +130,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           errors={errors}
           onClearError={onClearError}
           onChange={onChange}
-          onSubmit={onSubmit}
+          onSubmit={(payload) => {
+            // Instead of submitting, show confirmation summary
+            // Collect all field labels and values
+            const labels: Record<string, string> = {};
+            (step.fields ?? []).forEach(f => { labels[f.name] = f.label ?? f.name; });
+            setConfirmationLabels(labels);
+            setConfirmationData(payload);
+            setShowConfirmation(true);
+          }}
           onBack={onBack}
           loading={loading}
         />
