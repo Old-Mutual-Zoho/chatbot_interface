@@ -143,7 +143,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setPaFieldErrors({});
   }, [selectedProduct, sessionId]);
 
-  // Start/resume backend-driven PA flow (prefer draft if present)
+  // Start backend-driven PA flow (prefer draft if present)
   useEffect(() => {
     if (!isBackendDrivenPA) return;
     if (!userId) return;
