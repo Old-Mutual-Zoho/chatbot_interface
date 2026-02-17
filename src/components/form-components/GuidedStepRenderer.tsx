@@ -29,7 +29,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [confirmationData, setConfirmationData] = useState<Record<string, any> | null>(null);
+  const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);
   const [confirmationLabels, setConfirmationLabels] = useState<Record<string, string>>({});
   const [quoteVisible, setQuoteVisible] = useState(false);
   const [quoteAmount, setQuoteAmount] = useState<string | number>("");
@@ -39,11 +39,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // A “step” is a small piece of the guided flow that the backend sends us.
   if (!step) return null;
 
-  // React has a rule: `useState` / `useMemo` must be called in the same order every time.
-  // To keep things safe and simple, we use one small component per step type.
-
-  // Modular handlers for loading and quote display
-  // Removed unused showLoadingScreen and hideLoadingScreen
+    // Modular handlers for loading and quote display 
   const displayQuote = (amount: string | number, details: string) => {
     setQuoteAmount(amount);
     setQuoteDetails(details);
@@ -109,7 +105,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         <div className="flex justify-center">
           <div className="w-full max-w-md">
             <div className="w-full">
-              {/* @ts-ignore */}
+              {/* @ts-expect-error: QuoteDisplay may not have correct types, but is safe for our usage here */}
               <QuoteDisplay quoteAmount={quoteAmount} details={quoteDetails} />
             </div>
           </div>

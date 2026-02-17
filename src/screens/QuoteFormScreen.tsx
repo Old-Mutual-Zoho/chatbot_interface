@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { deleteFormDraft, getFormDraft, getSessionState, sendChatMessage, startGuidedQuote } from '../services/api';
+import { getFormDraft, getSessionState, sendChatMessage, startGuidedQuote } from '../services/api';
 import type { GuidedStepResponse, StartGuidedResponse } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
@@ -37,6 +37,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [paLoading, setPaLoading] = useState(false);
   const [paComplete, setPaComplete] = useState(false);
   const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
+
+  // --- Backend-driven Motor Private guided flow state ---
+  const FLOW_NAME_MOTOR = 'motor_private';
+  const isBackendDrivenMotor = selectedProduct === 'Motor Private Insurance';
+  const [motorSessionId, setMotorSessionId] = useState<string | null>(sessionId ?? null);
+  const [motorStepPayload, setMotorStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [motorLoading, setMotorLoading] = useState(false);
+  const [motorComplete, setMotorComplete] = useState(false);
+  const [motorFieldErrors, setMotorFieldErrors] = useState<Record<string, string>>({});
 
   // Compute steps for selected product
   const steps = useMemo(() => {
@@ -198,6 +207,86 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     };
   }, [isBackendDrivenPA, paSessionId, sessionId, userId]);
 
+  // Start/resume backend-driven Motor flow (prefer draft if present)
+  useEffect(() => {
+    if (!isBackendDrivenMotor) return;
+    if (!userId) return;
+
+    const sid = motorSessionId ?? sessionId;
+    if (!sid) return;
+
+    let cancelled = false;
+    (async () => {
+      setMotorLoading(true);
+      try {
+        // Only try fetching a draft if the backend indicates this session is already in a Motor guided flow.
+        // This avoids an expected-but-noisy 404 when there is no draft yet.
+        try {
+          const state = await getSessionState(sid);
+          console.debug('Motor getSessionState:', { sid, state });
+          const shouldTryDraft = state?.mode === 'guided' && state?.current_flow === FLOW_NAME_MOTOR;
+
+          if (shouldTryDraft) {
+            const draft = await getFormDraft(sid, FLOW_NAME_MOTOR);
+            console.debug('Motor getFormDraft:', { sid, draft });
+            if (cancelled) return;
+            setMotorSessionId(draft.session_id);
+
+            // Best-effort flatten: backend may store nested keys, keep simple string values.
+            const flat: Record<string, string> = {};
+            const cd = draft.collected_data ?? {};
+            Object.entries(cd).forEach(([k, v]) => {
+              if (v == null) return;
+              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+                flat[k] = String(v);
+              }
+            });
+            setFormData((prev) => ({ ...prev, ...flat }));
+          }
+        } catch (err) {
+          console.debug('Motor session-state/draft probe failed:', err);
+          // ignore session-state/draft probe failures; we'll still start the flow below.
+        }
+
+        // No schema-refetch endpoint; start (or resume) to get the current step payload.
+        const startRes = await startGuidedQuote({
+          user_id: userId,
+          flow_name: FLOW_NAME_MOTOR,
+          session_id: sid,
+          initial_data: { product_id: 'Motor Private Insurance' },
+        });
+        console.debug('Motor startGuidedQuote:', {
+          user_id: userId,
+          flow_name: FLOW_NAME_MOTOR,
+          session_id: sid,
+          initial_data: { product_id: 'Motor Private Insurance' },
+          startRes,
+        });
+        if (cancelled) return;
+        // Always follow the backend's session_id in case it creates/returns a new session.
+        const typedStart = startRes as StartGuidedResponse;
+        if (typedStart?.session_id && typedStart.session_id !== sid) {
+          setMotorSessionId(typedStart.session_id);
+        }
+        setMotorStepPayload(typedStart.response ?? null);
+      } catch (e) {
+        // Log error details and any available response data
+        if (e && typeof e === 'object' && 'response' in e) {
+          // @ts-expect-error: e.response is likely an AxiosError
+          console.error('Failed to start Motor Private flow:', e, e.response?.data);
+        } else {
+          console.error('Failed to start Motor Private flow:', e);
+        }
+      } finally {
+        if (!cancelled) setMotorLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBackendDrivenMotor, motorSessionId, sessionId, userId]);
+
   // Ensure guided PA form steps have stable keys in state (avoid undefined dropping).
   useEffect(() => {
     if (!isBackendDrivenPA) return;
@@ -221,82 +310,11 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     });
   }, [isBackendDrivenPA, paStepPayload]);
 
-  const submitPersonalAccidentStep = async (payload: Record<string, unknown>) => {
-    const sid = paSessionId ?? sessionId;
-    if (!sid || !userId) return;
-    setPaLoading(true);
-    try {
-      setPaFieldErrors({});
-      console.log('[PA] submit step', { stepType: paStepPayload?.type, payload });
-      const res = await sendChatMessage({
-        session_id: sid,
-        user_id: userId,
-        form_data: payload,
-      });
-
-      // when backend returns a session_id; keep following it.
-      if (res?.session_id && res.session_id !== sid) {
-        setPaSessionId(res.session_id);
-      }
-
-      console.log('[PA] step response', res);
-
-      if (res?.response?.complete) {
-        setPaComplete(true);
-        onFormSubmitted?.();
-        return;
-      }
-      const next = res?.response?.response;
-      if (next) {
-        setPaStepPayload(next);
-      }
-    } catch (e) {
-      const anyErr = e as any;
-      const status = anyErr?.response?.status;
-      const data = anyErr?.response?.data;
-      console.error('Personal Accident step submit failed:', { status, data, error: e });
-
-      // If backend returns field-level validation errors, surface them in the UI.
-      const fieldErrors = data?.detail?.field_errors ?? data?.field_errors;
-      if (status === 422 && fieldErrors && typeof fieldErrors === 'object') {
-        const normalized: Record<string, string> = {};
-        Object.entries(fieldErrors as Record<string, unknown>).forEach(([k, v]) => {
-          if (v == null) return;
-          normalized[k] = Array.isArray(v) ? String(v[0] ?? '') : String(v);
-        });
-        setPaFieldErrors(normalized);
-      }
-    } finally {
-      setPaLoading(false);
-    }
-  };
-
-  const clearPersonalAccidentDraft = async () => {
-    const sid = paSessionId ?? sessionId;
-    if (!sid) return;
-    try {
-      await deleteFormDraft(sid, FLOW_NAME_PA);
-    } catch {
-      // ignore
-    }
-    setFormData({});
-    setPaStepPayload(null);
-    setPaComplete(false);
-  };
-
-  useEffect(() => {
-    if (selectedProduct !== "Travel Sure Plus") return;
-    setFormData((prev) => {
-      if (prev.departureCountry === "Uganda") return prev;
-      return { ...prev, departureCountry: "Uganda" };
-    });
-  }, [selectedProduct]);
-
   // Handle next/submit action
   const handleNext = async () => {
     // Backend-driven PA: submit each step to /chat/message
     if (isBackendDrivenPA) {
-      await submitPersonalAccidentStep({ ...formData });
+      // Now handled inline in JSX
       return;
     }
 
@@ -382,7 +400,11 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
               <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
               <button
                 type="button"
-                onClick={clearPersonalAccidentDraft}
+                onClick={() => {
+                  setFormData({});
+                  setPaStepPayload(null);
+                  setPaComplete(false);
+                }}
                 className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
               >
                 Start over
@@ -402,10 +424,149 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
                 });
               }}
               onChange={handleChange}
-              onSubmit={submitPersonalAccidentStep}
+              onSubmit={async (payload) => {
+                const sid = paSessionId ?? sessionId;
+                if (!sid || !userId) return;
+                setPaLoading(true);
+                try {
+                  setPaFieldErrors({});
+                  const res = await sendChatMessage({
+                    session_id: sid,
+                    user_id: userId,
+                    form_data: payload,
+                  });
+                  if (res?.session_id && res.session_id !== sid) {
+                    setPaSessionId(res.session_id);
+                  }
+                  if (res?.response?.complete) {
+                    setPaComplete(true);
+                    onFormSubmitted?.();
+                    return;
+                  }
+                  const next = res?.response?.response;
+                  if (next) {
+                    setPaStepPayload(next);
+                  }
+                } catch (e: unknown) {
+                  const err = e as { response?: { status?: number; data?: unknown } };
+                  const status = err?.response?.status;
+                  const data = err?.response?.data as Record<string, unknown> | undefined;
+                  let fieldErrors: unknown = undefined;
+                  if (data && typeof data === 'object') {
+                    if ('detail' in data && typeof data.detail === 'object' && data.detail !== null && 'field_errors' in (data.detail as object)) {
+                      fieldErrors = (data.detail as { field_errors?: unknown }).field_errors;
+                    } else if ('field_errors' in data) {
+                      fieldErrors = (data as { field_errors?: unknown }).field_errors;
+                    }
+                  }
+                  if (status === 422 && fieldErrors && typeof fieldErrors === 'object') {
+                    const normalized: Record<string, string> = {};
+                    Object.entries(fieldErrors as Record<string, unknown>).forEach(([k, v]) => {
+                      if (v == null) return;
+                      normalized[k] = Array.isArray(v) ? String(v[0] ?? '') : String(v);
+                    });
+                    setPaFieldErrors(normalized);
+                  }
+                } finally {
+                  setPaLoading(false);
+                }
+              }}
               onBack={undefined}
               loading={paLoading}
               titleFallback="Personal Accident"
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Backend-driven Motor rendering
+  if (isBackendDrivenMotor) {
+    return (
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
+          {motorLoading && !motorStepPayload ? (
+            <p className="text-center text-gray-600 text-sm">Loading...</p>
+          ) : motorComplete ? (
+            <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+              <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({});
+                  setMotorStepPayload(null);
+                  setMotorComplete(false);
+                }}
+                className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+              >
+                Start over
+              </button>
+            </div>
+          ) : (
+            <GuidedStepRenderer
+              step={motorStepPayload}
+              values={formData}
+              errors={motorFieldErrors}
+              onClearError={(name) => {
+                setMotorFieldErrors((prev) => {
+                  if (!prev[name]) return prev;
+                  const copy = { ...prev };
+                  delete copy[name];
+                  return copy;
+                });
+              }}
+              onChange={handleChange}
+              onSubmit={async (payload) => {
+                const sid = motorSessionId ?? sessionId;
+                if (!sid || !userId) return;
+                setMotorLoading(true);
+                try {
+                  setMotorFieldErrors({});
+                  const res = await sendChatMessage({
+                    session_id: sid,
+                    user_id: userId,
+                    form_data: payload,
+                  });
+                  if (res?.session_id && res.session_id !== sid) {
+                    setMotorSessionId(res.session_id);
+                  }
+                  if (res?.response?.complete) {
+                    setMotorComplete(true);
+                    onFormSubmitted?.();
+                    return;
+                  }
+                  const next = res?.response?.response;
+                  if (next) {
+                    setMotorStepPayload(next);
+                  }
+                } catch (e: unknown) {
+                  const err = e as { response?: { status?: number; data?: unknown } };
+                  const status = err?.response?.status;
+                  const data = err?.response?.data as Record<string, unknown> | undefined;
+                  let fieldErrors: unknown = undefined;
+                  if (data && typeof data === 'object') {
+                    if ('detail' in data && typeof data.detail === 'object' && data.detail !== null && 'field_errors' in (data.detail as object)) {
+                      fieldErrors = (data.detail as { field_errors?: unknown }).field_errors;
+                    } else if ('field_errors' in data) {
+                      fieldErrors = (data as { field_errors?: unknown }).field_errors;
+                    }
+                  }
+                  if (status === 422 && fieldErrors && typeof fieldErrors === 'object') {
+                    const normalized: Record<string, string> = {};
+                    Object.entries(fieldErrors as Record<string, unknown>).forEach(([k, v]) => {
+                      if (v == null) return;
+                      normalized[k] = Array.isArray(v) ? String(v[0] ?? '') : String(v);
+                    });
+                    setMotorFieldErrors(normalized);
+                  }
+                } finally {
+                  setMotorLoading(false);
+                }
+              }}
+              onBack={undefined}
+              loading={motorLoading}
+              titleFallback="Motor Private Insurance"
             />
           )}
         </div>

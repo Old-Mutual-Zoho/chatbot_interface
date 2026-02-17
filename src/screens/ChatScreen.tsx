@@ -882,7 +882,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           }
           if (message.type === "custom-welcome" && state.showWelcomeCard) {
             return (
-              <div key={message.id} className="flex justify-start animate-fade-in mb-4">
+              <div key={"welcome-" + message.id} className="flex justify-start animate-fade-in mb-4">
                 <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
                   <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                   <div className="px-4 pt-3 pb-2">
@@ -936,34 +936,32 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
               (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
             );
           if (shouldShowActionCard) {
-            return (
-              <>
-                <div key={message.id} className={spacingClass}>
-                  <MessageRenderer
-                    message={message}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                  />
-                </div>
-                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
-                  <MessageRenderer
-                    message={{
-                      id: "dynamic-action-card",
-                      sender: "bot",
-                      type: "action-card",
-                      options: state.availableOptions,
-                    }}
-                    onActionCardSelect={handleActionCardSelect}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                    loading={state.loading}
-                    lastSelected={state.lastSelected}
-                  />
-                </div>
-              </>
-            );
+            return [
+              <div key={message.id + "-msg"} className={spacingClass}>
+                <MessageRenderer
+                  message={message}
+                  onConfirmPayment={handleConfirmPayment}
+                  onSelectPaymentMethod={handleSelectPaymentMethod}
+                  onSubmitMobilePayment={handleSubmitMobilePayment}
+                />
+              </div>,
+              <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                <MessageRenderer
+                  message={{
+                    id: "dynamic-action-card",
+                    sender: "bot",
+                    type: "action-card",
+                    options: state.availableOptions,
+                  }}
+                  onActionCardSelect={handleActionCardSelect}
+                  onConfirmPayment={handleConfirmPayment}
+                  onSelectPaymentMethod={handleSelectPaymentMethod}
+                  onSubmitMobilePayment={handleSubmitMobilePayment}
+                  loading={state.loading}
+                  lastSelected={state.lastSelected}
+                />
+              </div>
+            ];
           }
           if (message.type === "action-card") {
             // Do not render action cards from the messages array (handled above)

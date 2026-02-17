@@ -1,7 +1,7 @@
 import React from "react";
 
 export interface ConfirmationCardProps {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   labels: Record<string, string>;
   onConfirm: () => void;
   onEdit: () => void;

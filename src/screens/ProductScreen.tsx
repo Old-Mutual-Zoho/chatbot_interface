@@ -128,12 +128,12 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                     // Step 2: toggle product selection and optionally notify the chat flow.
                     setSelectedProduct((current) => {
                       const newValue = current === label ? null : label;
-                      // Only send when a product is actively selected (not when deselecting).
-                      if (onSendProduct && newValue) {
-                        onSendProduct(newValue);
-                      }
                       return newValue;
                     });
+                    // Only send when a product is actively selected (not when deselecting).
+                    if (onSendProduct && selectedProduct !== label) {
+                      onSendProduct(label);
+                    }
                   }}
                   title={label}
                   style={
