@@ -43,17 +43,16 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // To keep things safe and simple, we use one small component per step type.
 
   // Modular handlers for loading and quote display
-  const showLoadingScreen = () => setLoading(true);
-  const hideLoadingScreen = () => setLoading(false);
+  // Removed unused showLoadingScreen and hideLoadingScreen
   const displayQuote = (amount: string | number, details: string) => {
     setQuoteAmount(amount);
     setQuoteDetails(details);
     setQuoteVisible(true);
   };
-  const hideQuote = () => setQuoteVisible(false);
+  // const hideQuote = () => setQuoteVisible(false); // Remove if unused
 
   // Simulate quote generation (replace with real logic as needed)
-  const generateQuote = (data: Record<string, any>) => {
+  const generateQuote = () => {
     // For demo, just return a fixed value and details
     return { amount: 5000000, details: "This is your generated quote." };
   };
@@ -68,15 +67,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
             // 1. Disable button
             // 2. Show loading
             // 3. Wait 5s, then hide loading, hide confirmation, show quote
-            setLoading(true);
+            setIsLoading(true);
             // Button disables via prop below
             setTimeout(() => {
-              setLoading(false);
+              setIsLoading(false);
               setShowConfirmation(false);
               setConfirmationData(null);
               setConfirmationLabels({});
               // Generate and show quote
-              const quote = generateQuote(confirmationData);
+              const quote = generateQuote();
               displayQuote(quote.amount, quote.details);
             }, 5000);
           }}
@@ -86,9 +85,9 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
             setConfirmationLabels({});
             if (onBack) onBack();
           }}
-          confirmDisabled={loading}
+          confirmDisabled={isLoading}
         />
-        {loading && (
+        {isLoading && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
             {/* Use the existing loading bubble or animation here if needed */}
             <div className="bg-white rounded-lg shadow-lg p-8 animate-fade-in">
