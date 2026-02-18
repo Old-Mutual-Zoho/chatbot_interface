@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
+
 import CardForm from "./CardForm";
 import type { CardFieldConfig } from "./CardForm";
 import type { GuidedStepResponse } from "../../services/api";
@@ -31,88 +32,49 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);
   const [confirmationLabels, setConfirmationLabels] = useState<Record<string, string>>({});
-  const [quoteVisible, setQuoteVisible] = useState(false);
-  const [quoteAmount, setQuoteAmount] = useState<string | number>("");
-  const [quoteDetails, setQuoteDetails] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+  // const [quoteVisible, setQuoteVisible] = useState(false);
+  // const [quoteAmount, setQuoteAmount] = useState<string | number>("");
+  // const [quoteDetails, setQuoteDetails] = useState<string>("");
+  // const [messages, setMessages] = useState<any[]>([]); // Holds chat messages (bubbles)
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   // This component shows ONE “step” at a time.
   // A “step” is a small piece of the guided flow that the backend sends us.
   if (!step) return null;
 
     // Modular handlers for loading and quote display 
-  const displayQuote = (amount: string | number, details: string) => {
-    setQuoteAmount(amount);
-    setQuoteDetails(details);
-    setQuoteVisible(true);
-  };
+  // Removed unused displayQuote
   // const hideQuote = () => setQuoteVisible(false); // Remove if unused
 
   // Simulate quote generation (replace with real logic as needed)
-  const generateQuote = () => {
-    // For demo, just return a fixed value and details
-    return { amount: 5000000, details: "This is your generated quote." };
-  };
+  // const generateQuote = () => {
+  //   // For demo, just return a fixed value and details
+  //   return { amount: 5000000, details: "This is your generated quote." };
+  // };
+
+  // Scroll to bottom when messages change
+
 
   if (showConfirmation && confirmationData) {
     return (
       <>
+        {/* Render all chat messages (bubbles) - removed unused messages */}
         <ConfirmationCard
           data={confirmationData}
           labels={confirmationLabels}
-          onConfirm={() => {
-            // 1. Disable button
-            // 2. Show loading
-            // 3. Wait 5s, then hide loading, hide confirmation, show quote
-            setIsLoading(true);
-            // Button disables via prop below
-            setTimeout(() => {
-              setIsLoading(false);
-              setShowConfirmation(false);
-              setConfirmationData(null);
-              setConfirmationLabels({});
-              // Generate and show quote
-              const quote = generateQuote();
-              displayQuote(quote.amount, quote.details);
-            }, 5000);
+          fieldTypes={step.type === 'form' && 'fields' in step && Array.isArray(step.fields)
+            ? Object.fromEntries(step.fields.map((f: any) => [f.name, f]))
+            : {}}
+          onEdit={(values) => {
+            setConfirmationData(values);
           }}
-          onEdit={() => {
-            setShowConfirmation(false);
-            setConfirmationData(null);
-            setConfirmationLabels({});
-            if (onBack) onBack();
-          }}
-          confirmDisabled={isLoading}
+          confirmDisabled={false}
         />
-        {isLoading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-            {/* Use the existing loading bubble or animation here if needed */}
-            <div className="bg-white rounded-lg shadow-lg p-8 animate-fade-in">
-              <div className="flex flex-col items-center">
-                <div className="loader mb-4" />
-                <span className="text-green-700 font-semibold">Generating your quote...</span>
-              </div>
-            </div>
-          </div>
-        )}
+        <div ref={messagesEndRef} />
       </>
     );
   }
 
-  if (quoteVisible) {
-    return (
-      <div className="animate-fade-in">
-        {/* Use the existing QuoteDisplay component */}
-        <div className="flex justify-center">
-          <div className="w-full max-w-md">
-            <div className="w-full">
-              {/* @ts-expect-error: QuoteDisplay may not have correct types, but is safe for our usage here */}
-              <QuoteDisplay quoteAmount={quoteAmount} details={quoteDetails} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   switch (step.type) {
     case "form":
