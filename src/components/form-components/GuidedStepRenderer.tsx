@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useRef } from "react";
+
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
+import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
 
 import CardForm from "./CardForm";
 import type { CardFieldConfig } from "./CardForm";
@@ -15,6 +17,7 @@ interface GuidedStepRendererProps {
   onBack?: () => void;
   loading?: boolean;
   titleFallback?: string;
+  onReturnToChat?: () => void;
 }
 
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
@@ -27,11 +30,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   onBack,
   loading = false,
   titleFallback = "Details",
+  onReturnToChat,
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);
   const [confirmationLabels, setConfirmationLabels] = useState<Record<string, string>>({});
+  // Loading state for Get Quote
+  const [showLoading, setShowLoading] = useState(false);
+  const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
   // const [quoteVisible, setQuoteVisible] = useState(false);
   // const [quoteAmount, setQuoteAmount] = useState<string | number>("");
   // const [quoteDetails, setQuoteDetails] = useState<string>("");
@@ -39,7 +46,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // This component shows ONE “step” at a time.
   // A “step” is a small piece of the guided flow that the backend sends us.
-  if (!step) return null;
+  // Allow confirmation card to show even if step is null
+  if (!step && !(showConfirmation && confirmationData)) return null;
 
     // Modular handlers for loading and quote display 
   // Removed unused displayQuote
@@ -54,20 +62,44 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // Scroll to bottom when messages change
 
 
+  // Modular handler: show loader, then return to chat
+  const handleGetQuote = () => {
+    setQuoteButtonDisabled(true);
+    setShowLoading(true);
+    setTimeout(() => {
+      setShowLoading(false);
+      setShowConfirmation(false);
+      setQuoteButtonDisabled(false);
+      // Scroll to latest message after returning to chat
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
+      if (typeof onReturnToChat === 'function') {
+        onReturnToChat();
+      }
+    }, 5000);
+  };
+
+  if (showLoading) {
+    return <PaymentLoadingScreen />;
+  }
+
   if (showConfirmation && confirmationData) {
     return (
       <>
-        {/* Render all chat messages (bubbles) - removed unused messages */}
         <ConfirmationCard
           data={confirmationData}
           labels={confirmationLabels}
-          fieldTypes={step.type === 'form' && 'fields' in step && Array.isArray(step.fields)
-            ? Object.fromEntries(step.fields.map((f: any) => [f.name, f]))
+          fieldTypes={step && step.type === 'form' && 'fields' in step && Array.isArray((step as any).fields)
+            ? Object.fromEntries(((step as any).fields).map((f: any) => [f.name, f]))
             : {}}
           onEdit={(values) => {
             setConfirmationData(values);
           }}
-          confirmDisabled={false}
+          confirmDisabled={quoteButtonDisabled}
+          onGetQuote={handleGetQuote}
         />
         <div ref={messagesEndRef} />
       </>
@@ -76,12 +108,13 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 
 
 
+  if (!step) return null;
   switch (step.type) {
     case "form":
       // A normal form with one or more fields.
       return (
         <FormStep
-          step={step}
+          step={step as Extract<GuidedStepResponse, { type: "form" }>}
           titleFallback={titleFallback}
           values={values}
           errors={errors}
@@ -91,7 +124,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
             // Instead of submitting, show confirmation summary
             // Collect all field labels and values
             const labels: Record<string, string> = {};
-            (step.fields ?? []).forEach(f => { labels[f.name] = f.label ?? f.name; });
+            ((step as any).fields ?? []).forEach((f: any) => { labels[f.name] = f.label ?? f.name; });
             setConfirmationLabels(labels);
             setConfirmationData(payload);
             setShowConfirmation(true);
@@ -102,22 +135,22 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       );
     case "premium_summary":
       // A summary card showing prices and action buttons.
-      return <PremiumSummaryStep step={step} onSubmit={onSubmit} loading={loading} />;
+      return <PremiumSummaryStep step={step as Extract<GuidedStepResponse, { type: "premium_summary" }> } onSubmit={onSubmit} loading={loading} />;
     case "yes_no_details":
       // A yes/no (or choice) question that may show an extra textbox.
-      return <YesNoDetailsStep step={step} onSubmit={onSubmit} loading={loading} />;
+      return <YesNoDetailsStep step={step as Extract<GuidedStepResponse, { type: "yes_no_details" }> } onSubmit={onSubmit} loading={loading} />;
     case "checkbox":
       // A list of checkboxes (multi-select).
-      return <CheckboxStep step={step} onSubmit={onSubmit} loading={loading} />;
+      return <CheckboxStep step={step as Extract<GuidedStepResponse, { type: "checkbox" }> } onSubmit={onSubmit} loading={loading} />;
     case "file_upload":
       // A file picker. For now we only send the filename (no real upload yet).
-      return <FileUploadStep step={step} onSubmit={onSubmit} loading={loading} />;
+      return <FileUploadStep step={step as Extract<GuidedStepResponse, { type: "file_upload" }> } onSubmit={onSubmit} loading={loading} />;
     case "final_confirmation":
       // The last step: confirm / proceed.
-      return <FinalConfirmationStep step={step} onSubmit={onSubmit} onBack={onBack} loading={loading} />;
+      return <FinalConfirmationStep step={step as Extract<GuidedStepResponse, { type: "final_confirmation" }> } onSubmit={onSubmit} onBack={onBack} loading={loading} />;
     case "message":
       // Just show a message.
-      return <MessageStep step={step} />;
+      return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
     default:
       return null;
   }

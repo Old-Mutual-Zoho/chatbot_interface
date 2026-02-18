@@ -481,6 +481,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
               onBack={undefined}
               loading={paLoading}
               titleFallback="Personal Accident"
+              onReturnToChat={() => setPaComplete(true)}
             />
           )}
         </div>
