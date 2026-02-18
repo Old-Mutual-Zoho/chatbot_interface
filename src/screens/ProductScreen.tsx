@@ -126,13 +126,15 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                     }
 
                     // Step 2: toggle product selection and optionally notify the chat flow.
+                    // Map 'Motor Private' to 'Motor Private Insurance' for backend compatibility
+                    const mappedLabel = label === 'Motor Private' ? 'Motor Private Insurance' : label;
                     setSelectedProduct((current) => {
-                      const newValue = current === label ? null : label;
+                      const newValue = current === mappedLabel ? null : mappedLabel;
                       return newValue;
                     });
                     // Only send when a product is actively selected (not when deselecting).
-                    if (onSendProduct && selectedProduct !== label) {
-                      onSendProduct(label);
+                    if (onSendProduct && selectedProduct !== mappedLabel) {
+                      onSendProduct(mappedLabel);
                     }
                   }}
                   title={label}

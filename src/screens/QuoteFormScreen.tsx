@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getFormDraft, getSessionState, sendChatMessage, startGuidedQuote } from '../services/api';
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import type { GuidedStepResponse, StartGuidedResponse } from '../services/api';
 import CardForm from '../components/form-components/CardForm';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
@@ -31,6 +31,13 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // --- Backend-driven Personal Accident guided flow state ---
   const FLOW_NAME_PA = 'personal_accident';
+  // Unified backend-driven product detection
+  const backendDrivenProducts = [
+    'Personal Accident',
+    'Motor Private Insurance',
+    // Add more backend-driven product names here as needed
+  ];
+  const isBackendDrivenProduct = backendDrivenProducts.includes(selectedProduct ?? '');
   const isBackendDrivenPA = selectedProduct === 'Personal Accident';
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
   const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
@@ -207,7 +214,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     };
   }, [isBackendDrivenPA, paSessionId, sessionId, userId]);
 
-  // Start/resume backend-driven Motor flow (prefer draft if present)
+  // Start backend-driven Motor Private flow 
   useEffect(() => {
     if (!isBackendDrivenMotor) return;
     if (!userId) return;
@@ -375,8 +382,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const submitDisabled = isLastStep && (isSubmitting || hasSubmitted);
 
 
-  // Show prompt if no product is selected
-  if (!selectedProduct || (!isBackendDrivenPA && steps.length === 0)) {
+  // Show prompt if no product is selected or (for static products) if no steps are available
+  if (!selectedProduct || (!isBackendDrivenProduct && steps.length === 0)) {
     return (
       <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
         <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>

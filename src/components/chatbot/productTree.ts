@@ -37,7 +37,7 @@ export const productTree: ProductNode[] = [
         id: "insure",
         label: "Insure",
         children: [
-          { id: "motor-private", label: "Motor Private" },
+          { id: "motor-private", label: "Motor Private Insurance" },
           { id: "motor-comesa", label: "Motor Comesa" },
         ],
       },
