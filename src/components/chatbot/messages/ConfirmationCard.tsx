@@ -17,9 +17,10 @@ export interface ConfirmationCardProps {
   confirmDisabled?: boolean;
   loading?: boolean;
   onEdit?: (values: Record<string, string>) => void;
+  onGetQuote?: () => void;
 }
 
-const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, fieldTypes = {}, confirmDisabled, loading = false, onEdit }) => {
+const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, fieldTypes = {}, confirmDisabled, loading = false, onEdit, onGetQuote }) => {
   const [editMode, setEditMode] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
@@ -155,6 +156,7 @@ const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, field
           className="flex-1 py-2 px-4 bg-primary text-white rounded-lg font-semibold hover:bg-green-700 transition cursor-pointer disabled:bg-green-200 disabled:cursor-not-allowed"
           type="button"
           disabled={confirmDisabled || loading || editMode}
+          onClick={onGetQuote}
         >
           Get Quote
         </button>
