@@ -1,3 +1,30 @@
+// --- Motor Private Vehicle Makes API ---
+export interface VehicleMakeOption {
+	value: string;
+	label: string;
+}
+
+export async function getMotorPrivateVehicleMakes() {
+	const { data } = await api.get<{ options: VehicleMakeOption[] }>(
+		'/motor-private/vehicle-makes'
+	);
+	return data.options;
+}
+// --- General Information API ---
+export interface GeneralInformation {
+	definition?: string;
+	benefits?: string[];
+	eligibility?: string;
+	[key: string]: unknown;
+}
+
+export async function getGeneralInformation(session_id: string, product: string) {
+	const { data } = await api.get<GeneralInformation>(
+		`/general-information`,
+		{ params: { session_id, product } }
+	);
+	return data;
+}
 
 import axios from 'axios';
 

@@ -92,8 +92,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         <ConfirmationCard
           data={confirmationData}
           labels={confirmationLabels}
-          fieldTypes={step && step.type === 'form' && 'fields' in step && Array.isArray((step as any).fields)
-            ? Object.fromEntries(((step as any).fields).map((f: any) => [f.name, f]))
+          fieldTypes={step && step.type === 'form' && 'fields' in step && Array.isArray((step as { fields?: CardFieldConfig[] }).fields)
+            ? Object.fromEntries(((step as { fields?: CardFieldConfig[] }).fields ?? []).map((f: CardFieldConfig) => [f.name, f]))
             : {}}
           onEdit={(values) => {
             setConfirmationData(values);
@@ -124,7 +124,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
             // Instead of submitting, show confirmation summary
             // Collect all field labels and values
             const labels: Record<string, string> = {};
-            ((step as any).fields ?? []).forEach((f: any) => { labels[f.name] = f.label ?? f.name; });
+            ((step as { fields?: CardFieldConfig[] }).fields ?? []).forEach((f: CardFieldConfig) => { labels[f.name] = f.label ?? f.name; });
             setConfirmationLabels(labels);
             setConfirmationData(payload);
             setShowConfirmation(true);
