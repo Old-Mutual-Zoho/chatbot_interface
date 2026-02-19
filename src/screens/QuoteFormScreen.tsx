@@ -35,30 +35,160 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const backendDrivenProducts = [
     'Personal Accident',
     'Motor Private Insurance',
+    'Travel Sure Plus',
+    'SereniCare',
     // Add more backend-driven product names here as needed
   ];
   const isBackendDrivenProduct = backendDrivenProducts.includes(selectedProduct ?? '');
   const isBackendDrivenPA = selectedProduct === 'Personal Accident';
+  const isBackendDrivenTravel = selectedProduct === 'Travel Sure Plus';
+  const isBackendDrivenSereniCare = selectedProduct === 'SereniCare';
+  // --- Backend-driven SereniCare guided flow state ---
+  const FLOW_NAME_SERENICARE = 'serenicare';
+  const [sereniCareSessionId, setSereniCareSessionId] = useState<string | null>(sessionId ?? null);
+  const [sereniCareStepPayload, setSereniCareStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [sereniCareLoading, setSereniCareLoading] = useState(false);
+  const [sereniCareComplete, setSereniCareComplete] = useState(false);
+  const [sereniCareFieldErrors, setSereniCareFieldErrors] = useState<Record<string, string>>({});
+
+  // ...existing code...
+
+  // --- Backend-driven Personal Accident guided flow state ---
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
   const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
   const [paLoading, setPaLoading] = useState(false);
   const [paComplete, setPaComplete] = useState(false);
   const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
 
-  // --- Backend-driven Motor Private guided flow state ---
-  const FLOW_NAME_MOTOR = 'motor_private';
-  const isBackendDrivenMotor = selectedProduct === 'Motor Private Insurance';
-  const [motorSessionId, setMotorSessionId] = useState<string | null>(sessionId ?? null);
-  const [motorStepPayload, setMotorStepPayload] = useState<GuidedStepResponse | null>(null);
-  const [motorLoading, setMotorLoading] = useState(false);
-  const [motorComplete, setMotorComplete] = useState(false);
-  const [motorFieldErrors, setMotorFieldErrors] = useState<Record<string, string>>({});
-
-  // Compute steps for selected product
+  // ...existing code...
+  useEffect(() => {
+    setSereniCareSessionId(sessionId ?? null);
+    setSereniCareStepPayload(null);
+    setSereniCareLoading(false);
+    setSereniCareComplete(false);
+    setSereniCareFieldErrors({});
+  }, [selectedProduct, sessionId]);
+  useEffect(() => {
+    if (!isBackendDrivenSereniCare) return;
+    if (!userId) return;
+    const sid = sereniCareSessionId ?? sessionId;
+    if (!sid) return;
+    let cancelled = false;
+    (async () => {
+      setSereniCareLoading(true);
+      try {
+        try {
+          const state = await getSessionState(sid);
+          const shouldTryDraft = state?.mode === 'guided' && state?.current_flow === FLOW_NAME_SERENICARE;
+          if (shouldTryDraft) {
+            const draft = await getFormDraft(sid, FLOW_NAME_SERENICARE);
+            if (cancelled) return;
+            setSereniCareSessionId(draft.session_id);
+            const flat: Record<string, string> = {};
+            const cd = draft.collected_data ?? {};
+            Object.entries(cd).forEach(([k, v]) => {
+              if (v == null) return;
+              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+                flat[k] = String(v);
+              }
+            });
+            setFormData((prev) => ({ ...prev, ...flat }));
+          }
+        } catch {}
+        const startRes = await startGuidedQuote({
+          user_id: userId,
+          flow_name: FLOW_NAME_SERENICARE,
+          session_id: sid,
+          initial_data: { product_id: 'SereniCare' },
+        });
+        if (cancelled) return;
+        const typedStart = startRes as StartGuidedResponse;
+        if (typedStart?.session_id && typedStart.session_id !== sid) {
+          setSereniCareSessionId(typedStart.session_id);
+        }
+        setSereniCareStepPayload(typedStart.response ?? null);
+      } catch (e) {
+        console.error('Failed to start SereniCare flow:', e);
+      } finally {
+        if (!cancelled) setSereniCareLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBackendDrivenSereniCare, sereniCareSessionId, sessionId, userId]);
+      // Backend-driven SereniCare rendering
+     
+  // --- Backend-driven Travel Sure Plus guided flow state ---
+  const FLOW_NAME_TRAVEL = 'travel_sure_plus';
+  const [travelSessionId, setTravelSessionId] = useState<string | null>(sessionId ?? null);
+  const [travelStepPayload, setTravelStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [travelLoading, setTravelLoading] = useState(false);
+  const [travelComplete, setTravelComplete] = useState(false);
+  const [travelFieldErrors, setTravelFieldErrors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setTravelSessionId(sessionId ?? null);
+    setTravelStepPayload(null);
+    setTravelLoading(false);
+    setTravelComplete(false);
+    setTravelFieldErrors({});
+  }, [selectedProduct, sessionId]);
+  useEffect(() => {
+    if (!isBackendDrivenTravel) return;
+    if (!userId) return;
+    const sid = travelSessionId ?? sessionId;
+    if (!sid) return;
+    let cancelled = false;
+    (async () => {
+      setTravelLoading(true);
+      try {
+        try {
+          const state = await getSessionState(sid);
+          const shouldTryDraft = state?.mode === 'guided' && state?.current_flow === FLOW_NAME_TRAVEL;
+          if (shouldTryDraft) {
+            const draft = await getFormDraft(sid, FLOW_NAME_TRAVEL);
+            if (cancelled) return;
+            setTravelSessionId(draft.session_id);
+            const flat: Record<string, string> = {};
+            const cd = draft.collected_data ?? {};
+            Object.entries(cd).forEach(([k, v]) => {
+              if (v == null) return;
+              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+                flat[k] = String(v);
+              }
+            });
+            setFormData((prev) => ({ ...prev, ...flat }));
+          }
+        } catch {}
+        const startRes = await startGuidedQuote({
+          user_id: userId,
+          flow_name: FLOW_NAME_TRAVEL,
+          session_id: sid,
+          initial_data: { product_id: 'Travel Sure Plus' },
+        });
+        if (cancelled) return;
+        const typedStart = startRes as StartGuidedResponse;
+        if (typedStart?.session_id && typedStart.session_id !== sid) {
+          setTravelSessionId(typedStart.session_id);
+        }
+        setTravelStepPayload(typedStart.response ?? null);
+      } catch (e) {
+        console.error('Failed to start Travel Sure Plus flow:', e);
+      } finally {
+        if (!cancelled) setTravelLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBackendDrivenTravel, travelSessionId, sessionId, userId]);
+    // Backend-driven Travel Sure Plus rendering
+    
+  // Compute steps for static products only
   const steps = useMemo(() => {
-    if (!selectedProduct) return [];
+    if (!selectedProduct || isBackendDrivenProduct) return [];
     return getProductFormSteps(selectedProduct);
-  }, [selectedProduct]);
+  }, [selectedProduct, isBackendDrivenProduct]);
 
   // Handle field value change
   const handleChange = (name: string, value: string) => {
@@ -584,26 +714,28 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   const description = getDescriptionForTitle(steps[step]?.title);
 
-  // Render current form step
-  return (
-    <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
-      <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
-        <CardForm
-          title={steps[step].title}
-          description={description}
-          fields={steps[step].fields}
-          values={{ ...formData, selectedProduct: selectedProduct || "" }}
-          onChange={handleChange}
-          onNext={handleNext}
-          onBack={handleBack}
-          showBack={step > 0}
-          showNext={true}
-          nextDisabled={submitDisabled}
-          nextButtonLabel={isLastStep ? "Submit" : "Next"}
-        />
+  // Render static form step only for non-backend-driven products
+  if (!isBackendDrivenProduct) {
+    return (
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className={embedded ? "px-3 sm:px-4 py-3" : "p-4 mt-12"}>
+          <CardForm
+            title={steps[step]?.title}
+            description={description}
+            fields={steps[step]?.fields}
+            values={{ ...formData, selectedProduct: selectedProduct || "" }}
+            onChange={handleChange}
+            onNext={handleNext}
+            onBack={handleBack}
+            showBack={step > 0}
+            showNext={true}
+            nextDisabled={submitDisabled}
+            nextButtonLabel={isLastStep ? "Submit" : "Next"}
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 };
 
 export default QuoteFormScreen;
