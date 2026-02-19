@@ -167,8 +167,8 @@ const FormStep: React.FC<{
   onBack?: () => void;
   loading: boolean;
 }> = ({ step, titleFallback, values, errors, onClearError, onChange, onSubmit, onBack, loading }) => {
+  // Use only backend-provided options for all fields, including vehicleMake
   const fields: CardFieldConfig[] = useMemo(() => {
-    // Convert backend field data into the shape our CardForm component expects.
     return (step.fields ?? []).map((f) => ({
       name: f.name,
       label: f.label ?? f.name,
@@ -177,7 +177,7 @@ const FormStep: React.FC<{
       placeholder: f.placeholder,
       minLength: f.minLength,
       maxLength: f.maxLength,
-      options: (f.options ?? []).map((o) => ({ label: o.label, value: o.value })),
+      options: (f.options ?? []).map((o: any) => ({ label: o.label, value: o.value })),
     }));
   }, [step.fields]);
 

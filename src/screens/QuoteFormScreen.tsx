@@ -12,6 +12,11 @@ interface QuoteFormScreenProps {
 }
 
 const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, sessionId, onFormSubmitted, embedded = false }) => {
+  // Normalize product name for Motor Private
+  const isMotorPrivate =
+    selectedProduct === 'Motor Private Insurance' ||
+    selectedProduct === 'Motor Private' ||
+    selectedProduct === 'motor_private';
   // --- Backend-driven Personal Accident guided flow state ---
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
   const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
@@ -85,11 +90,98 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         return;
       }
       setPaStepPayload(nextStep);
-    } catch (e: any) {
+    } catch {
       // Optionally handle field errors from backend here
       // setPaFieldErrors(e?.fieldErrors || {});
     } finally {
       setPaLoading(false);
+    }
+  };
+
+
+  // --- Backend-driven Motor Private guided flow state ---
+  const [motorSessionId, setMotorSessionId] = useState<string | null>(sessionId ?? null);
+  const [motorStepPayload, setMotorStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [motorLoading, setMotorLoading] = useState(false);
+  const [motorComplete, setMotorComplete] = useState(false);
+  const [motorFieldErrors, setMotorFieldErrors] = useState<Record<string, string>>({});
+  const [motorFormData, setMotorFormData] = useState<Record<string, unknown>>({});
+
+  // Start or resume backend-driven Motor Private flow
+  useEffect(() => {
+    if (!isMotorPrivate || !userId) return;
+    setMotorLoading(true);
+    setMotorComplete(false);
+    setMotorFieldErrors({});
+    setMotorFormData({});
+    (async () => {
+      try {
+        const response = await startGuidedQuote({
+          user_id: userId,
+          flow_name: 'motor_private',
+          session_id: motorSessionId ?? undefined,
+          initial_data: undefined
+        });
+        if (response?.session_id) setMotorSessionId(response.session_id);
+        if (!response || !response.response || (typeof response.response === 'string' && response.response === 'Not Found')) {
+          setMotorStepPayload(null);
+          setMotorComplete(true);
+        } else {
+          setMotorStepPayload(response.response);
+        }
+      } catch {
+        setMotorStepPayload(null);
+        setMotorComplete(true);
+      } finally {
+        setMotorLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct, userId]);
+
+  // Input change handler for GuidedStepRenderer (Motor Private)
+  const handleMotorChange = (name: string, value: string) => {
+    setMotorFormData(prev => ({ ...prev, [name]: value }));
+    setMotorFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+  };
+
+  // Step submission handler for GuidedStepRenderer (Motor Private)
+  const handleMotorSubmit = async (payload: Record<string, unknown>) => {
+    const sid = motorSessionId ?? sessionId;
+    if (!sid || !userId) return;
+    setMotorLoading(true);
+    setMotorFieldErrors({});
+    try {
+      const res = await sendChatMessage({
+        session_id: sid,
+        user_id: userId,
+        form_data: payload
+      });
+      if (res?.session_id && res.session_id !== sid) setMotorSessionId(res.session_id);
+      if (res?.response?.complete) {
+        setMotorComplete(true);
+        setMotorStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+      const nextStep = res?.response?.response ?? null;
+      if (!nextStep) {
+        setMotorComplete(true);
+        setMotorStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+      setMotorStepPayload(nextStep);
+    } catch {
+      // Optionally handle field errors from backend here
+      // setMotorFieldErrors(err?.fieldErrors || {});
+    } finally {
+      setMotorLoading(false);
     }
   };
 
@@ -150,6 +242,67 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handlePaChange}
         onSubmit={handlePaSubmit}
         loading={paLoading}
+      />
+    );
+  }
+
+  // Render logic for Motor Private only (backend-driven)
+  if (isMotorPrivate) {
+    if (motorLoading) {
+      return <div>Loading...</div>;
+    }
+    if (motorComplete) {
+      return (
+        <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+          <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setMotorFormData({});
+              setMotorStepPayload(null);
+              setMotorComplete(false);
+              setMotorFieldErrors({});
+              setMotorSessionId(sessionId ?? null);
+            }}
+            className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+          >
+            Start over
+          </button>
+        </div>
+      );
+    }
+    if (!motorStepPayload) {
+      // If not loading and no step, treat as complete (success)
+      if (!motorLoading) {
+        return (
+          <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+            <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setMotorFormData({});
+                setMotorStepPayload(null);
+                setMotorComplete(false);
+                setMotorFieldErrors({});
+                setMotorSessionId(sessionId ?? null);
+              }}
+              className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+            >
+              Start over
+            </button>
+          </div>
+        );
+      }
+      return <div>Loading...</div>;
+    }
+    return (
+      <GuidedStepRenderer
+        step={motorStepPayload}
+        values={motorFormData as Record<string, string>}
+        errors={motorFieldErrors}
+        onChange={handleMotorChange}
+        onSubmit={handleMotorSubmit}
+        loading={motorLoading}
       />
     );
   }

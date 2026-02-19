@@ -827,7 +827,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
     } catch (error) {
-      console.error("Purchase error:", error);
       setTimeout(() => {
         dispatch({
           type: "PURCHASE_FAILED",
@@ -872,7 +871,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
     } catch (error) {
-      console.error("Purchase error:", error);
       dispatch({
         type: "PURCHASE_FAILED",
         payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
