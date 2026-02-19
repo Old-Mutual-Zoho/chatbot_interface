@@ -556,10 +556,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     selectedProductRef.current = selectedProduct ? PRODUCT_KEY_MAP[selectedProduct] || selectedProduct : null;
   }, [selectedProduct]);
   const { info: generalInfo, loading: generalInfoLoading, error: generalInfoError, fetchInfo } = useGeneralInformation(sessionId, selectedProductRef.current);
-
-  // --- Robust session management logic ---
-  // Backend form submission handler for chat
-  // ...existing code...
+ 
 
   // Fetch bot response and manage sessionId
   const fetchBotResponse = async (option: string) => {
@@ -666,14 +663,14 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     }
   };
 
+  // general info button for products
   const handleActionCardSelect = async (option: ActionOption) => {
-    if (option.label === "General Info") {
-      // Correct: Only add user message for selection
+    if (option.label === "General Info") {    
+      // ...existing General Info logic...
       dispatch({
         type: "SELECT_OPTION",
         payload: option,
       });
-      // Remove selected option from available options
       const remainingOptions = state.availableOptions.filter((o) => o.value !== option.value);
       if (!selectedProduct) {
         dispatch({
@@ -686,13 +683,11 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         });
         return;
       }
-      // Map selectedProduct to backend key
       const productKey = PRODUCT_KEY_MAP[selectedProduct.replace(/\s+/g, '_').toLowerCase()] || selectedProduct;
       if (selectedProductRef && selectedProductRef.current !== productKey) {
         selectedProductRef.current = productKey;
       }
       try {
-        // fetchInfo must return the fetched data (update the hook if needed)
         const data = await fetchInfo();
         let infoText = "";
         if (data && (data.definition || data.benefits || data.eligibility)) {
@@ -744,6 +739,15 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       }, 1200);
       return;
     }
+    // Handle Get My Quote (quote) flow
+    if (option.value === "quote") {
+      // Mark the option as selected (for UI state)
+      dispatch({ type: "SELECT_OPTION", payload: option });
+      // Show the quote form (renders QuoteFormScreen)
+      dispatch({ type: "SHOW_QUOTE_FORM" });
+      // Do NOT dispatch RECEIVE_OPTION_RESPONSE for 'quote' (prevents bot message/loading)
+      return;
+    }
     // Compute the new available options after selection
     const newAvailableOptions = state.availableOptions.filter((o) => o.value !== option.value);
     dispatch({ type: "SELECT_OPTION", payload: option });
@@ -760,7 +764,6 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
     }, 900);
   };
-      // General Info Modal/Card is rendered in the main return JSX below
 
   const handleSelectPaymentMethod = (method: "mobile" | "card" | "flexipay") => {
     dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
