@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
 import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
@@ -17,7 +17,6 @@ interface GuidedStepRendererProps {
   onBack?: () => void;
   loading?: boolean;
   titleFallback?: string;
-  onReturnToChat?: () => void;
   confirmOnFormSubmit?: boolean;
 }
 
@@ -31,7 +30,6 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   onBack,
   loading = false,
   titleFallback = "Details",
-  onReturnToChat,
   confirmOnFormSubmit = false,
 }) => {
   // Confirmation summary state
@@ -41,6 +39,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // Loading state for Get Quote
   const [showLoading, setShowLoading] = useState(false);
   const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
+  const loadingStartedAtRef = useRef<number | null>(null);
   // const [quoteVisible, setQuoteVisible] = useState(false);
   // const [quoteAmount, setQuoteAmount] = useState<string | number>("");
   // const [quoteDetails, setQuoteDetails] = useState<string>("");
@@ -65,24 +64,39 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 
 
   // Modular handler: show loader, then return to chat
-  const handleGetQuote = () => {
+  const handleSubmitFromReview = () => {
+    if (!confirmationData) return;
+    loadingStartedAtRef.current = Date.now();
     setQuoteButtonDisabled(true);
     setShowLoading(true);
-    setTimeout(() => {
+    onSubmit(confirmationData);
+  };
+
+  useEffect(() => {
+    // When the parent finishes submitting, hide the loader after a short minimum delay.
+    if (!showLoading) return;
+    if (loading) return;
+
+    const minMs = 1400;
+    const startedAt = loadingStartedAtRef.current ?? Date.now();
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, minMs - elapsed);
+
+    const timer = window.setTimeout(() => {
       setShowLoading(false);
       setShowConfirmation(false);
       setQuoteButtonDisabled(false);
-      // Scroll to latest message after returning to chat
+
+      // Scroll so the next step (e.g., premium summary) is in view.
       setTimeout(() => {
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-      }, 100);
-      if (typeof onReturnToChat === 'function') {
-        onReturnToChat();
-      }
-    }, 5000);
-  };
+      }, 50);
+    }, remaining);
+
+    return () => window.clearTimeout(timer);
+  }, [loading, showLoading]);
 
   if (showLoading) {
     return <PaymentLoadingScreen />;
@@ -101,7 +115,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
             setConfirmationData(values);
           }}
           confirmDisabled={quoteButtonDisabled}
-          onGetQuote={handleGetQuote}
+          onGetQuote={handleSubmitFromReview}
         />
         <div ref={messagesEndRef} />
       </>

@@ -158,7 +158,7 @@ const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, field
           disabled={confirmDisabled || loading || editMode}
           onClick={onGetQuote}
         >
-          Get Quote
+          Submit
         </button>
         <button
           className={`flex-1 py-2 px-4 ${editMode ? (buttonText === 'save' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700') : 'bg-gray-200 text-gray-700'} rounded-lg font-semibold hover:bg-green-700 transition cursor-pointer`}

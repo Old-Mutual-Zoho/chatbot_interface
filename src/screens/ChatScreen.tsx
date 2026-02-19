@@ -55,7 +55,7 @@ type Action =
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SHOW_QUOTE_FORM" }
+  | { type: "SHOW_QUOTE_FORM"; payload?: { label?: string } }
   | { type: "HIDE_QUOTE_FORM" }
   | { type: "QUOTE_FORM_SUBMITTED" }
   | { type: "START_BUY_FLOW" }
@@ -301,10 +301,37 @@ function reducer(state: State, action: Action): State {
       return { ...state, loading: action.payload };
     }
     case "SHOW_QUOTE_FORM": {
+      const filtered = state.messages.filter(
+        (msg) => msg.type !== "loading" && msg.type !== "action-card"
+      );
+
+      const label = action.payload?.label ?? "Get My Quote";
+      const lastMsg = filtered.length > 0 ? filtered[filtered.length - 1] : null;
+      const shouldAppendUserMsg = !(
+        lastMsg &&
+        lastMsg.sender === "user" &&
+        lastMsg.type === "text" &&
+        lastMsg.text === label
+      );
+
       return {
         ...state,
         showQuoteForm: true,
         quoteFormKey: state.quoteFormKey + 1,
+        showActionCard: false,
+        loading: false,
+        messages: shouldAppendUserMsg
+          ? [
+              ...filtered,
+              {
+                id: `quote-${Date.now()}`,
+                sender: "user",
+                type: "text",
+                text: label,
+                timestamp: getTimeString(),
+              },
+            ]
+          : filtered,
       };
     }
     case "HIDE_QUOTE_FORM": {
@@ -757,7 +784,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       // Mark the option as selected (for UI state)
       dispatch({ type: "SELECT_OPTION", payload: option });
       // Show the quote form (renders QuoteFormScreen)
-      dispatch({ type: "SHOW_QUOTE_FORM" });
+      dispatch({ type: "SHOW_QUOTE_FORM", payload: { label: option.label } });
       // Do NOT dispatch RECEIVE_OPTION_RESPONSE for 'quote' (prevents bot message/loading)
       return;
     }

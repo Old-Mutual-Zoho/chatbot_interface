@@ -2,6 +2,7 @@ import { sendChatMessage, startGuidedQuote } from '../services/api';
 import React, { useState, useEffect } from "react";
 import type { GuidedStepResponse } from '../services/api';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
+import { LoadingBubble } from "../components/chatbot/messages/LoadingBubble";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -94,6 +95,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [serenicareFieldErrors, setSerenicareFieldErrors] = useState<Record<string, string>>({});
   const [serenicareFormData, setSerenicareFormData] = useState<Record<string, unknown>>({});
   const [serenicareError, setSerenicareError] = useState<string | null>(null);
+
+  const shouldConfirmBeforeSubmit = (step: GuidedStepResponse | null): boolean => {
+    if (!step || step.type !== 'form') return false;
+    const fields = step.fields ?? [];
+    return fields.some((f) => {
+      const name = String(f.name ?? '').toLowerCase();
+      const label = String(f.label ?? '').toLowerCase();
+      // Detect the “final field” step (e.g. Cover Limit Amount) without hard-coding product names.
+      return (
+        name.includes('coverlimit') ||
+        name.includes('cover_limit') ||
+        (label.includes('cover') && label.includes('limit'))
+      );
+    });
+  };
 
   // Start or resume backend-driven PA flow
   useEffect(() => {
@@ -449,8 +465,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Render logic for Personal Accident only (backend-driven)
   if (isPersonalAccident) {
-    if (paLoading) {
-      return <div>Loading...</div>;
+    if (paLoading && !paStepPayload) {
+      return <LoadingBubble />;
     }
     if (paComplete) {
       return (
@@ -494,7 +510,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           </div>
         );
       }
-      return <div>Loading...</div>;
+      return <LoadingBubble />;
     }
     return (
       <GuidedStepRenderer
@@ -504,14 +520,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handlePaChange}
         onSubmit={handlePaSubmit}
         loading={paLoading}
+        confirmOnFormSubmit={shouldConfirmBeforeSubmit(paStepPayload)}
       />
     );
   }
 
   // Render logic for Serenicare only (backend-driven)
   if (isSerenicare) {
-    if (serenicareLoading) {
-      return <div>Loading...</div>;
+    if (serenicareLoading && !serenicareStepPayload) {
+      return <LoadingBubble />;
     }
     if (serenicareError) {
       return (
@@ -557,7 +574,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       );
     }
     if (!serenicareStepPayload) {
-      return <div>Loading...</div>;
+      return <LoadingBubble />;
     }
     return (
       <GuidedStepRenderer
@@ -567,13 +584,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handleSerenicareChange}
         onSubmit={handleSerenicareSubmit}
         loading={serenicareLoading}
+        confirmOnFormSubmit={shouldConfirmBeforeSubmit(serenicareStepPayload)}
       />
     );
   }
   // Render logic for Motor Private only (backend-driven)
   if (isMotorPrivate) {
-    if (motorLoading) {
-      return <div>Loading...</div>;
+    if (motorLoading && !motorStepPayload) {
+      return <LoadingBubble />;
     }
     if (motorComplete) {
       return (
@@ -617,7 +635,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           </div>
         );
       }
-      return <div>Loading...</div>;
+      return <LoadingBubble />;
     }
     return (
       <GuidedStepRenderer
@@ -627,6 +645,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handleMotorChange}
         onSubmit={handleMotorSubmit}
         loading={motorLoading}
+        confirmOnFormSubmit={shouldConfirmBeforeSubmit(motorStepPayload)}
       />
     );
   }
@@ -636,10 +655,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     if (travelComplete) {
       return null;
     }
-    if (travelLoading) {
-      return <div>Loading...</div>;
+    if (travelLoading && !travelStepPayload) {
+      return <LoadingBubble />;
     }
-    if (!travelStepPayload) return <div>Loading...</div>;
+    if (!travelStepPayload) return <LoadingBubble />;
     return (
       <GuidedStepRenderer
         step={travelStepPayload}
@@ -648,6 +667,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handleTravelChange}
         onSubmit={handleTravelSubmit}
         loading={travelLoading}
+        confirmOnFormSubmit={shouldConfirmBeforeSubmit(travelStepPayload)}
       />
     );
   }
