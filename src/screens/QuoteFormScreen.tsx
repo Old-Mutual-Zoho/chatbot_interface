@@ -3,6 +3,37 @@ import React, { useState, useEffect } from "react";
 import type { GuidedStepResponse } from '../services/api';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getProp = (value: unknown, key: string): unknown =>
+  isRecord(value) ? value[key] : undefined;
+
+const extractGuidedStep = (res: unknown): GuidedStepResponse | null => {
+  const responseObj = getProp(res, 'response');
+
+  const candidatePaths: unknown[] = [
+    getProp(responseObj, 'response'),
+    responseObj,
+  ];
+
+  for (const candidate of candidatePaths) {
+    if (!isRecord(candidate)) continue;
+    const typeValue = candidate['type'];
+    if (typeof typeValue === 'string') {
+      return candidate as GuidedStepResponse;
+    }
+  }
+
+  return null;
+};
+
+const extractIsComplete = (res: unknown): boolean => {
+  const responseObj = getProp(res, 'response');
+  const completeValue = getProp(responseObj, 'complete') ?? getProp(res, 'complete');
+  return completeValue === true;
+};
+
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
@@ -17,6 +48,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     selectedProduct === 'Motor Private Insurance' ||
     selectedProduct === 'Motor Private' ||
     selectedProduct === 'motor_private';
+
+  const normalizedSelectedProduct = selectedProduct
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+
+  const isTravelSurePlus =
+    normalizedSelectedProduct === 'travelsureplus' ||
+    normalizedSelectedProduct === 'travelplus' ||
+    normalizedSelectedProduct === 'travelinsurance';
+    
+
   // --- Backend-driven Personal Accident guided flow state ---
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
   const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
@@ -185,6 +228,96 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     }
   };
 
+
+  // --- Travel Insurance guided flow state (same architecture as Motor/PA) ---
+  const [travelSessionId, setTravelSessionId] = useState<string | null>(sessionId ?? null);
+  const [travelStepPayload, setTravelStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [travelLoading, setTravelLoading] = useState(false);
+  const [travelComplete, setTravelComplete] = useState(false);
+  const [travelFieldErrors, setTravelFieldErrors] = useState<Record<string, string>>({});
+  const [travelFormData, setTravelFormData] = useState<Record<string, unknown>>({});
+
+  // If a parent sessionId arrives later, seed travelSessionId once (same pattern as ChatScreen).
+  useEffect(() => {
+    if (!sessionId) return;
+    setTravelSessionId((prev) => prev ?? sessionId);
+  }, [sessionId]);
+
+  // Start or resume Travel flow via /chat/start-guided (backend returns step payload)
+  useEffect(() => {
+    if (!isTravelSurePlus || !userId) return;
+    if (travelLoading || travelComplete || travelStepPayload) return;
+    setTravelLoading(true);
+    setTravelComplete(false);
+    setTravelFieldErrors({});
+    setTravelFormData({});
+    (async () => {
+      try {
+        const response = await startGuidedQuote({
+          user_id: userId,
+          flow_name: 'travel_insurance',
+          session_id: travelSessionId ?? undefined,
+          initial_data: undefined,
+        });
+        if (response?.session_id) setTravelSessionId(response.session_id);
+        setTravelStepPayload(response?.response ?? null);
+      } catch {
+        setTravelStepPayload(null);
+      } finally {
+        setTravelLoading(false);
+      }
+    })();
+  }, [isTravelSurePlus, userId, travelSessionId, travelLoading, travelComplete, travelStepPayload]);
+
+  const handleTravelChange = (name: string, value: string) => {
+    setTravelFormData(prev => ({ ...prev, [name]: value }));
+    setTravelFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+  };
+
+  const handleTravelSubmit = async (payload: Record<string, unknown>) => {
+    const sid = travelSessionId ?? sessionId;
+    if (!sid || !userId) return;
+    setTravelLoading(true);
+    setTravelFieldErrors({});
+    try {
+      const res = await sendChatMessage({
+        session_id: sid,
+        user_id: userId,
+        form_data: payload,
+      });
+
+      if (res?.session_id && res.session_id !== sid) setTravelSessionId(res.session_id);
+
+      const isComplete = extractIsComplete(res);
+      if (isComplete) {
+        setTravelComplete(true);
+        setTravelStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+
+      const nextStep = extractGuidedStep(res);
+      if (!nextStep) {
+        setTravelComplete(true);
+        setTravelStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+
+      setTravelStepPayload(nextStep);
+    } catch {
+      // Optionally handle field errors from backend here
+      // setTravelFieldErrors(err?.fieldErrors || {});
+    } finally {
+      setTravelLoading(false);
+    }
+  };
+
   // Render logic for Personal Accident only (backend-driven)
   if (selectedProduct === 'Personal Accident') {
     if (paLoading) {
@@ -245,7 +378,6 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       />
     );
   }
-
   // Render logic for Motor Private only (backend-driven)
   if (isMotorPrivate) {
     if (motorLoading) {
@@ -303,6 +435,27 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handleMotorChange}
         onSubmit={handleMotorSubmit}
         loading={motorLoading}
+      />
+    );
+  }
+
+  // Render logic for TravelPlus only (backend-driven)
+  if (isTravelSurePlus) {
+    if (travelComplete) {
+      return null;
+    }
+    if (travelLoading) {
+      return <div>Loading...</div>;
+    }
+    if (!travelStepPayload) return <div>Loading...</div>;
+    return (
+      <GuidedStepRenderer
+        step={travelStepPayload}
+        values={travelFormData as Record<string, string>}
+        errors={travelFieldErrors}
+        onChange={handleTravelChange}
+        onSubmit={handleTravelSubmit}
+        loading={travelLoading}
       />
     );
   }

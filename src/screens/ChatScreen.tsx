@@ -604,11 +604,15 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     }
   };
 
-
-
-  // Reset all chat state and sessionId when selectedProduct changes (new conversation)
+  // Keep internal sessionId in sync once the backend session is created.
+  // IMPORTANT: do not reset the whole chat when sessionIdProp changes, otherwise the first click can be wiped out.
   useEffect(() => {
-    setSessionId(sessionIdProp ?? null); // Reset sessionId to prop or null
+    if (!sessionIdProp) return;
+    setSessionId((prev) => (prev ?? sessionIdProp));
+  }, [sessionIdProp]);
+
+  // Reset all chat state when selectedProduct changes (new conversation)
+  useEffect(() => {
     dispatch({ type: "RESET", selectedProduct });
     const followupTimeout = setTimeout(() => {
       dispatch({
@@ -621,7 +625,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       });
     }, 600);
     return () => clearTimeout(followupTimeout);
-  }, [selectedProduct, sessionIdProp]);
+  }, [selectedProduct]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -707,7 +711,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             remainingOptions,
           },
         });
-      } catch (e) {
+      } catch {
         dispatch({
           type: "RECEIVE_OPTION_RESPONSE",
           payload: {
@@ -826,7 +830,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       } else {
         throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
-    } catch (error) {
+    } catch {
       setTimeout(() => {
         dispatch({
           type: "PURCHASE_FAILED",
@@ -870,7 +874,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       } else {
         throw new Error(purchaseResponse?.message || "Payment initiation failed");
       }
-    } catch (error) {
+    } catch {
       dispatch({
         type: "PURCHASE_FAILED",
         payload: "⚠️ Payment could not be initiated. Please try again or contact support.",
@@ -994,6 +998,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             // Only show action card and guided UI if isGuidedFlow is true
             const shouldShowActionCard =
               isGuidedFlow &&
+              !state.showQuoteForm &&
               state.showActionCard &&
               state.availableOptions.length > 0 &&
               (
@@ -1022,10 +1027,10 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                     onConfirmPayment={handleConfirmPayment}
                     onSelectPaymentMethod={handleSelectPaymentMethod}
                     onSubmitMobilePayment={handleSubmitMobilePayment}
-                    loading={state.loading}
+                    loading={state.loading || !!sessionLoading}
                     lastSelected={state.lastSelected}
                   />
-                </div>
+                </div>,
               ];
             }
             if (message.type === "action-card") {

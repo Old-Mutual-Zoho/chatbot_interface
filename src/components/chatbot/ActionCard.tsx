@@ -39,6 +39,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
         return (
           <button
             key={opt.value}
+            type="button"
             className="transition focus:outline-none"
             style={{
               width: '96%',
@@ -56,13 +57,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
               display: 'block',
               lineHeight: '1.2',
             }}
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
               setActiveIdx(idx);
               // Brief delay so the active state is visible.
               setTimeout(() => onSelect(opt), 200);
             }}
-            // Disable while loading and after the first click.
-            disabled={loading || activeIdx !== null}
+            // Disable only while loading; do not permanently lock options.
+            disabled={!!loading}
           >
             {opt.label}
           </button>

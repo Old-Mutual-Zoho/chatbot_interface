@@ -133,6 +133,14 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           loading={loading}
         />
       );
+    case "product_cards":
+      return (
+        <ProductCardsStep
+          step={step as Extract<GuidedStepResponse, { type: "product_cards" }>}
+          onSubmit={onSubmit}
+          loading={loading}
+        />
+      );
     case "premium_summary":
       // A summary card showing prices and action buttons.
       return <PremiumSummaryStep step={step as Extract<GuidedStepResponse, { type: "premium_summary" }> } onSubmit={onSubmit} loading={loading} />;
@@ -156,6 +164,35 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   }
 };
 
+const ProductCardsStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "product_cards" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-4">{step.message ?? "Select an option"}</p>
+      <div className="flex flex-col gap-3">
+        {(step.products ?? []).map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              const action = p.action && p.action.trim() ? p.action : 'select_cover';
+              onSubmit({ action, cover_id: p.id, product_id: p.id });
+            }}
+            className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-primary/40 hover:bg-primary/5 disabled:opacity-60"
+          >
+            <div className="font-semibold text-gray-900">{p.label}</div>
+            {p.description ? <div className="text-sm text-gray-600 mt-1">{p.description}</div> : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const FormStep: React.FC<{
   step: Extract<GuidedStepResponse, { type: "form" }>;
   titleFallback: string;
@@ -169,6 +206,7 @@ const FormStep: React.FC<{
 }> = ({ step, titleFallback, values, errors, onClearError, onChange, onSubmit, onBack, loading }) => {
   // Use only backend-provided options for all fields, including vehicleMake
   const fields: CardFieldConfig[] = useMemo(() => {
+    const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
     return (step.fields ?? []).map((f) => ({
       name: f.name,
       label: f.label ?? f.name,
@@ -177,7 +215,12 @@ const FormStep: React.FC<{
       placeholder: f.placeholder,
       minLength: f.minLength,
       maxLength: f.maxLength,
-      options: (f.options ?? []).map((o: any) => ({ label: o.label, value: o.value })),
+      options: (f.options ?? []).map((o: unknown) => {
+        if (!isRecord(o)) return { label: '', value: '' };
+        const label = typeof o.label === 'string' ? o.label : String(o.label ?? '');
+        const value = typeof o.value === 'string' ? o.value : String(o.value ?? '');
+        return { label, value };
+      }).filter((opt) => opt.label || opt.value),
     }));
   }, [step.fields]);
 

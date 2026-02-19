@@ -87,6 +87,11 @@ export interface GuidedFormField {
 export type GuidedStepResponse =
 	| { type: 'form'; message?: string; fields: GuidedFormField[] }
 	| {
+			type: 'product_cards';
+			message?: string;
+			products: { id: string; label: string; description?: string; action?: string }[];
+	  }
+	| {
 			type: 'premium_summary';
 			message?: string;
 			monthly_premium: number;
