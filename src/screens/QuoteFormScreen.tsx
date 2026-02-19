@@ -34,6 +34,18 @@ const extractIsComplete = (res: unknown): boolean => {
   return completeValue === true;
 };
 
+const extractErrorDetail = (err: unknown): string | null => {
+  if (!isRecord(err)) return null;
+  const response = err['response'];
+  if (isRecord(response)) {
+    const data = response['data'];
+    if (isRecord(data) && typeof data['detail'] === 'string') return data['detail'];
+    if (typeof response['statusText'] === 'string') return response['statusText'];
+  }
+  if (typeof err['message'] === 'string') return err['message'];
+  return null;
+};
+
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
@@ -54,6 +66,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     .replace(/[^a-z0-9]/g, '')
     .trim();
 
+  const isPersonalAccident = normalizedSelectedProduct === 'personalaccident';
+
+  const isSerenicare = normalizedSelectedProduct === 'serenicare';
+
   const isTravelSurePlus =
     normalizedSelectedProduct === 'travelsureplus' ||
     normalizedSelectedProduct === 'travelplus' ||
@@ -68,9 +84,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<Record<string, unknown>>({});
 
+  // --- Backend-driven Serenicare guided flow state ---
+  const [serenicareSessionId, setSerenicareSessionId] = useState<string | null>(sessionId ?? null);
+  const [serenicareStepPayload, setSerenicareStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [serenicareLoading, setSerenicareLoading] = useState(false);
+  const [serenicareComplete, setSerenicareComplete] = useState(false);
+  const [serenicareFieldErrors, setSerenicareFieldErrors] = useState<Record<string, string>>({});
+  const [serenicareFormData, setSerenicareFormData] = useState<Record<string, unknown>>({});
+  const [serenicareError, setSerenicareError] = useState<string | null>(null);
+
   // Start or resume backend-driven PA flow
   useEffect(() => {
-    if (selectedProduct !== 'Personal Accident' || !userId) return;
+    if (!isPersonalAccident || !userId) return;
     setPaLoading(true);
     setPaComplete(false);
     setPaFieldErrors({});
@@ -94,6 +119,83 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct, userId]);
+
+  // Start or resume backend-driven Serenicare flow
+  useEffect(() => {
+    if (!isSerenicare || !userId) return;
+    setSerenicareLoading(true);
+    setSerenicareComplete(false);
+    setSerenicareFieldErrors({});
+    setSerenicareFormData({});
+    setSerenicareError(null);
+    (async () => {
+      try {
+        const response = await startGuidedQuote({
+          user_id: userId,
+          flow_name: 'serenicare',
+          session_id: serenicareSessionId ?? undefined,
+          initial_data: undefined,
+        });
+        if (response?.session_id) setSerenicareSessionId(response.session_id);
+        if (!response || !response.response || (typeof response.response === 'string' && response.response === 'Not Found')) {
+          setSerenicareStepPayload(null);
+          setSerenicareError('Failed to start Serenicare quote.');
+          return;
+        }
+        setSerenicareStepPayload(response.response);
+      } catch (err) {
+        setSerenicareStepPayload(null);
+        setSerenicareError(extractErrorDetail(err) ?? 'Failed to start Serenicare quote.');
+      } finally {
+        setSerenicareLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct, userId]);
+
+  const handleSerenicareChange = (name: string, value: string) => {
+    setSerenicareFormData((prev) => ({ ...prev, [name]: value }));
+    setSerenicareFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+  };
+
+  const handleSerenicareSubmit = async (payload: Record<string, unknown>) => {
+    const sid = serenicareSessionId ?? sessionId;
+    if (!sid || !userId) return;
+    setSerenicareLoading(true);
+    setSerenicareFieldErrors({});
+    try {
+      const res = await sendChatMessage({
+        session_id: sid,
+        user_id: userId,
+        form_data: payload,
+      });
+      if (res?.session_id && res.session_id !== sid) setSerenicareSessionId(res.session_id);
+      if (res?.response?.complete) {
+        setSerenicareComplete(true);
+        setSerenicareStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+      const nextStep = res?.response?.response ?? null;
+      if (!nextStep) {
+        setSerenicareComplete(true);
+        setSerenicareStepPayload(null);
+        onFormSubmitted?.();
+        return;
+      }
+      setSerenicareStepPayload(nextStep);
+    } catch {
+      // Optionally handle field errors from backend here
+      // setSerenicareFieldErrors(err?.fieldErrors || {});
+    } finally {
+      setSerenicareLoading(false);
+    }
+  };
 
   // Input change handler for GuidedStepRenderer
   const handlePaChange = (name: string, value: string) => {
@@ -319,7 +421,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   };
 
   // Render logic for Personal Accident only (backend-driven)
-  if (selectedProduct === 'Personal Accident') {
+  if (isPersonalAccident) {
     if (paLoading) {
       return <div>Loading...</div>;
     }
@@ -375,6 +477,69 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handlePaChange}
         onSubmit={handlePaSubmit}
         loading={paLoading}
+      />
+    );
+  }
+
+  // Render logic for Serenicare only (backend-driven)
+  if (isSerenicare) {
+    if (serenicareLoading) {
+      return <div>Loading...</div>;
+    }
+    if (serenicareError) {
+      return (
+        <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+          <p className="text-gray-900 font-medium">Unable to start Serenicare quote.</p>
+          <p className="text-sm text-gray-600 mt-1">{serenicareError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSerenicareFormData({});
+              setSerenicareStepPayload(null);
+              setSerenicareComplete(false);
+              setSerenicareFieldErrors({});
+              setSerenicareError(null);
+              setSerenicareSessionId(sessionId ?? null);
+            }}
+            className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+          >
+            Start over
+          </button>
+        </div>
+      );
+    }
+    if (serenicareComplete) {
+      return (
+        <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+          <p className="text-gray-900 font-medium">Thank you! Your quote has been submitted.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSerenicareFormData({});
+              setSerenicareStepPayload(null);
+              setSerenicareComplete(false);
+              setSerenicareFieldErrors({});
+              setSerenicareError(null);
+              setSerenicareSessionId(sessionId ?? null);
+            }}
+            className="mt-4 px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50"
+          >
+            Start over
+          </button>
+        </div>
+      );
+    }
+    if (!serenicareStepPayload) {
+      return <div>Loading...</div>;
+    }
+    return (
+      <GuidedStepRenderer
+        step={serenicareStepPayload}
+        values={serenicareFormData as Record<string, string>}
+        errors={serenicareFieldErrors}
+        onChange={handleSerenicareChange}
+        onSubmit={handleSerenicareSubmit}
+        loading={serenicareLoading}
       />
     );
   }

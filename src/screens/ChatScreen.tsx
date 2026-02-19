@@ -21,6 +21,15 @@ const ACTION_OPTIONS: ActionOption[] = [
   { label: "Buy Now", value: "buy" },
 ];
 
+const toBackendProductKey = (product: string | null | undefined): string | null => {
+  if (!product) return null;
+  return (
+    PRODUCT_KEY_MAP[product] ||
+    PRODUCT_KEY_MAP[product.replace(/\s+/g, "_").toLowerCase()] ||
+    product
+  );
+};
+
 type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
 type State = {
   messages: ChatMessageWithTimestamp[];
@@ -550,10 +559,10 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   // General Info UI state (must be after selectedProduct and sessionId are defined)
   const [showGeneralInfo, setShowGeneralInfo] = useState(false);
   const selectedProductRef = useRef<string | null>(
-    selectedProduct ? PRODUCT_KEY_MAP[selectedProduct] || selectedProduct : null
+    toBackendProductKey(selectedProduct)
   );
   useEffect(() => {
-    selectedProductRef.current = selectedProduct ? PRODUCT_KEY_MAP[selectedProduct] || selectedProduct : null;
+    selectedProductRef.current = toBackendProductKey(selectedProduct);
   }, [selectedProduct]);
   const { info: generalInfo, loading: generalInfoLoading, error: generalInfoError, fetchInfo } = useGeneralInformation(sessionId, selectedProductRef.current);
  
@@ -1115,6 +1124,13 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
 // Map product values (not labels) to backend keys for the API
 const PRODUCT_KEY_MAP: Record<string, string> = {
+  // Display labels from ProductScreen
+  "Personal Accident": "personal_accident",
+  "Serenicare": "serenicare",
+  "Motor Private Insurance": "motor_private",
+  "Travel Sure Plus": "travel_sure_plus",
+
+  // Backend keys / normalized values
   personal_accident: "personal_accident",
   serenicare: "serenicare",
   motor_private: "motor_private",
