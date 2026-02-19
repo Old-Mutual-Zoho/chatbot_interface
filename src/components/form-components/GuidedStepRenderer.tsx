@@ -66,10 +66,43 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // Modular handler: show loader, then return to chat
   const handleSubmitFromReview = () => {
     if (!confirmationData) return;
+
+    // Re-normalize the current step's fields (e.g., number inputs) in case the user
+    // edited values on the confirmation card (which are strings).
+    const payloadToSend: Record<string, unknown> = { ...confirmationData };
+    if (step && step.type === "form" && "fields" in step && Array.isArray(step.fields)) {
+      for (const f of step.fields ?? []) {
+        const raw = payloadToSend[f.name] ?? values[f.name] ?? "";
+        const t = String(f.type ?? "").toLowerCase();
+        const rawStr = raw == null ? "" : String(raw);
+
+        if (t === "number" || t === "integer") {
+          const trimmed = rawStr.trim();
+          if (!trimmed) {
+            payloadToSend[f.name] = "";
+          } else {
+            const n = t === "integer" ? Number.parseInt(trimmed, 10) : Number(trimmed);
+            payloadToSend[f.name] = Number.isFinite(n) ? n : trimmed;
+          }
+          continue;
+        }
+
+        if (t === "checkbox-group") {
+          const trimmed = rawStr.trim();
+          payloadToSend[f.name] = trimmed
+            ? trimmed.split(",").map((s) => s.trim()).filter(Boolean)
+            : [];
+          continue;
+        }
+
+        payloadToSend[f.name] = raw;
+      }
+    }
+
     loadingStartedAtRef.current = Date.now();
     setQuoteButtonDisabled(true);
     setShowLoading(true);
-    onSubmit(confirmationData);
+    onSubmit(payloadToSend);
   };
 
   useEffect(() => {
@@ -147,7 +180,11 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
               labels[f.name] = f.label ?? f.name;
             });
             setConfirmationLabels(labels);
-            setConfirmationData(payload);
+
+            // Show a full review of all collected values, not just the last step.
+            // This also ensures the backend receives all relevant keys when the user submits.
+            const merged: Record<string, unknown> = { ...values, ...payload };
+            setConfirmationData(merged);
             setShowConfirmation(true);
           }}
           onBack={onBack}

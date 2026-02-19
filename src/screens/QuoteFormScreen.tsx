@@ -11,28 +11,104 @@ const getProp = (value: unknown, key: string): unknown =>
   isRecord(value) ? value[key] : undefined;
 
 const extractGuidedStep = (res: unknown): GuidedStepResponse | null => {
-  const responseObj = getProp(res, 'response');
-
-  const candidatePaths: unknown[] = [
-    getProp(responseObj, 'response'),
-    responseObj,
-  ];
-
-  for (const candidate of candidatePaths) {
-    if (!isRecord(candidate)) continue;
-    const typeValue = candidate['type'];
-    if (typeof typeValue === 'string') {
-      return candidate as GuidedStepResponse;
+  // Backends sometimes nest the step as `response.response` (or deeper).
+  // Walk down a few `response` layers until we find an object with a `type`.
+  const tryUnwrap = (value: unknown): GuidedStepResponse | null => {
+    let current: unknown = value;
+    for (let i = 0; i < 6; i += 1) {
+      if (!isRecord(current)) return null;
+      const typeValue = current['type'];
+      if (typeof typeValue === 'string') return current as GuidedStepResponse;
+      current = current['response'];
     }
-  }
+    return null;
+  };
 
-  return null;
+  return (
+    tryUnwrap(getProp(res, 'response')) ||
+    tryUnwrap(res)
+  );
 };
 
 const extractIsComplete = (res: unknown): boolean => {
   const responseObj = getProp(res, 'response');
   const completeValue = getProp(responseObj, 'complete') ?? getProp(res, 'complete');
   return completeValue === true;
+};
+
+const isEmptyValue = (value: unknown): boolean => {
+  if (value == null) return true;
+  if (typeof value === 'string') return value.trim().length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+};
+
+const buildFormPayloadIfComplete = (
+  step: GuidedStepResponse,
+  data: Record<string, unknown>
+): Record<string, unknown> | null => {
+  if (step.type !== 'form') return null;
+
+  const payload: Record<string, unknown> = {};
+  for (const f of step.fields ?? []) {
+    const raw = data[f.name];
+    if (f.required && isEmptyValue(raw)) {
+      return null;
+    }
+
+    const t = String(f.type ?? '').toLowerCase();
+    const rawStr = raw == null ? '' : String(raw);
+
+    if (t === 'number' || t === 'integer') {
+      const trimmed = rawStr.trim();
+      if (!trimmed) {
+        payload[f.name] = '';
+      } else {
+        const n = t === 'integer' ? Number.parseInt(trimmed, 10) : Number(trimmed);
+        payload[f.name] = Number.isFinite(n) ? n : trimmed;
+      }
+      continue;
+    }
+
+    if (t === 'checkbox-group') {
+      const trimmed = rawStr.trim();
+      payload[f.name] = trimmed
+        ? trimmed.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+      continue;
+    }
+
+    payload[f.name] = raw;
+  }
+
+  return payload;
+};
+
+const resolveNextStepWithAutoAdvance = async (
+  initialRes: unknown,
+  sendNext: (payload: Record<string, unknown>) => Promise<unknown>,
+  data: Record<string, unknown>
+): Promise<{ complete: boolean; step: GuidedStepResponse | null } | null> => {
+  let res: unknown = initialRes;
+  let isComplete = extractIsComplete(res);
+  if (isComplete) return { complete: true, step: null };
+
+  let nextStep: GuidedStepResponse | null = extractGuidedStep(res);
+
+  // If backend asks again for a form we already have filled, auto-submit it.
+  // Guarded to avoid infinite loops.
+  for (let attempts = 0; attempts < 2; attempts += 1) {
+    if (!nextStep || nextStep.type !== 'form') break;
+    const autoPayload = buildFormPayloadIfComplete(nextStep, data);
+    if (!autoPayload) break;
+
+    res = await sendNext(autoPayload);
+    isComplete = extractIsComplete(res);
+    if (isComplete) return { complete: true, step: null };
+    nextStep = extractGuidedStep(res);
+  }
+
+  return { complete: false, step: nextStep };
 };
 
 const extractErrorDetail = (err: unknown): string | null => {
@@ -218,20 +294,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         form_data: normalizedPayload,
       });
       if (res?.session_id && res.session_id !== sid) setSerenicareSessionId(res.session_id);
-      if (res?.response?.complete) {
+
+      const resolved = await resolveNextStepWithAutoAdvance(
+        res,
+        (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
+        serenicareFormData
+      );
+
+      if (!resolved || resolved.complete || !resolved.step) {
         setSerenicareComplete(true);
         setSerenicareStepPayload(null);
         onFormSubmitted?.();
         return;
       }
-      const nextStep = res?.response?.response ?? null;
-      if (!nextStep) {
-        setSerenicareComplete(true);
-        setSerenicareStepPayload(null);
-        onFormSubmitted?.();
-        return;
-      }
-      setSerenicareStepPayload(nextStep);
+
+      setSerenicareStepPayload(resolved.step);
     } catch {
       // Optionally handle field errors from backend here
       // setSerenicareFieldErrors(err?.fieldErrors || {});
@@ -264,20 +341,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         form_data: payload
       });
       if (res?.session_id && res.session_id !== sid) setPaSessionId(res.session_id);
-      if (res?.response?.complete) {
+
+      const resolved = await resolveNextStepWithAutoAdvance(
+        res,
+        (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
+        formData
+      );
+
+      if (!resolved || resolved.complete || !resolved.step) {
         setPaComplete(true);
         setPaStepPayload(null);
         onFormSubmitted?.();
         return;
       }
-      const nextStep = res?.response?.response ?? null;
-      if (!nextStep) {
-        setPaComplete(true);
-        setPaStepPayload(null);
-        onFormSubmitted?.();
-        return;
-      }
-      setPaStepPayload(nextStep);
+
+      setPaStepPayload(resolved.step);
     } catch {
       // Optionally handle field errors from backend here
       // setPaFieldErrors(e?.fieldErrors || {});
@@ -351,20 +429,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         form_data: payload
       });
       if (res?.session_id && res.session_id !== sid) setMotorSessionId(res.session_id);
-      if (res?.response?.complete) {
+
+      const resolved = await resolveNextStepWithAutoAdvance(
+        res,
+        (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
+        motorFormData
+      );
+
+      if (!resolved || resolved.complete || !resolved.step) {
         setMotorComplete(true);
         setMotorStepPayload(null);
         onFormSubmitted?.();
         return;
       }
-      const nextStep = res?.response?.response ?? null;
-      if (!nextStep) {
-        setMotorComplete(true);
-        setMotorStepPayload(null);
-        onFormSubmitted?.();
-        return;
-      }
-      setMotorStepPayload(nextStep);
+
+      setMotorStepPayload(resolved.step);
     } catch {
       // Optionally handle field errors from backend here
       // setMotorFieldErrors(err?.fieldErrors || {});
@@ -438,23 +517,20 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
       if (res?.session_id && res.session_id !== sid) setTravelSessionId(res.session_id);
 
-      const isComplete = extractIsComplete(res);
-      if (isComplete) {
+      const resolved = await resolveNextStepWithAutoAdvance(
+        res,
+        (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
+        travelFormData
+      );
+
+      if (!resolved || resolved.complete || !resolved.step) {
         setTravelComplete(true);
         setTravelStepPayload(null);
         onFormSubmitted?.();
         return;
       }
 
-      const nextStep = extractGuidedStep(res);
-      if (!nextStep) {
-        setTravelComplete(true);
-        setTravelStepPayload(null);
-        onFormSubmitted?.();
-        return;
-      }
-
-      setTravelStepPayload(nextStep);
+      setTravelStepPayload(resolved.step);
     } catch {
       // Optionally handle field errors from backend here
       // setTravelFieldErrors(err?.fieldErrors || {});
