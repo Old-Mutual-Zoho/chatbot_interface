@@ -96,9 +96,10 @@ export type GuidedStepResponse =
 			message?: string;
 			monthly_premium: number;
 			annual_premium: number;
-			cover_limit_ugx: number;
-			benefits: string[];
-			actions: { type: string; label: string }[];
+			cover_limit_ugx?: number;
+			benefits?: string[];
+			actions?: { type: string; label: string }[];
+			[k: string]: unknown;
 	  }
 	| {
 			type: 'yes_no_details';
@@ -110,12 +111,30 @@ export type GuidedStepResponse =
 	| {
 			type: 'checkbox';
 			message: string;
-			options: { id: string; label: string }[];
+			options: { id: string; label: string; description?: string }[];
 			field_name?: string;
 			other_field?: { name: string; label: string };
 	  }
+	| {
+			type: 'radio';
+			message: string;
+			question_id: string;
+			options: { id: string; label: string }[];
+			required?: boolean;
+	  }
+	| {
+			type: 'options';
+			message?: string;
+			options: {
+				id: string;
+				label: string;
+				description?: string;
+				benefits?: Record<string, string>;
+			}[];
+	  }
 	| { type: 'file_upload'; message: string; field_name: string; accept?: string }
 	| { type: 'final_confirmation'; message?: string; actions?: { type: string; label: string }[] }
+	| { type: 'proceed_to_payment'; message?: string; quote_id?: string; [k: string]: unknown }
 	| { type: 'message'; message: string };
 
 export interface StartGuidedResponse {

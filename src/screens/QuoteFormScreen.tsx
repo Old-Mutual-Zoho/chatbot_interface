@@ -85,7 +85,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [formData, setFormData] = useState<Record<string, unknown>>({});
 
   // --- Backend-driven Serenicare guided flow state ---
-  const [serenicareSessionId, setSerenicareSessionId] = useState<string | null>(sessionId ?? null);
+  // Serenicare must not depend on (or reuse) the parent chat session.
+  // Let the backend create a dedicated guided session for this flow.
+  const [serenicareSessionId, setSerenicareSessionId] = useState<string | null>(null);
   const [serenicareStepPayload, setSerenicareStepPayload] = useState<GuidedStepResponse | null>(null);
   const [serenicareLoading, setSerenicareLoading] = useState(false);
   const [serenicareComplete, setSerenicareComplete] = useState(false);
@@ -166,13 +168,38 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const handleSerenicareSubmit = async (payload: Record<string, unknown>) => {
     const sid = serenicareSessionId ?? sessionId;
     if (!sid || !userId) return;
+
+    const normalizedPayload: Record<string, unknown> = (() => {
+      const step = serenicareStepPayload;
+      if (!step) return payload;
+
+      // Serenicare backend flow expects specific keys for some non-form steps.
+      if (step.type === 'checkbox') {
+        // Serenicare optional benefits step expects `optional_benefits`.
+        const maybeRisky = payload['risky_activities'];
+        if (payload['optional_benefits'] === undefined && Array.isArray(maybeRisky)) {
+          return { ...payload, optional_benefits: maybeRisky };
+        }
+      }
+
+      if (step.type === 'radio') {
+        // Serenicare medical conditions step expects `has_condition: boolean`.
+        const choice = payload['medical_conditions'];
+        if (payload['has_condition'] === undefined && (choice === 'yes' || choice === 'no')) {
+          return { ...payload, has_condition: choice === 'yes' };
+        }
+      }
+
+      return payload;
+    })();
+
     setSerenicareLoading(true);
     setSerenicareFieldErrors({});
     try {
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
-        form_data: payload,
+        form_data: normalizedPayload,
       });
       if (res?.session_id && res.session_id !== sid) setSerenicareSessionId(res.session_id);
       if (res?.response?.complete) {

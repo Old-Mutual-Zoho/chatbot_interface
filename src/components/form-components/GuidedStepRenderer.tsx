@@ -18,6 +18,7 @@ interface GuidedStepRendererProps {
   loading?: boolean;
   titleFallback?: string;
   onReturnToChat?: () => void;
+  confirmOnFormSubmit?: boolean;
 }
 
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
@@ -31,6 +32,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   loading = false,
   titleFallback = "Details",
   onReturnToChat,
+  confirmOnFormSubmit = false,
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -121,10 +123,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           onClearError={onClearError}
           onChange={onChange}
           onSubmit={(payload) => {
-            // Instead of submitting, show confirmation summary
-            // Collect all field labels and values
+            if (!confirmOnFormSubmit) {
+              onSubmit(payload);
+              return;
+            }
+
             const labels: Record<string, string> = {};
-            ((step as { fields?: CardFieldConfig[] }).fields ?? []).forEach((f: CardFieldConfig) => { labels[f.name] = f.label ?? f.name; });
+            ((step as { fields?: CardFieldConfig[] }).fields ?? []).forEach((f: CardFieldConfig) => {
+              labels[f.name] = f.label ?? f.name;
+            });
             setConfirmationLabels(labels);
             setConfirmationData(payload);
             setShowConfirmation(true);
@@ -150,6 +157,12 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "checkbox":
       // A list of checkboxes (multi-select).
       return <CheckboxStep step={step as Extract<GuidedStepResponse, { type: "checkbox" }> } onSubmit={onSubmit} loading={loading} />;
+    case "radio":
+      // A single-choice question.
+      return <RadioStep step={step as Extract<GuidedStepResponse, { type: "radio" }> } onSubmit={onSubmit} loading={loading} />;
+    case "options":
+      // A list of selectable options (typically plan selection).
+      return <OptionsStep step={step as Extract<GuidedStepResponse, { type: "options" }> } onSubmit={onSubmit} loading={loading} />;
     case "file_upload":
       // A file picker. For now we only send the filename (no real upload yet).
       return <FileUploadStep step={step as Extract<GuidedStepResponse, { type: "file_upload" }> } onSubmit={onSubmit} loading={loading} />;
@@ -159,6 +172,9 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "message":
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
+    case "proceed_to_payment":
+      // Payment is handled elsewhere; show a simple message.
+      return <MessageStep step={{ type: "message", message: step.message ?? "Proceeding to payment." }} />;
     default:
       return null;
   }
@@ -286,7 +302,7 @@ const PremiumSummaryStep: React.FC<{
 
       {(step.benefits?.length ?? 0) > 0 && (
         <ul className="mt-4 list-disc list-inside text-sm text-gray-700">
-          {step.benefits.map((b, i) => (
+          {step.benefits?.map((b, i) => (
             <li key={i}>{b}</li>
           ))}
         </ul>
@@ -422,6 +438,82 @@ const CheckboxStep: React.FC<{
           }
           onSubmit(payload);
         }}
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
+const RadioStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "radio" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [choice, setChoice] = useState<string>("");
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {(step.options ?? []).map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            disabled={loading}
+            onClick={() => setChoice(o.id)}
+            className={`px-4 py-2 rounded-lg border ${choice === o.id ? "bg-primary text-white border-primary" : "border-gray-300"} disabled:opacity-60`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        disabled={loading || !choice}
+        onClick={() => {
+          const key = step.question_id && step.question_id.trim() ? step.question_id : "_raw";
+          onSubmit({ [key]: choice });
+        }}
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
+const OptionsStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "options" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [selectedId, setSelectedId] = useState<string>("");
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-4">{step.message ?? "Select an option"}</p>
+      <div className="flex flex-col gap-3">
+        {(step.options ?? []).map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            disabled={loading}
+            onClick={() => setSelectedId(o.id)}
+            className={`w-full text-left px-4 py-3 rounded-xl border ${selectedId === o.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-primary/40 hover:bg-primary/5"} disabled:opacity-60`}
+          >
+            <div className="font-semibold text-gray-900">{o.label}</div>
+            {o.description ? <div className="text-sm text-gray-600 mt-1">{o.description}</div> : null}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        disabled={loading || !selectedId}
+        onClick={() => onSubmit({ _raw: selectedId })}
         className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
       >
         Next
