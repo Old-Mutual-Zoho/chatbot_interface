@@ -8,6 +8,9 @@ import ConversationScreen from "../../screens/ConversationScreen";
 import { ChatScreen } from "../../screens/ChatScreen";
 import ProductScreen from "../../screens/ProductScreen";
 
+
+import { AGENT_CONFIG } from '../../config/agentConfig';
+
 export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   // Main wrapper for the chatbot screens.
 
@@ -147,6 +150,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
+
   const baseWidth = 430;
   const expandedWidth = Math.round(baseWidth * 1.25);
 
@@ -217,6 +222,9 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             }}
             isExpanded={isExpanded}
             onToggleExpand={() => setIsExpanded((prev) => !prev)}
+            agentConfig={AGENT_CONFIG}
+            chatMode={chatMode}
+            setChatMode={setChatMode}
           />
         </FadeWrapper>
         {/* PRODUCTS */}

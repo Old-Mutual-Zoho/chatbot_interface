@@ -9,6 +9,7 @@ import { PurchaseSummary } from "./PurchaseSummary";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { MobileMoneyForm } from "./MobileMoneyForm";
 import { PaymentLoadingScreen } from "./PaymentLoadingScreen";
+import { AgentBubble } from "./AgentBubble";
 
 interface MessageRendererProps {
   message: ChatMessage | ActionCardMessage | PurchaseSummaryMessage | PaymentMethodSelectorMessage | MobileMoneyFormMessage | PaymentLoadingScreenMessage;
@@ -18,6 +19,7 @@ interface MessageRendererProps {
   onSubmitMobilePayment?: (phoneNumber: string) => void;
   loading?: boolean;
   lastSelected?: string | null;
+  chatMode?: 'bot' | 'human';
 }
 
 export const MessageRenderer: React.FC<MessageRendererProps> = ({
@@ -28,6 +30,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   onSubmitMobilePayment,
   loading,
   lastSelected,
+  chatMode,
 }) => {
   if (message.type === "loading") {
     return <LoadingBubble />;
@@ -74,6 +77,10 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   }
   if (message.sender === "user") {
     return <UserBubble message={message as ChatMessage} />;
+  }
+  // If in human mode, use AgentBubble for new agent messages
+  if (chatMode === 'human' && message.sender === 'bot') {
+    return <AgentBubble message={message as ChatMessage} />;
   }
   return <BotBubble message={message as ChatMessage} />;
 };

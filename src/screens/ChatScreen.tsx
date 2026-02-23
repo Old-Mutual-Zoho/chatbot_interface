@@ -1,15 +1,31 @@
+import ChatHeader from "../components/chatbot/ChatHeader";
+type State = {
+  messages: ChatMessageWithTimestamp[];
+  availableOptions: ActionOption[];
+  showWelcomeCard: boolean;
+  showActionCard: boolean;
+  inputValue: string;
+  isSending: boolean;
+  isGuidedFlow: boolean;
+  loading: boolean;
+  lastSelected: string | null;
+  isPurchasing: boolean;
+  isPaymentMode: boolean;
+  showQuoteForm: boolean;
+  quoteFormKey: number;
+};
 import { useReducer, useRef, useEffect, useState } from "react";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
-import { IoSend, IoArrowBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
-import Logo from "../assets/Logo.png";
+import { IoSend } from "react-icons/io5";
 import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
+import { AGENT_CONFIG } from "../config/agentConfig";
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -31,27 +47,11 @@ const toBackendProductKey = (product: string | null | undefined): string | null 
 };
 
 type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
-type State = {
-  messages: ChatMessageWithTimestamp[];
-  availableOptions: ActionOption[];
-  showWelcomeCard: boolean;
-  showActionCard: boolean;
-  inputValue: string;
-  isSending: boolean;
-  isGuidedFlow: boolean;
-  loading: boolean;
-  lastSelected: string | null;
-  isPurchasing?: boolean;
-  isPaymentMode?: boolean;
-  showQuoteForm: boolean;
-  quoteFormKey: number;
-};
-
 type Action =
-  | { type: "RESET"; selectedProduct?: string | null }
-  | { type: "SET_INPUT"; payload: string }
-  | { type: "SEND_MESSAGE" }
-  | { type: "RECEIVE_BOT_REPLY"; payload: string }
+  { type: "RESET"; selectedProduct?: string | null }
+| { type: "SET_INPUT"; payload: string }
+| { type: "SEND_MESSAGE" }
+| { type: "RECEIVE_BOT_REPLY"; payload: string }
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean }
@@ -64,6 +64,7 @@ type Action =
   | { type: "SELECT_PAYMENT_METHOD"; payload: "mobile" | "card" | "flexipay" }
   | { type: "SHOW_MOBILE_MONEY_FORM" }
   | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
+
   | { type: "SHOW_PAYMENT_LOADING_SCREEN" }
   | { type: "CONFIRM_PURCHASE" }
   | { type: "PURCHASE_SUCCESS"; payload: string }
@@ -546,7 +547,8 @@ type ChatMessageWithTimestamp = (ExtendedChatMessage & { timestamp?: string }) |
   timestamp?: string;
 };
 
-interface ChatScreenProps {
+
+type ChatScreenProps = {
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
@@ -556,20 +558,32 @@ interface ChatScreenProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
-}
+  agentConfig: {
+    name: string;
+    avatar: string;
+    status: string;
+  };
+  chatMode: 'bot' | 'human';
+  setChatMode: (mode: 'bot' | 'human') => void;
+  initialMessages?: any[];
+  onMessagesChange?: (messages: any[]) => void;
+};
 
-export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
+export const ChatScreen: React.FC<ChatScreenProps> = ({
   onBackClick,
   onCloseClick,
   selectedProduct,
   userId,
   sessionId: sessionIdProp,
   sessionLoading,
-  isExpanded,
-  onToggleExpand,
+  // isExpanded,
+  // onToggleExpand,
   renderCustomContent,
+  agentConfig,
+  chatMode,
+  setChatMode,
+  initialMessages,
   onMessagesChange,
-  initialMessages
 }) => {
   // Robust session management: persist sessionId from backend, update on backend response, use for all requests, reset only on new conversation/session expiry
   const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
@@ -579,6 +593,8 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     { selectedProduct, isGuidedFlow, initialMessages },
     initialState,
   );
+  // Escalation state
+  // const [escalating, setEscalating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
@@ -705,6 +721,37 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   // general info button for products
   const handleActionCardSelect = async (option: ActionOption) => {
+    if (option.value === "talk-to-agent") {
+      showConnectingLoader();
+      return;
+    }
+      // Modular escalation functions
+      function showConnectingLoader() {
+        dispatch({
+          type: "SHOW_PAYMENT_LOADING_SCREEN"
+        });
+        // Append loader message with text
+        setTimeout(() => {
+          switchToHumanAgent();
+        }, 5000);
+      }
+
+      function switchToHumanAgent() {
+        setChatMode && setChatMode('human');
+        updateHeaderToHuman();
+        appendHumanMessage();
+      }
+
+      function updateHeaderToHuman() {
+        // Header will react to chatMode and agentConfig
+      }
+
+      function appendHumanMessage() {
+        dispatch({
+          type: "RECEIVE_BOT_REPLY",
+          payload: "Hi 👋 This is Joy from Customer Support. How may I assist you today?",
+        });
+      }
     if (option.label === "General Info") {    
       // ...existing General Info logic...
       dispatch({
@@ -934,33 +981,13 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       </div>
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
-          <button onClick={onBackClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Back">
-            <IoArrowBack size={18} className="sm:block" />
-          </button>
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
-              <img src={Logo} alt="Old Mutual" className="w-full h-full object-contain" />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
-            </div>
-            <div className="flex flex-col min-w-0">
-              <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Mutual Intellingence Assistant</h3>
-              <span className="text-xs text-white/80 leading-tight">Online</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={onToggleExpand}
-              className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer"
-              title={isExpanded ? "Collapse" : "Expand"}
-            >
-              {isExpanded ? <IoContractOutline size={18} className="sm:block" /> : <IoExpandOutline size={18} className="sm:block" />}
-            </button>
-            <button onClick={onCloseClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer" title="Close">
-              <IoClose size={18} className="sm:block" />
-            </button>
-          </div>
-        </div>
+        <ChatHeader
+          title=""
+          onBack={onBackClick}
+          onClose={onCloseClick!}
+          agentConfig={agentConfig || AGENT_CONFIG}
+          chatMode={chatMode}
+        />
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
@@ -1049,6 +1076,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
                     onConfirmPayment={handleConfirmPayment}
                     onSelectPaymentMethod={handleSelectPaymentMethod}
                     onSubmitMobilePayment={handleSubmitMobilePayment}
+                    chatMode={chatMode}
                   />
                 </div>,
                 <div key={"action-card-" + message.id} className="flex justify-start mt-0">
@@ -1164,3 +1192,5 @@ const PRODUCT_KEY_MAP: Record<string, string> = {
   travel_sure_plus: "travel_sure_plus",
   // Add more mappings as needed
 };
+
+
