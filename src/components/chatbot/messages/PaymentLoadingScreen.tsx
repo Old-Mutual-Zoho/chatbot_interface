@@ -18,9 +18,9 @@ export const PaymentLoadingScreen: React.FC = () => {
               cy="50"
               r="40"
               fill="none"
-              stroke="#86EFAC"
+              stroke="currentColor"
               strokeWidth="8"
-              opacity="0.3"
+              className="text-primary/30"
             />
             {/* Animated segments */}
             <circle
@@ -28,28 +28,20 @@ export const PaymentLoadingScreen: React.FC = () => {
               cy="50"
               r="40"
               fill="none"
-              stroke="#00A651"
+              stroke="currentColor"
               strokeWidth="8"
               strokeDasharray="60 20 40 30"
               strokeLinecap="round"
-              style={{
-                transformOrigin: "center",
-              }}
+              className="text-primary"
             />
           </svg>
           {/* Inner white circle */}
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-          >
+          <div className="absolute inset-0 flex items-center justify-center">
             <div
-              className="w-24 h-24 rounded-full bg-white border-4 flex items-center justify-center"
-              style={{ borderColor: "#E8F5E9" }}
+              className="w-24 h-24 rounded-full bg-white border-4 border-primary/10 flex items-center justify-center"
             >
               {/* Solid green circle in the center */}
-              <div
-                className="w-16 h-16 rounded-full"
-                style={{ backgroundColor: "#00A651" }}
-              />
+              <div className="w-16 h-16 rounded-full bg-primary" />
             </div>
           </div>
         </div>

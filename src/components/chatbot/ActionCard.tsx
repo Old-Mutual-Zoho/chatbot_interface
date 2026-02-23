@@ -28,20 +28,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
       ];
 
   return (
-    <div
-      className="bg-white rounded-xl mx-auto flex flex-col items-center"
-      style={{
-        width: '340px',
-        minHeight: '220px',
-        border: '2.5px solid #e5e7eb',
-        boxSizing: 'border-box',
-        padding: '22px 18px',
-        margin: '24px auto',
-        display: 'flex',
-        justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(0,120,71,0.08)',
-      }}
-    >
+    <div className="w-full max-w-sm mx-auto my-4 bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex flex-col items-center">
       {extendedOptions.map((opt, idx) => {
         // Keep the chosen option highlighted during loading.
         const isActive = (activeIdx === idx) || (lastSelected && opt.value === lastSelected);
@@ -49,23 +36,15 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
           <button
             key={opt.value}
             type="button"
-            className="transition focus:outline-none"
-            style={{
-              width: '96%',
-              padding: '13px 0',
-              margin: '0 auto 12px auto',
-              borderRadius: '10px',
-              border: isActive ? 'none' : '1.5px solid #007847',
-              background: isActive ? '#007847' : '#fff',
-              color: isActive ? '#fff' : '#007847',
-              fontWeight: 700,
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              textAlign: 'center',
-              boxShadow: isActive ? '0 2px 8px rgba(0,120,71,0.10)' : 'none',
-              display: 'block',
-              lineHeight: '1.2',
-            }}
+            className={
+              [
+                'w-full py-3 px-4 rounded-xl font-semibold text-sm transition focus:outline-none',
+                isActive
+                  ? 'bg-primary text-white'
+                  : 'bg-white border border-primary text-primary hover:bg-primary/5',
+                'disabled:opacity-60',
+              ].join(' ')
+            }
             onClick={(e) => {
               e.preventDefault();
               setActiveIdx(idx);

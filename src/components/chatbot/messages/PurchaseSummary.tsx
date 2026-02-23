@@ -27,17 +27,11 @@ export const PurchaseSummary: React.FC<PurchaseSummaryProps> = ({
   return (
     <div className="flex justify-start mb-4">
       <div
-        className="bg-white rounded-2xl shadow-md overflow-hidden max-w-xs sm:max-w-sm md:max-w-md border border-gray-200"
-        style={{
-          borderLeft: "4px solid #00A651",
-        }}
+        className="bg-white rounded-2xl shadow-md overflow-hidden max-w-[80%] border border-gray-200 border-l-4 border-l-primary"
       >
         {/* Header */}
         <div
-          className="px-5 py-4"
-          style={{
-            background: "linear-gradient(135deg, #00A651 0%, #008C44 100%)",
-          }}
+          className="px-5 py-4 bg-gradient-to-br from-primary to-primary-dark"
         >
           <h3 className="text-white font-semibold text-base">Order Summary</h3>
         </div>
@@ -78,23 +72,13 @@ export const PurchaseSummary: React.FC<PurchaseSummaryProps> = ({
               <div
                 className="flex-1 flex items-center justify-center py-2 px-3 rounded-lg border border-gray-200 bg-gray-50"
               >
-                <span
-                  className="font-bold text-sm"
-                  style={{ color: "#FFD100" }}
-                >
-                  MTN
-                </span>
+                <span className="font-bold text-sm text-gray-700">MTN</span>
               </div>
               {/* Airtel Logo */}
               <div
                 className="flex-1 flex items-center justify-center py-2 px-3 rounded-lg border border-gray-200 bg-gray-50"
               >
-                <span
-                  className="font-bold text-sm"
-                  style={{ color: "#E91E2C" }}
-                >
-                  Airtel
-                </span>
+                <span className="font-bold text-sm text-gray-700">Airtel</span>
               </div>
             </div>
           </div>
@@ -103,13 +87,12 @@ export const PurchaseSummary: React.FC<PurchaseSummaryProps> = ({
           <button
             onClick={handleConfirm}
             disabled={isLoading || isConfirming}
-            className="w-full py-3 px-4 rounded-lg font-semibold text-white text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2"
-            style={{
-              background: isLoading || isConfirming
-                ? "#D1D5DB"
-                : "#00A651",
-              cursor: isLoading || isConfirming ? "not-allowed" : "pointer",
-            }}
+            className={
+              [
+                'w-full py-3 px-4 rounded-lg font-semibold text-white text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2',
+                isLoading || isConfirming ? 'bg-gray-300 cursor-not-allowed' : 'bg-primary hover:bg-primary/90 cursor-pointer',
+              ].join(' ')
+            }
           >
             {isLoading || isConfirming ? (
               <span className="flex items-center justify-center gap-2">

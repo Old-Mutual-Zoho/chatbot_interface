@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import ChatbotContainer from "./ChatbotContainer";
 import { IoClose } from "react-icons/io5";
 import Logo from "../../assets/Logo.png";
@@ -7,6 +8,27 @@ export default function ChatbotWidget() {
   // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const PORTAL_ID = "om-chatbot-portal";
+    const existing = document.getElementById(PORTAL_ID) as HTMLElement | null;
+    if (existing) {
+      setPortalNode(existing);
+      return;
+    }
+
+    const node = document.createElement("div");
+    node.id = PORTAL_ID;
+    node.setAttribute("data-om-chatbot-root", "true");
+    // Mount under body as requested (portal prevents clipping by parent containers).
+    document.body.appendChild(node);
+    setPortalNode(node);
+
+    return () => {
+      node.remove();
+    };
+  }, []);
 
   // Teaser appears shortly after load to invite the user in.
   useEffect(() => {
@@ -18,17 +40,22 @@ export default function ChatbotWidget() {
   }, []);
 
   // Keep teaser and panel mutually exclusive.
+  useEffect(() => {
+    if (open) setShowTeaser(false);
+  }, [open]);
+
+  // Keep teaser and panel mutually exclusive.
   const handleToggleOpen = () => {
-    const nextOpen = !open;
-    setOpen(nextOpen);
-    if (nextOpen) {
-      setShowTeaser(false);
-    } else {
-      setShowTeaser(true);
-    }
+    setOpen((prev) => {
+      const next = !prev;
+      setShowTeaser(!next);
+      return next;
+    });
   };
 
-  return (
+  if (!portalNode) return null;
+
+  return createPortal(
     <>
       {/* Floating Button + Teaser */}
       <div className="om-launcher om-launcher--intro relative">
@@ -57,12 +84,12 @@ export default function ChatbotWidget() {
 
           <button
             onClick={handleToggleOpen}
-            className={`cursor-pointer bg-primary text-white w-20 h-20 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] p-0 ${
+            className={`cursor-pointer bg-primary text-white w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] p-0 ${
               open ? "border-white" : "border-primary"
             }`}
           >
             {open ? (
-              <IoClose size={36} />
+              <IoClose size={32} />
             ) : (
               <img
                 src={Logo}
@@ -77,10 +104,21 @@ export default function ChatbotWidget() {
 
       {/* Chat Panel */}
       {open && (
-        <div className="fixed bottom-[110px] right-6 z-40 om-panel-enter">
-          <ChatbotContainer onClose={() => setOpen(false)} />
-        </div>
+        <>
+          <button
+            type="button"
+            aria-label="Close chatbot"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-[9998] bg-black/30"
+          />
+          <div className="fixed bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto">
+            <div className="w-[95vw] h-[80vh] md:w-[400px] md:h-[680px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
+              <ChatbotContainer onClose={() => setOpen(false)} />
+            </div>
+          </div>
+        </>
       )}
-    </>
+    </>,
+    portalNode,
   );
 }

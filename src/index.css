@@ -93,8 +93,18 @@
   margin: 0 4px;
 }
 
-html, body {
+html {
+  scroll-behavior: smooth;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
   font-family: var(--font-primary) !important;
+}
+
+body {
+  overflow-x: hidden;
 }
 
 
@@ -134,7 +144,7 @@ html, body {
 
 @keyframes om-drop-in {
   0% {
-    transform: translate3d(0, calc(-100vh + 8rem), 0);
+    transform: translate3d(0, -120%, 0);
   }
   100% {
     transform: translate3d(0, 0, 0);
@@ -164,10 +174,14 @@ html, body {
 }
 
 .om-launcher {
-  position: fixed;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  z-index: 50;
+  position: fixed !important;
+  right: 1rem !important;
+  bottom: 1rem !important;
+  z-index: 2147483647 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
   will-change: transform;
 }
 
@@ -181,6 +195,83 @@ html, body {
 
 .om-panel-enter {
   animation: om-panel-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/*
+  Widget overlay positioning.
+  Some host sites define classes like .fixed/.inset-0 themselves; use unique classes
+  and !important to ensure the panel is visible when embedded.
+*/
+.om-widget-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 2147483646 !important;
+  pointer-events: none;
+  background: transparent;
+}
+
+.om-widget-overlay-inner {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.om-widget-panel {
+  pointer-events: auto;
+  width: 100%;
+  height: 100%;
+}
+
+@media (min-width: 768px) {
+  .om-widget-overlay-inner {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 1.5rem;
+  }
+
+  .om-widget-panel {
+    height: 80vh;
+    max-height: 80vh;
+    width: 100%;
+    max-width: 32rem;
+  }
+}
+
+/* Backdrop + panel anchor (body portal-safe) */
+.om-widget-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483644 !important;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.om-widget-panel-anchor {
+  position: fixed !important;
+  right: 1rem !important;
+  bottom: 1rem !important;
+  z-index: 2147483645 !important;
+  box-sizing: border-box;
+  width: 92vw;
+  max-width: 92vw;
+  height: 72vh;
+  max-height: 72vh;
+}
+
+@media (min-width: 768px) {
+  .om-widget-panel-anchor {
+    width: auto;
+    max-width: 380px;
+    height: 640px;
+    max-height: 640px;
+  }
 }
 
 .om-slide-in-right {

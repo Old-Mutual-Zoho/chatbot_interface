@@ -23,6 +23,7 @@ interface MessageRendererProps {
   lastSelected?: string | null;
   chatMode?: 'bot' | 'human';
   avatar?: string;
+  channel?: 'web' | 'whatsapp';
 }
 
 export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string }> = ({
@@ -35,7 +36,55 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
   lastSelected,
   chatMode,
   avatar,
-}) => {
+  channel = 'web',
+}) => { //whatsapp mode: if message is not text, render a text version of it. For all messages, render using the appropriate bubble but with whatsapp styling (no avatar, different colors, etc).
+  const isWhatsApp = channel === 'whatsapp';
+
+  const renderAsWhatsAppText = (text: string) => {
+    const normalized: ChatMessage = {
+      id: (message as { id: string }).id || String(Date.now()),
+      type: 'text',
+      sender: (message as any).sender === 'user' ? 'user' : 'bot',
+      text,
+    };
+    return normalized.sender === 'user'
+      ? <UserBubble message={normalized} channel="whatsapp" />
+      : <BotBubble message={normalized} channel="whatsapp" />;
+  };
+
+  if (isWhatsApp) {
+    // WhatsApp mode: render ONLY message bubbles (no cards, no loaders, no forms).
+    if (message.type === 'loading') {
+      return renderAsWhatsAppText('…');
+    }
+    if (message.type === 'custom-welcome') {
+      return renderAsWhatsAppText("Hi, I'm MIA!\nHow may I help you today?");
+    }
+    if (message.type === 'action-card') {
+      const options = (message as any).options as Array<{ label: string }> | undefined;
+      const optionLines = (options ?? []).map((o) => `- ${o.label}`).join('\n');
+      return renderAsWhatsAppText(optionLines ? `Options:\n${optionLines}` : 'Options available.');
+    }
+    if (message.type === 'purchase-summary') {
+      const p = message as any;
+      return renderAsWhatsAppText(`Purchase summary:\n${p.productName ?? ''}\n${p.price ?? ''} ${p.duration ?? ''}`.trim());
+    }
+    if (message.type === 'payment-method-selector') {
+      return renderAsWhatsAppText('Choose a payment method: Mobile Money, Card, FlexiPay.');
+    }
+    if (message.type === 'mobile-money-form') {
+      return renderAsWhatsAppText('Please enter your Mobile Money phone number.');
+    }
+    if (message.type === 'payment-loading-screen') {
+      return renderAsWhatsAppText('Processing…');
+    }
+    // Plain text (or any remaining types)
+    if ((message as any).sender === 'user') {
+      return <UserBubble message={message as ChatMessage} channel="whatsapp" />;
+    }
+    return <BotBubble message={message as ChatMessage} channel="whatsapp" />;
+  }
+
   if (message.type === "loading") {
     return <LoadingBubble />;
   }
@@ -80,15 +129,15 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
     return <PaymentLoadingScreen />;
   }
   if (message.sender === "user") {
-    return <UserBubble message={message as ChatMessage} />;
+    return <UserBubble message={message as ChatMessage} channel="web" />;
   }
   // For new incoming bot messages, use avatar from message if present, else fallback
   if (message.sender === "bot") {
     const avatarSrc = avatar || (chatMode === "human" ? humanAvatar : Logo);
     return chatMode === "human"
       ? <AgentBubble message={message as ChatMessage} avatar={avatarSrc} />
-      : <BotBubble message={message as ChatMessage} avatar={avatarSrc} />;
+      : <BotBubble message={message as ChatMessage} avatar={avatarSrc} channel="web" />;
   }
-  return <BotBubble message={message as ChatMessage} avatar={Logo} />;
+  return <BotBubble message={message as ChatMessage} avatar={Logo} channel="web" />;
 };
 

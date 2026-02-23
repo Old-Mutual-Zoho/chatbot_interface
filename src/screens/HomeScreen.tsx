@@ -23,10 +23,7 @@ export default function HomeScreen({
     <div className="flex flex-col h-full w-full bg-white">
       {/* Header */}
       <div
-        className="rounded-3xl p-6 pb-10 text-white"
-        style={{
-          background: "linear-gradient(135deg, #31A75F 0%, #54B44F 100%)",
-        }}
+        className="rounded-3xl p-6 pb-10 text-white bg-gradient-to-br from-primary to-primary/80"
       >
         {/* Logo */}
         <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">

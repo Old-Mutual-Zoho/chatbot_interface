@@ -152,16 +152,13 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
 
   const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
 
-  const baseWidth = 430;
-  const expandedWidth = Math.round(baseWidth * 1.25);
-
   return (
     <div
-      className="h-[700px] bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border-4 border-primary/20"
-      style={{
-        width: isExpanded ? `${expandedWidth}px` : `${baseWidth}px`,
-        transition: "width 200ms ease",
-      }}
+      className={
+        [
+          'flex flex-col w-full h-full bg-white overflow-hidden min-h-0',
+        ].join(' ')
+      }
     >
       {/* Screens */}
       <div className="flex-1 relative">

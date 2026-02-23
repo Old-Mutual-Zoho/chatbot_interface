@@ -607,12 +607,11 @@ const CardForm: React.FC<CardFormProps> = ({
 
   return (
     <div
-      className="w-full mt-2 rounded-2xl p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200"
-      style={{ maxHeight: 520 }}
+      className="w-full mt-2 rounded-2xl p-6 sm:p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200"
     >
       <div key={transitionKey} className={transitionClass}>
       <div className="w-full mb-4">
-        <h2 className="text-xl font-bold text-center" style={{ color: '#00A651' }}>
+        <h2 className="text-xl font-bold text-center text-primary">
           {title}
         </h2>
         <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />
@@ -624,8 +623,7 @@ const CardForm: React.FC<CardFormProps> = ({
       </div>
       <form className="w-full flex flex-col gap-5">
         <div
-          className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-y-auto om-show-scrollbar"}`}
-          style={{ maxHeight: 320 }}
+          className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-visible"}`}
         >
           {visibleFields.map((field) => {
           // Conditional rendering for fields with showIf
@@ -1085,7 +1083,7 @@ const CardForm: React.FC<CardFormProps> = ({
             type="button"
             onClick={handleBackClick}
             disabled={backDisabled}
-            className={`w-[45%] px-4 py-2 rounded ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300 cursor-pointer'}`}
+            className={`flex-1 px-4 py-2 rounded-lg ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300 cursor-pointer'}`}
           >
             Back
           </button>
@@ -1098,8 +1096,7 @@ const CardForm: React.FC<CardFormProps> = ({
             onMouseUp={handleNextMouseUp}
             onMouseLeave={handleNextMouseLeave}
             disabled={(autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled}
-            className={`w-[45%] mt-0 py-2 px-4 bg-linear-to-r from-primary to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2${((autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled) ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer'} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
-            style={{ letterSpacing: 0.5 }}
+            className={`flex-1 mt-0 py-2 px-4 bg-linear-to-r from-primary to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2 tracking-wide${((autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled) ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer'} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
           >
             {nextLabel}
           </button>

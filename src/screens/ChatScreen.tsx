@@ -31,7 +31,6 @@ type State = {
 import React, { useReducer, useRef, useEffect, useState } from "react";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
-import PatternImage from "../assets/pattern.jpg";
 import { IoSend } from "react-icons/io5";
 import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
@@ -572,6 +571,7 @@ type ChatScreenProps = {
   userId: string | null;
   sessionId: string | null;
   sessionLoading?: boolean;
+  channel?: 'web' | 'whatsapp';
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
@@ -599,7 +599,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   setChatMode: _setChatMode,
   initialMessages,
   onMessagesChange,
+  channel = 'web',
 }) => {
+  const isWhatsApp = channel === 'whatsapp';
   // Chat mode state
   const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
   const [headerConfig, setHeaderConfig] = useState(BOT_CONFIG);
@@ -1097,12 +1099,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }, [showDivider]);
 
   return (
-    <div className="flex flex-col h-full bg-white relative">
-      <div className="absolute inset-0 w-full h-full z-0 pointer-events-none" style={{ backgroundImage: `url(${PatternImage})`, backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.28 }}>
-        <div className="absolute inset-0 w-full h-full" style={{ background: 'rgba(0,166,81,0.10)', mixBlendMode: 'multiply' }} />
-      </div>
-      <div className="relative z-10 flex flex-col h-full">
-        {/* Header */}
+    <div
+      className={
+        isWhatsApp
+          ? 'flex flex-col w-full bg-white min-h-screen md:min-h-0 md:h-full'
+          : 'flex flex-col w-full bg-white min-h-screen md:min-h-0 md:h-full md:max-w-md md:mx-auto md:shadow-xl md:rounded-2xl'
+      }
+    >
+      {/* Header (web only) */}
+      {!isWhatsApp ? (
         <ChatHeader
           onBack={onBackClick}
           onClose={onCloseClick!}
@@ -1111,41 +1116,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           isExpanded={isExpanded}
           onToggleExpand={handleToggleExpand}
         />
+      ) : null}
 
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 om-show-scrollbar">
           {/* System Divider Message */}
-          {showDivider && (
+          {!isWhatsApp && showDivider && (
             <div
               ref={dividerRef}
-              className="w-full flex justify-center items-center mb-2"
-              style={{ animation: 'fadeInDivider 0.6s', minHeight: 24 }}
+              className="w-full flex justify-center items-center mb-2 min-h-6 animate-fade-in"
             >
-              <span
-                style={{
-                  fontSize: '0.85rem',
-                  color: '#bdbdbd',
-                  textAlign: 'center',
-                  fontWeight: 400,
-                  letterSpacing: '0.02em',
-                  opacity: 0.92,
-                  userSelect: 'none',
-                  width: '100%',
-                  display: 'block',
-                }}
-                className="system-divider-message"
-              >
+              <span className="w-full text-center text-xs text-gray-400 select-none">
                 Connected to live agent
               </span>
             </div>
           )}
-          {/* Divider fade-in animation */}
-          <style>{`
-            @keyframes fadeInDivider {
-              0% { opacity: 0; transform: translateY(8px); }
-              100% { opacity: 0.92; transform: translateY(0); }
-            }
-          `}</style>
 
           {state.messages
             .filter((msg) => {
@@ -1169,11 +1154,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               if (message.type === "custom-welcome" && !state.showWelcomeCard) {
                 return null;
               }
-              if (message.type === "custom-welcome" && state.showWelcomeCard) {
+              if (!isWhatsApp && message.type === "custom-welcome" && state.showWelcomeCard) {
                 return (
                   <div key={"welcome-" + message.id} className="flex justify-start animate-fade-in mb-4">
-                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
-                      <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-[80%]">
+                      <img src={WelcomeImage} alt="Welcome" className="w-full object-cover rounded-t-xl" />
                       <div className="px-4 pt-3 pb-2">
                         <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
                         <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
@@ -1226,6 +1211,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
                 );
               if (shouldShowActionCard) {
+                if (isWhatsApp) {
+                  const optionLines = state.availableOptions.map((o) => `- ${o.label}`).join('\n');
+                  return [
+                    <div key={message.id + "-msg"} className={spacingClass}>
+                      <MessageRenderer
+                        message={message}
+                        avatar={(message as any).avatar}
+                        chatMode={chatMode}
+                        channel="whatsapp"
+                      />
+                    </div>,
+                    <div key={"whatsapp-options-" + message.id} className="mb-2">
+                      <MessageRenderer
+                        message={{
+                          id: `whatsapp-options-${message.id}`,
+                          sender: 'bot',
+                          type: 'text',
+                          text: optionLines ? `Options:\n${optionLines}` : 'Options available.',
+                        }}
+                        chatMode={chatMode}
+                        channel="whatsapp"
+                      />
+                    </div>,
+                  ];
+                }
                 return [
                   <div key={message.id + "-msg"} className={spacingClass}>
                     <MessageRenderer
@@ -1235,6 +1245,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onSubmitMobilePayment={handleSubmitMobilePayment}
                       avatar={(message as any).avatar}
                       chatMode={chatMode}
+                      channel="web"
                     />
                   </div>,
                   <div key={"action-card-" + message.id} className="flex justify-start mt-0">
@@ -1251,6 +1262,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onSubmitMobilePayment={handleSubmitMobilePayment}
                       loading={state.loading || !!sessionLoading}
                       lastSelected={state.lastSelected}
+                      channel="web"
                     />
                   </div>,
                 ];
@@ -1267,6 +1279,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     onSubmitMobilePayment={handleSubmitMobilePayment}
                     avatar={(message as any).avatar}
                     chatMode={chatMode}
+                    channel={isWhatsApp ? 'whatsapp' : 'web'}
                   />
                 </div>
               );
@@ -1274,7 +1287,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
           {renderCustomContent?.({ selectedProduct, userId })}
 
-          {state.showQuoteForm && (
+          {!isWhatsApp && state.showQuoteForm && (
             <div ref={quoteFormRef} className="flex justify-start animate-fade-in mb-4">
               <div className="w-full">
                 <QuoteFormScreen
@@ -1289,48 +1302,47 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           )}
           <div ref={messagesEndRef} />
-        </div>
+      </div>
 
-        {/* Input Area */}
-        <div className="border-t border-gray-200 px-3 sm:px-4 py-3 sm:py-4 bg-white">
-          <div className="flex gap-2 sm:gap-3">
-            <input
-              ref={inputRef}
-              type="text"
-              value={state.inputValue}
-              onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
-              onKeyPress={handleKeyPress}
-              placeholder={sessionLoading ? "Connecting..." : "Type a message..."}
-              disabled={state.isSending || sessionLoading}
-              className="flex-1 px-4 sm:px-5 py-2 sm:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
-              className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer shrink-0"
-            >
-              <IoSend size={16} className="sm:block" />
-            </button>
-          </div>
+      {/* Input Area (sticky; keyboard-safe) */}
+      <div className="sticky bottom-0 bg-white p-3 border-t border-gray-200">
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={state.inputValue}
+            onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
+            onKeyPress={handleKeyPress}
+            placeholder={sessionLoading ? "Connecting..." : "Type a message..."}
+            disabled={state.isSending || sessionLoading}
+            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
+            className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
+          >
+            <IoSend size={16} className="sm:block" />
+          </button>
         </div>
+      </div>
 
-        {/* General Info Modal/Card */}
-        {showGeneralInfo && (
+      {/* General Info Modal/Card (web only) */}
+      {!isWhatsApp && showGeneralInfo && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
             <div className="animate-fade-in">
               {generalInfoLoading ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">Loading general information...</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center w-full max-w-sm">Loading general information...</div>
               ) : generalInfoError ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75 text-red-600">{generalInfoError}</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center w-full max-w-sm text-red-600">{generalInfoError}</div>
               ) : generalInfo ? (
                 <GeneralInfoCard info={generalInfo} onClose={() => setShowGeneralInfo(false)} />
               ) : (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">No information found.</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center w-full max-w-sm">No information found.</div>
               )}
             </div>
           </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

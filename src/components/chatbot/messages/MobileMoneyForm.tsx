@@ -26,10 +26,7 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
   return (
     <div className="flex justify-start mb-4 mt-4 w-full">
       <div
-        className="rounded-2xl shadow-sm overflow-hidden w-full"
-        style={{
-          backgroundColor: "#D4F4E2",
-        }}
+        className="rounded-2xl shadow-sm overflow-hidden w-full bg-primary/10"
       >
         {/* Content */}
         <div className="px-5 py-5">
@@ -37,31 +34,17 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
           <div className="flex justify-center items-center gap-0 mb-4">
             {/* Airtel Logo */}
             <div
-              className="px-4 py-2 flex items-center justify-center"
-              style={{
-                backgroundColor: "#E91E2C",
-                borderRadius: "8px 0 0 8px",
-              }}
+              className="px-4 py-2 flex items-center justify-center bg-white/70 rounded-l-lg border border-gray-200"
             >
-              <span
-                className="font-bold text-base"
-                style={{ color: "#FFF" }}
-              >
+              <span className="font-bold text-base text-gray-900">
                 airtel
               </span>
             </div>
             {/* MTN Logo */}
             <div
-              className="px-4 py-2 flex items-center justify-center"
-              style={{
-                backgroundColor: "#FFCC00",
-                borderRadius: "0 8px 8px 0",
-              }}
+              className="px-4 py-2 flex items-center justify-center bg-white/70 rounded-r-lg border border-l-0 border-gray-200"
             >
-              <span
-                className="font-bold text-base"
-                style={{ color: "#000" }}
-              >
+              <span className="font-bold text-base text-gray-900">
                 MTN
               </span>
             </div>
@@ -76,8 +59,7 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
 
           {/* Phone Number Input */}
           <div
-            className="rounded-xl overflow-hidden mb-4"
-            style={{ backgroundColor: "#B8E8CB" }}
+            className="rounded-xl overflow-hidden mb-4 bg-primary/10"
           >
             <div className="px-4 py-3">
               <label className="block text-gray-900 text-xs font-semibold mb-2">
@@ -93,8 +75,7 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
                   placeholder=""
                   disabled={isLoading}
                   maxLength={9}
-                  className="flex-1 bg-transparent border-none outline-none text-gray-900 text-sm placeholder-gray-400 disabled:opacity-60"
-                  style={{ minWidth: "150px" }}
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-gray-900 text-sm placeholder-gray-400 disabled:opacity-60"
                 />
               </div>
             </div>
@@ -104,11 +85,7 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
           <button
             onClick={handleSubmit}
             disabled={!phoneNumber.trim() || isLoading}
-            className="w-full py-3 px-4 rounded-lg font-bold text-white text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: !phoneNumber.trim() || isLoading ? "#9CA3AF" : "#00A651",
-              cursor: !phoneNumber.trim() || isLoading ? "not-allowed" : "pointer",
-            }}
+            className="w-full py-3 px-4 rounded-lg font-bold text-white text-sm transition-colors bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {isLoading ? (
               <span className="flex items-center justify-center gap-2">
