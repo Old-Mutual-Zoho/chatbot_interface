@@ -1341,13 +1341,18 @@ const PRODUCT_KEY_MAP: Record<string, string> = {
   "Personal Accident": "personal_accident",
   "Serenicare": "serenicare",
   "Motor Private Insurance": "motor_private",
-  "Travel Sure Plus": "travel_sure_plus",
+  // General Information backend expects `travel`
+  "Travel Sure Plus": "travel",
+  "Travel Insurance": "travel",
+  "Travel": "travel",
 
   // Backend keys / normalized values
   personal_accident: "personal_accident",
   serenicare: "serenicare",
   motor_private: "motor_private",
-  travel_sure_plus: "travel_sure_plus",
+  travel: "travel",
+  // Back-compat: if anything still produces travel_sure_plus, treat it as travel for general info
+  travel_sure_plus: "travel",
   // Add more mappings as needed
 };
 

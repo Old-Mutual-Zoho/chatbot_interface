@@ -1,5 +1,5 @@
 export const PRODUCT_CATEGORIES = {
-  Life: [
+  "Life Insurance": [
     "Personal Accident",
     "Serenicare",
     "Professional Liability",

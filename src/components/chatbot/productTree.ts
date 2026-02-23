@@ -29,7 +29,7 @@ export function findProductNodeById(
 export const productTree: ProductNode[] = [
   {
     id: "personal",
-    label: "Life",
+    label: "Life Insurance",
     children: [
       { id: "health", label: "Health Insurance" },
       { id: "life", label: "Life Insurance" },
