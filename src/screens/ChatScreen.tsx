@@ -576,8 +576,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   userId,
   sessionId: sessionIdProp,
   sessionLoading,
-  // isExpanded,
-  // onToggleExpand,
+  // ...existing code...
   renderCustomContent,
   agentConfig,
   chatMode,
@@ -585,6 +584,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   initialMessages,
   onMessagesChange,
 }) => {
+  // Expand/collapse state for ChatHeader
+  const [isExpanded, setIsExpanded] = useState(false);
+  const handleToggleExpand = () => setIsExpanded((prev) => !prev);
   // Robust session management: persist sessionId from backend, update on backend response, use for all requests, reset only on new conversation/session expiry
   const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
   const isGuidedFlow = !!selectedProduct;
@@ -982,11 +984,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
         <ChatHeader
-          title=""
           onBack={onBackClick}
           onClose={onCloseClick!}
           agentConfig={agentConfig || AGENT_CONFIG}
           chatMode={chatMode}
+          isExpanded={isExpanded}
+          onToggleExpand={handleToggleExpand}
         />
 
         {/* Messages Container */}
