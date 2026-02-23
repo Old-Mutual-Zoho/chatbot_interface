@@ -1,5 +1,5 @@
 export const PRODUCT_CATEGORIES = {
-  Personal: [
+  Life: [
     "Personal Accident",
     "Serenicare",
     "Professional Liability",
@@ -10,8 +10,8 @@ export const PRODUCT_CATEGORIES = {
     "Motor COMESA Insurance",
   ],
 
-  // Business products are displayed via BUSINESS_SUBCATEGORIES below.
-  Business: [],
+  // General Insurance products are displayed via BUSINESS_SUBCATEGORIES below.
+  "General Insurance": [],
 
   "Savings & Investment": [
     // Savings & Investment

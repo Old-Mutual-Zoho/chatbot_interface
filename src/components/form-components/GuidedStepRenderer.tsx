@@ -40,30 +40,11 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   const [showLoading, setShowLoading] = useState(false);
   const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
   const loadingStartedAtRef = useRef<number | null>(null);
-  // const [quoteVisible, setQuoteVisible] = useState(false);
-  // const [quoteAmount, setQuoteAmount] = useState<string | number>("");
-  // const [quoteDetails, setQuoteDetails] = useState<string>("");
-  // const [messages, setMessages] = useState<any[]>([]); // Holds chat messages (bubbles)
+  // Ref to scroll to bottom after loading
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // This component shows ONE “step” at a time.
-  // A “step” is a small piece of the guided flow that the backend sends us.
-  // Allow confirmation card to show even if step is null
+  // Allow showing confirmation even if step is null, since we might be confirming after the last step.  
   if (!step && !(showConfirmation && confirmationData)) return null;
-
-    // Modular handlers for loading and quote display 
-  // Removed unused displayQuote
-  // const hideQuote = () => setQuoteVisible(false); // Remove if unused
-
-  // Simulate quote generation (replace with real logic as needed)
-  // const generateQuote = () => {
-  //   // For demo, just return a fixed value and details
-  //   return { amount: 5000000, details: "This is your generated quote." };
-  // };
-
-  // Scroll to bottom when messages change
-
-
-  // Modular handler: show loader, then return to chat
+   // Modular handler: show loader, then return to chat
   const handleSubmitFromReview = () => {
     if (!confirmationData) return;
 

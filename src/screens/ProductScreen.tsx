@@ -21,8 +21,8 @@ interface ProductScreenProps {
 
 // Keep the display names centralized so the UI copy stays consistent.
 const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
-  personal: "Personal",
-  business: "Business",
+  personal: "Life",
+  business: "General Insurance",
   savings: "Savings & Investment",
 };
 

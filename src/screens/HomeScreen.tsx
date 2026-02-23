@@ -70,7 +70,7 @@ export default function HomeScreen({
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
               <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
-                Personal
+                Life
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
@@ -87,7 +87,7 @@ export default function HomeScreen({
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
               <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
-                Business
+                General Insurance
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
