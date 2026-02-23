@@ -14,7 +14,7 @@ type State = {
   showQuoteForm: boolean;
   quoteFormKey: number;
 };
-import { useReducer, useRef, useEffect, useState } from "react";
+import React, { useReducer, useRef, useEffect, useState } from "react";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
@@ -722,38 +722,64 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   // general info button for products
+  // Escalation loader logic (persistent across renders)
+  const escalationState = React.useRef({
+    inProgress: false,
+    timeout: null as number | null,
+  });
+
+  function showEscalationLoader() {
+    if (escalationState.current.inProgress) return;
+    escalationState.current.inProgress = true;
+    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN" });
+    autoScrollToBottom();
+    escalationState.current.timeout = window.setTimeout(() => {
+      removeEscalationLoader();
+    }, 5000);
+  }
+
+  function removeEscalationLoader() {
+    dispatch({ type: "RESET" }); // Use RESET to clear loader
+    escalationState.current.inProgress = false;
+    if (escalationState.current.timeout) {
+      clearTimeout(escalationState.current.timeout);
+      escalationState.current.timeout = null;
+    }
+    autoScrollToBottom();
+    switchToHumanAgent();
+  }
+
+  function handleEscalation() {
+    showEscalationLoader();
+  }
+
+  function switchToHumanAgent() {
+    setChatMode && setChatMode('human');
+    appendHumanMessage();
+  }
+
+  function appendHumanMessage() {
+    dispatch({
+      type: "RECEIVE_BOT_REPLY",
+      payload: "Hi 👋 This is Joy from Customer Support. How may I assist you today?",
+    });
+  }
+
+  function autoScrollToBottom() {
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.om-show-scrollbar');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
+  }
+
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "talk-to-agent") {
-      showConnectingLoader();
+      handleEscalation();
       return;
     }
-      // Modular escalation functions
-      function showConnectingLoader() {
-        dispatch({
-          type: "SHOW_PAYMENT_LOADING_SCREEN"
-        });
-        // Append loader message with text
-        setTimeout(() => {
-          switchToHumanAgent();
-        }, 5000);
-      }
-
-      function switchToHumanAgent() {
-        setChatMode && setChatMode('human');
-        updateHeaderToHuman();
-        appendHumanMessage();
-      }
-
-      function updateHeaderToHuman() {
-        // Header will react to chatMode and agentConfig
-      }
-
-      function appendHumanMessage() {
-        dispatch({
-          type: "RECEIVE_BOT_REPLY",
-          payload: "Hi 👋 This is Joy from Customer Support. How may I assist you today?",
-        });
-      }
+    // ...existing General Info logic...
     if (option.label === "General Info") {    
       // ...existing General Info logic...
       dispatch({
