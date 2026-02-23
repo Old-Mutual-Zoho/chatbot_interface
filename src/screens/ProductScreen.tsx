@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
 import { IoClose } from "react-icons/io5";
 import {
+  GENERAL_INSURANCE_SUBCATEGORIES,
+  PERSONAL_SUBCATEGORIES,
+  SAVINGS_SUBCATEGORIES,
   PRODUCT_CATEGORIES,
   type CategoryName,
+  type GeneralInsuranceSubcategoryId,
+  type PersonalSubcategoryId,
+  type SavingsSubcategoryId,
 } from "../components/chatbot/data/products";
 import {
   findProductNodeById,
@@ -29,17 +35,71 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   const categoryNode = findProductNodeById(categoryId, productTree);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
 
+  // Life Insurance has an optional drill-down (Group Benefits).
+  const [selectedPersonalSubcategory, setSelectedPersonalSubcategory] =
+    useState<PersonalSubcategoryId | null>(null);
+
+  // General Insurance uses a drill-down by subcategory.
+  const [selectedGeneralInsuranceSubcategory, setSelectedGeneralInsuranceSubcategory] =
+    useState<GeneralInsuranceSubcategoryId | null>(null);
+
+  // Savings & Investment has an optional drill-down (Unit Trusts).
+  const [selectedSavingsSubcategory, setSelectedSavingsSubcategory] =
+    useState<SavingsSubcategoryId | null>(null);
+
   // We store the selected button label since the chat payload is text.
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   const headerLabel = useMemo(() => {
+    if (categoryId === "personal" && selectedPersonalSubcategory) {
+      return PERSONAL_SUBCATEGORIES[selectedPersonalSubcategory].label;
+    }
+
+    if (categoryId === "savings" && selectedSavingsSubcategory) {
+      return SAVINGS_SUBCATEGORIES[selectedSavingsSubcategory].label;
+    }
+
+    if (categoryId === "business" && selectedGeneralInsuranceSubcategory) {
+      return GENERAL_INSURANCE_SUBCATEGORIES[selectedGeneralInsuranceSubcategory].label;
+    }
+
     // Fallback order: node label (if found) -> hardcoded category name.
     return categoryNode?.label ?? categoryName;
-  }, [categoryNode?.label, categoryName]);
+  }, [
+    categoryId,
+    categoryNode?.label,
+    categoryName,
+    selectedPersonalSubcategory,
+    selectedGeneralInsuranceSubcategory,
+    selectedSavingsSubcategory,
+  ]);
 
   const items = useMemo(() => {
+    if (categoryId === "business") {
+      if (!selectedGeneralInsuranceSubcategory) {
+        return Object.keys(GENERAL_INSURANCE_SUBCATEGORIES) as GeneralInsuranceSubcategoryId[];
+      }
+      return GENERAL_INSURANCE_SUBCATEGORIES[selectedGeneralInsuranceSubcategory].products;
+    }
+
+    if (categoryId === "savings" && selectedSavingsSubcategory) {
+      return SAVINGS_SUBCATEGORIES[selectedSavingsSubcategory].products;
+    }
+
+    if (categoryId === "personal" && selectedPersonalSubcategory) {
+      return PERSONAL_SUBCATEGORIES[selectedPersonalSubcategory].products;
+    }
     return PRODUCT_CATEGORIES[categoryName];
-  }, [categoryName]);
+  }, [
+    categoryId,
+    categoryName,
+    selectedPersonalSubcategory,
+    selectedGeneralInsuranceSubcategory,
+    selectedSavingsSubcategory,
+  ]);
+
+  const isGeneralInsuranceSubcategoryList =
+    categoryId === "business" && !selectedGeneralInsuranceSubcategory;
 
   return (
     <div className="flex flex-col w-full h-full bg-white">
@@ -48,6 +108,27 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
       <div className="h-14 bg-primary text-white flex items-center px-4">
         <button
           onClick={() => {
+            // Inside General Insurance: back takes you up one level (products -> subcategories).
+            if (categoryId === "business" && selectedGeneralInsuranceSubcategory) {
+              setSelectedGeneralInsuranceSubcategory(null);
+              setSelectedProduct(null);
+              return;
+            }
+
+            // Inside Savings & Investment: back takes you up one level (products -> subcategory).
+            if (categoryId === "savings" && selectedSavingsSubcategory) {
+              setSelectedSavingsSubcategory(null);
+              setSelectedProduct(null);
+              return;
+            }
+
+            // Inside Life Insurance: back takes you up one level (products -> subcategory).
+            if (categoryId === "personal" && selectedPersonalSubcategory) {
+              setSelectedPersonalSubcategory(null);
+              setSelectedProduct(null);
+              return;
+            }
+
             // Otherwise, delegate navigation to the parent screen.
             onBack();
           }}
@@ -71,11 +152,44 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
       <div className="flex-1 overflow-y-auto p-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
           <div className="text-sm text-gray-500 mb-3">
-            Select a product to continue.
+            {isGeneralInsuranceSubcategoryList
+              ? "Select a subcategory."
+              : "Select a product to continue."}
           </div>
           <div className="flex flex-wrap items-start justify-start gap-x-3 gap-y-2">
+            {categoryId === "personal" && !selectedPersonalSubcategory && (
+              <button
+                key="group-benefits"
+                type="button"
+                onClick={() => {
+                  setSelectedPersonalSubcategory("group-benefits");
+                  setSelectedProduct(null);
+                }}
+                title={PERSONAL_SUBCATEGORIES["group-benefits"].label}
+                className="inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
+              >
+                {PERSONAL_SUBCATEGORIES["group-benefits"].label}
+              </button>
+            )}
+
+            {categoryId === "savings" && !selectedSavingsSubcategory && (
+              <button
+                key="unit-trusts"
+                type="button"
+                onClick={() => {
+                  setSelectedSavingsSubcategory("unit-trusts");
+                  setSelectedProduct(null);
+                }}
+                title={SAVINGS_SUBCATEGORIES["unit-trusts"].label}
+                className="inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
+              >
+                {SAVINGS_SUBCATEGORIES["unit-trusts"].label}
+              </button>
+            )}
             {items.map((item) => {
-              const label = item as string;
+              const label = isGeneralInsuranceSubcategoryList
+                ? GENERAL_INSURANCE_SUBCATEGORIES[item as GeneralInsuranceSubcategoryId].label
+                : (item as string);
               const isSelected = selectedProduct === label;
 
               return (
@@ -83,9 +197,21 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                   key={label}
                   type="button"
                   onClick={() => {
+                    // General Insurance (step 1): selecting a subcategory swaps the list.
+                    if (isGeneralInsuranceSubcategoryList) {
+                      setSelectedGeneralInsuranceSubcategory(item as GeneralInsuranceSubcategoryId);
+                      setSelectedProduct(null);
+                      return;
+                    }
+
                     // Toggle product selection and optionally notify the chat flow.
                     // Map 'Motor Private' to 'Motor Private Insurance' for backend compatibility
-                    const mappedLabel = label === 'Motor Private' ? 'Motor Private Insurance' : label;
+                    const mappedLabel =
+                      label === "Motor Private"
+                        ? "Motor Private Insurance"
+                        : label === "Motor 3rd Party"
+                          ? "Motor 3rd Party"
+                          : label;
                     setSelectedProduct((current) => {
                       const newValue = current === mappedLabel ? null : mappedLabel;
                       return newValue;

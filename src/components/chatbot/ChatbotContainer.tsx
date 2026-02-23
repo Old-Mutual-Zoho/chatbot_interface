@@ -228,6 +228,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         <FadeWrapper isVisible={screen === "products"}>
           {selectedCategoryId ? (
             <ProductScreen
+              key={selectedCategoryId}
               categoryId={selectedCategoryId}
               onBack={() => setScreen("home")}
               onClose={() => {
