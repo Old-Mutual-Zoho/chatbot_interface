@@ -65,7 +65,7 @@ type Action =
   { type: "RESET"; selectedProduct?: string | null }
 | { type: "SET_INPUT"; payload: string }
 | { type: "SEND_MESSAGE" }
-| { type: "RECEIVE_BOT_REPLY"; payload: string }
+| { type: "RECEIVE_BOT_REPLY"; payload: string; chatMode: 'bot' | 'human' }
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean }
@@ -177,12 +177,15 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_BOT_REPLY": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
-      const botReply: ChatMessageWithTimestamp = {
+      // Determine avatar for this message based on chatMode at dispatch time
+      const avatar = action.chatMode === "human" ? HUMAN_CONFIG.avatar : BOT_CONFIG.avatar;
+      const botReply: ChatMessageWithTimestamp & { avatar?: string } = {
         id: `${Date.now()}-bot`,
         sender: "bot",
         type: "text",
         text: action.payload,
         timestamp: getTimeString(),
+        avatar,
       };
       return {
         ...state,
@@ -726,7 +729,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     dispatch({ type: "SEND_MESSAGE" });
     (async () => {
       const reply = await fetchBotResponse(state.inputValue);
-      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
+      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply, chatMode });
     })();
   };
 
@@ -783,6 +786,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     dispatch({
       type: "RECEIVE_BOT_REPLY",
       payload: `Hi 👋 This is ${HUMAN_CONFIG.name}. How may I assist you today?`,
+      chatMode,
     });
   }
 
@@ -863,6 +867,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           dispatch({
             type: "RECEIVE_BOT_REPLY",
             payload: "Please select a product first before proceeding to purchase.",
+            chatMode,
           });
           setTimeout(() => {
             dispatch({ type: "RESET", selectedProduct: null });
@@ -915,6 +920,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         dispatch({
           type: "RECEIVE_BOT_REPLY",
           payload: `${method === "card" ? "Card Payment" : "FlexiPay"} is coming soon. Please use Mobile Money for now.`,
+          chatMode,
         });
       }, 800);
     }
@@ -1019,6 +1025,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       dispatch({
         type: "RECEIVE_BOT_REPLY",
         payload: generalInfoError,
+        chatMode,
       });
     }
   }, [showGeneralInfo, generalInfoError]);
@@ -1126,6 +1133,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     onConfirmPayment={handleConfirmPayment}
                     onSelectPaymentMethod={handleSelectPaymentMethod}
                     onSubmitMobilePayment={handleSubmitMobilePayment}
+                    avatar={(message as any).avatar}
                     chatMode={chatMode}
                   />
                 </div>,
@@ -1159,6 +1167,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   onConfirmPayment={handleConfirmPayment}
                   onSelectPaymentMethod={handleSelectPaymentMethod}
                   onSubmitMobilePayment={handleSubmitMobilePayment}
+                  avatar={(message as any).avatar}
+                  chatMode={chatMode}
                 />
               </div>
             );
@@ -1199,7 +1209,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <button
               onClick={handleSendMessage}
               disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
-              className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer flex-shrink-0"
+              className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer shrink-0"
             >
               <IoSend size={16} className="sm:block" />
             </button>
@@ -1211,13 +1221,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
             <div className="animate-fade-in">
               {generalInfoLoading ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px]">Loading general information...</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">Loading general information...</div>
               ) : generalInfoError ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px] text-red-600">{generalInfoError}</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75 text-red-600">{generalInfoError}</div>
               ) : generalInfo ? (
                 <GeneralInfoCard info={generalInfo} onClose={() => setShowGeneralInfo(false)} />
               ) : (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px]">No information found.</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">No information found.</div>
               )}
             </div>
           </div>
