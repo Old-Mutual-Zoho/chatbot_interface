@@ -775,7 +775,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   function switchToHumanAgent() {
     setChatMode('human');
     updateHeader(HUMAN_CONFIG);
-    appendHumanMessage();
+    // Do NOT call appendHumanMessage() here; let useEffect handle it after chatMode is set
   }
 
   function updateHeader(config: typeof BOT_CONFIG) {
@@ -785,10 +785,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   function appendHumanMessage() {
     dispatch({
       type: "RECEIVE_BOT_REPLY",
-      payload: `Hi 👋 This is ${HUMAN_CONFIG.name}. How may I assist you today?`,
-      chatMode,
+      payload: `Hi 👋 This is Joy from Old Mutual. How may I assist you today?`,
+      chatMode: 'human',
     });
   }
+  // Append first human welcome message only after chatMode is set to 'human' and only if not already present
+  useEffect(() => {
+    if (chatMode === 'human') {
+      // Check if the human welcome message is already present
+      const hasHumanWelcome = state.messages.some(
+        (msg) =>
+          msg.sender === 'bot' &&
+          msg.type === 'text' &&
+          typeof (msg as any).text === 'string' &&
+          (msg as any).text.startsWith('Hi 👋 This is Joy from Old Mutual')
+      );
+      if (!hasHumanWelcome) {
+        appendHumanMessage();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMode]);
 
   function autoScrollToBottom() {
     setTimeout(() => {
