@@ -1,3 +1,17 @@
+import botAvatar from "../assets/bot.png";
+import humanAvatar from "../assets/ai-profile.jpeg";
+// Centralized agent configs
+const BOT_CONFIG = {
+  name: "Mutual Intelligence Assistant",
+  avatar: botAvatar,
+  status: "Online",
+};
+
+const HUMAN_CONFIG = {
+  name: "Joy – Customer Support",
+  avatar: humanAvatar,
+  status: "Online",
+};
 import ChatHeader from "../components/chatbot/ChatHeader";
 type State = {
   messages: ChatMessageWithTimestamp[];
@@ -25,7 +39,7 @@ import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
-import { AGENT_CONFIG } from "../config/agentConfig";
+// Removed unused AGENT_CONFIG import
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -576,14 +590,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   userId,
   sessionId: sessionIdProp,
   sessionLoading,
-  // ...existing code...
   renderCustomContent,
-  agentConfig,
-  chatMode,
-  setChatMode,
+  // Removed unused agentConfig
+  chatMode: _chatMode,
+  setChatMode: _setChatMode,
   initialMessages,
   onMessagesChange,
 }) => {
+  // Chat mode state
+  const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
+  const [headerConfig, setHeaderConfig] = useState(BOT_CONFIG);
   // Expand/collapse state for ChatHeader
   const [isExpanded, setIsExpanded] = useState(false);
   const handleToggleExpand = () => setIsExpanded((prev) => !prev);
@@ -754,14 +770,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }
 
   function switchToHumanAgent() {
-    setChatMode && setChatMode('human');
+    setChatMode('human');
+    updateHeader(HUMAN_CONFIG);
     appendHumanMessage();
+  }
+
+  function updateHeader(config: typeof BOT_CONFIG) {
+    setHeaderConfig(config);
   }
 
   function appendHumanMessage() {
     dispatch({
       type: "RECEIVE_BOT_REPLY",
-      payload: "Hi 👋 This is Joy from Customer Support. How may I assist you today?",
+      payload: `Hi 👋 This is ${HUMAN_CONFIG.name}. How may I assist you today?`,
     });
   }
 
@@ -1012,7 +1033,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <ChatHeader
           onBack={onBackClick}
           onClose={onCloseClick!}
-          agentConfig={agentConfig || AGENT_CONFIG}
+          agentConfig={headerConfig}
           chatMode={chatMode}
           isExpanded={isExpanded}
           onToggleExpand={handleToggleExpand}
