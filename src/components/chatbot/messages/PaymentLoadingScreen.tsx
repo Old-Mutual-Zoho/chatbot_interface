@@ -56,8 +56,8 @@ export const PaymentLoadingScreen: React.FC = () => {
       </div>
 
       {/* Loading Text */}
-      <p className="text-gray-900 font-semibold text-lg text-center">
-        Analyzing... Please wait!
+      <p className="text-gray-900 font-semibold text-lg text-center escalation-loader">
+        Connecting you to a human agent... Please wait.
       </p>
     </div>
   );

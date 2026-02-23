@@ -1,15 +1,45 @@
-import { useReducer, useRef, useEffect, useState } from "react";
+import Logo from "../assets/Logo.png";
+import humanAvatar from "../assets/ai-profile.jpeg";
+// Centralized agent configs
+const BOT_CONFIG = {
+  name: "Mutual Intelligence Assistant",
+  avatar: Logo,
+  status: "Online",
+};
+
+const HUMAN_CONFIG = {
+  name: "Joy – Customer Support",
+  avatar: humanAvatar,
+  status: "Online",
+};
+import ChatHeader from "../components/chatbot/ChatHeader";
+type State = {
+  messages: ChatMessageWithTimestamp[];
+  availableOptions: ActionOption[];
+  showWelcomeCard: boolean;
+  showActionCard: boolean;
+  inputValue: string;
+  isSending: boolean;
+  isGuidedFlow: boolean;
+  loading: boolean;
+  lastSelected: string | null;
+  isPurchasing: boolean;
+  isPaymentMode: boolean;
+  showQuoteForm: boolean;
+  quoteFormKey: number;
+};
+import React, { useReducer, useRef, useEffect, useState } from "react";
 import { MessageRenderer } from "../components/chatbot/messages/MessageRenderer";
 import WelcomeImage from "../assets/Welcome.png";
 import PatternImage from "../assets/pattern.jpg";
-import { IoSend, IoArrowBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
-import Logo from "../assets/Logo.png";
+import { IoSend } from "react-icons/io5";
 import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
+// Removed unused AGENT_CONFIG import
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -31,27 +61,11 @@ const toBackendProductKey = (product: string | null | undefined): string | null 
 };
 
 type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
-type State = {
-  messages: ChatMessageWithTimestamp[];
-  availableOptions: ActionOption[];
-  showWelcomeCard: boolean;
-  showActionCard: boolean;
-  inputValue: string;
-  isSending: boolean;
-  isGuidedFlow: boolean;
-  loading: boolean;
-  lastSelected: string | null;
-  isPurchasing?: boolean;
-  isPaymentMode?: boolean;
-  showQuoteForm: boolean;
-  quoteFormKey: number;
-};
-
 type Action =
-  | { type: "RESET"; selectedProduct?: string | null }
-  | { type: "SET_INPUT"; payload: string }
-  | { type: "SEND_MESSAGE" }
-  | { type: "RECEIVE_BOT_REPLY"; payload: string }
+  { type: "RESET"; selectedProduct?: string | null }
+| { type: "SET_INPUT"; payload: string }
+| { type: "SEND_MESSAGE" }
+| { type: "RECEIVE_BOT_REPLY"; payload: string; chatMode: 'bot' | 'human' }
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
   | { type: "SET_LOADING"; payload: boolean }
@@ -64,6 +78,7 @@ type Action =
   | { type: "SELECT_PAYMENT_METHOD"; payload: "mobile" | "card" | "flexipay" }
   | { type: "SHOW_MOBILE_MONEY_FORM" }
   | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
+
   | { type: "SHOW_PAYMENT_LOADING_SCREEN" }
   | { type: "CONFIRM_PURCHASE" }
   | { type: "PURCHASE_SUCCESS"; payload: string }
@@ -162,12 +177,15 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_BOT_REPLY": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
-      const botReply: ChatMessageWithTimestamp = {
+      // Determine avatar for this message based on chatMode at dispatch time
+      const avatar = action.chatMode === "human" ? HUMAN_CONFIG.avatar : BOT_CONFIG.avatar;
+      const botReply: ChatMessageWithTimestamp & { avatar?: string } = {
         id: `${Date.now()}-bot`,
         sender: "bot",
         type: "text",
         text: action.payload,
         timestamp: getTimeString(),
+        avatar,
       };
       return {
         ...state,
@@ -546,7 +564,8 @@ type ChatMessageWithTimestamp = (ExtendedChatMessage & { timestamp?: string }) |
   timestamp?: string;
 };
 
-interface ChatScreenProps {
+
+type ChatScreenProps = {
   onBackClick?: () => void;
   onCloseClick?: () => void;
   selectedProduct?: string | null;
@@ -556,21 +575,37 @@ interface ChatScreenProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   renderCustomContent?: (props: { selectedProduct?: string | null; userId: string | null }) => React.ReactNode;
-}
+  agentConfig: {
+    name: string;
+    avatar: string;
+    status: string;
+  };
+  chatMode: 'bot' | 'human';
+  setChatMode: (mode: 'bot' | 'human') => void;
+  initialMessages?: any[];
+  onMessagesChange?: (messages: any[]) => void;
+};
 
-export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void; initialMessages?: ChatMessageWithTimestamp[] }> = ({
+export const ChatScreen: React.FC<ChatScreenProps> = ({
   onBackClick,
   onCloseClick,
   selectedProduct,
   userId,
   sessionId: sessionIdProp,
   sessionLoading,
-  isExpanded,
-  onToggleExpand,
   renderCustomContent,
+  // Removed unused agentConfig
+  chatMode: _chatMode,
+  setChatMode: _setChatMode,
+  initialMessages,
   onMessagesChange,
-  initialMessages
 }) => {
+  // Chat mode state
+  const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
+  const [headerConfig, setHeaderConfig] = useState(BOT_CONFIG);
+  // Expand/collapse state for ChatHeader
+  const [isExpanded, setIsExpanded] = useState(false);
+  const handleToggleExpand = () => setIsExpanded((prev) => !prev);
   // Robust session management: persist sessionId from backend, update on backend response, use for all requests, reset only on new conversation/session expiry
   const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
   const isGuidedFlow = !!selectedProduct;
@@ -579,6 +614,8 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
     { selectedProduct, isGuidedFlow, initialMessages },
     initialState,
   );
+  // Escalation state
+  // const [escalating, setEscalating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
@@ -689,10 +726,33 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
 
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
+
+    // Escalation keyword detection (text input)
+    const messageLower = state.inputValue.toLowerCase();
+    const escalationKeywords = [
+      "human",
+      "agent",
+      "talk to human",
+      "talk to agent",
+      "customer support",
+      "support",
+      "real person"
+    ];
+    const wantsHuman = escalationKeywords.some(keyword => messageLower.includes(keyword));
+
+    // Always append user message
     dispatch({ type: "SEND_MESSAGE" });
+
+    // If escalation intent and in bot mode, trigger escalation and stop further bot response
+    if (wantsHuman && chatMode === "bot") {
+      handleEscalation();
+      return;
+    }
+
+    // Otherwise, proceed with normal bot response
     (async () => {
       const reply = await fetchBotResponse(state.inputValue);
-      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply });
+      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply, chatMode });
     })();
   };
 
@@ -704,7 +764,87 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
   };
 
   // general info button for products
+  // Escalation loader logic (persistent across renders)
+  const escalationState = React.useRef({
+    inProgress: false,
+    timeout: null as number | null,
+  });
+
+  function showEscalationLoader() {
+    if (escalationState.current.inProgress) return;
+    escalationState.current.inProgress = true;
+    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN" });
+    autoScrollToBottom();
+    escalationState.current.timeout = window.setTimeout(() => {
+      removeEscalationLoader();
+    }, 5000);
+  }
+
+  function removeEscalationLoader() {
+    dispatch({ type: "RESET" }); // Use RESET to clear loader
+    escalationState.current.inProgress = false;
+    if (escalationState.current.timeout) {
+      clearTimeout(escalationState.current.timeout);
+      escalationState.current.timeout = null;
+    }
+    autoScrollToBottom();
+    switchToHumanAgent();
+  }
+
+  function handleEscalation() {
+    showEscalationLoader();
+  }
+
+  function switchToHumanAgent() {
+    setChatMode('human');
+    updateHeader(HUMAN_CONFIG);
+    // Do NOT call appendHumanMessage() here; let useEffect handle it after chatMode is set
+  }
+
+  function updateHeader(config: typeof BOT_CONFIG) {
+    setHeaderConfig(config);
+  }
+
+  function appendHumanMessage() {
+    dispatch({
+      type: "RECEIVE_BOT_REPLY",
+      payload: `Hi 👋 This is Joy from Old Mutual. How may I assist you today?`,
+      chatMode: 'human',
+    });
+  }
+  // Append first human welcome message only after chatMode is set to 'human' and only if not already present
+  useEffect(() => {
+    if (chatMode === 'human') {
+      // Check if the human welcome message is already present
+      const hasHumanWelcome = state.messages.some(
+        (msg) =>
+          msg.sender === 'bot' &&
+          msg.type === 'text' &&
+          typeof (msg as any).text === 'string' &&
+          (msg as any).text.startsWith('Hi 👋 This is Joy from Old Mutual')
+      );
+      if (!hasHumanWelcome) {
+        appendHumanMessage();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMode]);
+
+  function autoScrollToBottom() {
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.om-show-scrollbar');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
+  }
+
   const handleActionCardSelect = async (option: ActionOption) => {
+    if (option.value === "talk-to-agent") {
+      handleEscalation();
+      return;
+    }
+    // ...existing General Info logic...
     if (option.label === "General Info") {    
       // ...existing General Info logic...
       dispatch({
@@ -767,6 +907,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           dispatch({
             type: "RECEIVE_BOT_REPLY",
             payload: "Please select a product first before proceeding to purchase.",
+            chatMode,
           });
           setTimeout(() => {
             dispatch({ type: "RESET", selectedProduct: null });
@@ -819,6 +960,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
         dispatch({
           type: "RECEIVE_BOT_REPLY",
           payload: `${method === "card" ? "Card Payment" : "FlexiPay"} is coming soon. Please use Mobile Money for now.`,
+          chatMode,
         });
       }, 800);
     }
@@ -923,9 +1065,36 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       dispatch({
         type: "RECEIVE_BOT_REPLY",
         payload: generalInfoError,
+        chatMode,
       });
     }
   }, [showGeneralInfo, generalInfoError]);
+
+  // Divider state: only show once, only when switching to human mode, after loader disappears and before first human message
+  const [showDivider, setShowDivider] = useState(false);
+  const dividerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Show divider only when chatMode switches to human and loader is not present
+    if (chatMode === 'human') {
+      // Check if divider already shown
+      if (!showDivider) {
+        // Check if loader is present
+        const hasLoader = state.messages.some((msg) => msg.type === 'loading');
+        if (!hasLoader) {
+          setShowDivider(true);
+        }
+      }
+    } else {
+      // Reset divider if switching back to bot mode
+      setShowDivider(false);
+    }
+  }, [chatMode, state.messages, showDivider]);
+
+  useEffect(() => {
+    if (showDivider && dividerRef.current) {
+      dividerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [showDivider]);
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -934,39 +1103,53 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
       </div>
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
-          <button onClick={onBackClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Back">
-            <IoArrowBack size={18} className="sm:block" />
-          </button>
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
-              <img src={Logo} alt="Old Mutual" className="w-full h-full object-contain" />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
-            </div>
-            <div className="flex flex-col min-w-0">
-              <h3 className="font-semibold text-white text-xs sm:text-sm truncate">Mutual Intellingence Assistant</h3>
-              <span className="text-xs text-white/80 leading-tight">Online</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={onToggleExpand}
-              className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer"
-              title={isExpanded ? "Collapse" : "Expand"}
-            >
-              {isExpanded ? <IoContractOutline size={18} className="sm:block" /> : <IoExpandOutline size={18} className="sm:block" />}
-            </button>
-            <button onClick={onCloseClick} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer" title="Close">
-              <IoClose size={18} className="sm:block" />
-            </button>
-          </div>
-        </div>
+        <ChatHeader
+          onBack={onBackClick}
+          onClose={onCloseClick!}
+          agentConfig={headerConfig}
+          chatMode={chatMode}
+          isExpanded={isExpanded}
+          onToggleExpand={handleToggleExpand}
+        />
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 om-show-scrollbar">
+          {/* System Divider Message */}
+          {showDivider && (
+            <div
+              ref={dividerRef}
+              className="w-full flex justify-center items-center mb-2"
+              style={{ animation: 'fadeInDivider 0.6s', minHeight: 24 }}
+            >
+              <span
+                style={{
+                  fontSize: '0.85rem',
+                  color: '#bdbdbd',
+                  textAlign: 'center',
+                  fontWeight: 400,
+                  letterSpacing: '0.02em',
+                  opacity: 0.92,
+                  userSelect: 'none',
+                  width: '100%',
+                  display: 'block',
+                }}
+                className="system-divider-message"
+              >
+                Connected to live agent
+              </span>
+            </div>
+          )}
+          {/* Divider fade-in animation */}
+          <style>{`
+            @keyframes fadeInDivider {
+              0% { opacity: 0; transform: translateY(8px); }
+              100% { opacity: 0.92; transform: translateY(0); }
+            }
+          `}</style>
+
           {state.messages
             .filter((msg) => {
-              // In payment mode, only show payment-related messages
+              // ...existing code...
               if (state.isPaymentMode) {
                 return (
                   msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
@@ -982,109 +1165,112 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
               return true;
             })
             .map((message, idx) => {
-            if (message.type === "custom-welcome" && !state.showWelcomeCard) {
-              return null;
-            }
-            if (message.type === "custom-welcome" && state.showWelcomeCard) {
-              return (
-                <div key={"welcome-" + message.id} className="flex justify-start animate-fade-in mb-4">
-                  <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
-                    <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                    <div className="px-4 pt-3 pb-2">
-                      <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
-                      <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
-                      <div className="flex justify-end">
-                        <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+              // ...existing code...
+              if (message.type === "custom-welcome" && !state.showWelcomeCard) {
+                return null;
+              }
+              if (message.type === "custom-welcome" && state.showWelcomeCard) {
+                return (
+                  <div key={"welcome-" + message.id} className="flex justify-start animate-fade-in mb-4">
+                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-xs sm:max-w-sm md:max-w-md">
+                      <img src={WelcomeImage} alt="Welcome" className="w-full object-cover" style={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                      <div className="px-4 pt-3 pb-2">
+                        <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                        <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
+                        <div className="flex justify-end">
+                          <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            }
-            // Calculate spacing between messages: always apply mb-6 between different senders, mb-2 between same sender
-            const filteredMessages = state.isPaymentMode
-              ? state.messages.filter((msg) => 
-                  msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                  msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                  msg.type === "payment-method-selector" ||
-                  msg.type === "mobile-money-form" ||
-                  msg.type === "payment-loading-screen" ||
-                  msg.type === "loading" ||
-                  (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                  (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-                )
-              : state.messages;
-            const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
-            let spacingClass = "";
-            if (prevMsg) {
-              // In guided flow, treat action-card as bot for spacing; in free-form, just compare sender
-              const prevSender = isGuidedFlow
-                ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
-                : prevMsg.sender;
-              const currSender = isGuidedFlow
-                ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
-                : message.sender;
-              if (prevSender !== currSender) {
-                spacingClass = "mb-6"; // More space between different senders
-              } else if (idx !== filteredMessages.length - 1) {
-                spacingClass = "mb-2"; // Minimal space between same sender
+                );
               }
-            }
+              // ...existing code...
+              const filteredMessages = state.isPaymentMode
+                ? state.messages.filter((msg) => 
+                    msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                    msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                    msg.type === "payment-method-selector" ||
+                    msg.type === "mobile-money-form" ||
+                    msg.type === "payment-loading-screen" ||
+                    msg.type === "loading" ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+                  )
+                : state.messages;
+              const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+              let spacingClass = "";
+              if (prevMsg) {
+                // ...existing code...
+                const prevSender = isGuidedFlow
+                  ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+                  : prevMsg.sender;
+                const currSender = isGuidedFlow
+                  ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+                  : message.sender;
+                if (prevSender !== currSender) {
+                  spacingClass = "mb-6";
+                } else if (idx !== filteredMessages.length - 1) {
+                  spacingClass = "mb-2";
+                }
+              }
 
-            // Only show action card and guided UI if isGuidedFlow is true
-            const shouldShowActionCard =
-              isGuidedFlow &&
-              !state.showQuoteForm &&
-              state.showActionCard &&
-              state.availableOptions.length > 0 &&
-              (
-                (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
-                (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
-              );
-            if (shouldShowActionCard) {
-              return [
-                <div key={message.id + "-msg"} className={spacingClass}>
+              // ...existing code...
+              const shouldShowActionCard =
+                isGuidedFlow &&
+                !state.showQuoteForm &&
+                state.showActionCard &&
+                state.availableOptions.length > 0 &&
+                (
+                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
+                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+                );
+              if (shouldShowActionCard) {
+                return [
+                  <div key={message.id + "-msg"} className={spacingClass}>
+                    <MessageRenderer
+                      message={message}
+                      onConfirmPayment={handleConfirmPayment}
+                      onSelectPaymentMethod={handleSelectPaymentMethod}
+                      onSubmitMobilePayment={handleSubmitMobilePayment}
+                      avatar={(message as any).avatar}
+                      chatMode={chatMode}
+                    />
+                  </div>,
+                  <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                    <MessageRenderer
+                      message={{
+                        id: "dynamic-action-card",
+                        sender: "bot",
+                        type: "action-card",
+                        options: state.availableOptions,
+                      }}
+                      onActionCardSelect={handleActionCardSelect}
+                      onConfirmPayment={handleConfirmPayment}
+                      onSelectPaymentMethod={handleSelectPaymentMethod}
+                      onSubmitMobilePayment={handleSubmitMobilePayment}
+                      loading={state.loading || !!sessionLoading}
+                      lastSelected={state.lastSelected}
+                    />
+                  </div>,
+                ];
+              }
+              if (message.type === "action-card") {
+                return null;
+              }
+              return (
+                <div key={message.id} className={spacingClass}>
                   <MessageRenderer
                     message={message}
                     onConfirmPayment={handleConfirmPayment}
                     onSelectPaymentMethod={handleSelectPaymentMethod}
                     onSubmitMobilePayment={handleSubmitMobilePayment}
+                    avatar={(message as any).avatar}
+                    chatMode={chatMode}
                   />
-                </div>,
-                <div key={"action-card-" + message.id} className="flex justify-start mt-0">
-                  <MessageRenderer
-                    message={{
-                      id: "dynamic-action-card",
-                      sender: "bot",
-                      type: "action-card",
-                      options: state.availableOptions,
-                    }}
-                    onActionCardSelect={handleActionCardSelect}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                    loading={state.loading || !!sessionLoading}
-                    lastSelected={state.lastSelected}
-                  />
-                </div>,
-              ];
-            }
-            if (message.type === "action-card") {
-              // Do not render action cards from the messages array (handled above)
-              return null;
-            }
-            // Add standard spacing between messages
-            return (
-              <div key={message.id} className={spacingClass}>
-                <MessageRenderer
-                  message={message}
-                  onConfirmPayment={handleConfirmPayment}
-                  onSelectPaymentMethod={handleSelectPaymentMethod}
-                  onSubmitMobilePayment={handleSubmitMobilePayment}
-                />
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
 
           {renderCustomContent?.({ selectedProduct, userId })}
 
@@ -1121,7 +1307,7 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
             <button
               onClick={handleSendMessage}
               disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
-              className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer flex-shrink-0"
+              className="px-3 sm:px-4 py-2 sm:py-3 bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 cursor-pointer shrink-0"
             >
               <IoSend size={16} className="sm:block" />
             </button>
@@ -1133,13 +1319,13 @@ export const ChatScreen: React.FC<ChatScreenProps & { onMessagesChange?: (messag
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
             <div className="animate-fade-in">
               {generalInfoLoading ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px]">Loading general information...</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">Loading general information...</div>
               ) : generalInfoError ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px] text-red-600">{generalInfoError}</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75 text-red-600">{generalInfoError}</div>
               ) : generalInfo ? (
                 <GeneralInfoCard info={generalInfo} onClose={() => setShowGeneralInfo(false)} />
               ) : (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-[300px]">No information found.</div>
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center min-w-75">No information found.</div>
               )}
             </div>
           </div>
@@ -1164,3 +1350,5 @@ const PRODUCT_KEY_MAP: Record<string, string> = {
   travel_sure_plus: "travel_sure_plus",
   // Add more mappings as needed
 };
+
+

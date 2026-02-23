@@ -1,35 +1,63 @@
-import { IoChevronBack, IoClose } from "react-icons/io5";
-// import Logo from "../../assets/Logo.png";
-import bot from "../../assets/bot.png";
 
-type ChatHeaderProps = {
-  title: string;
-  onBack?: () => void;
-  onClose: () => void;
+import React from "react";
+import { IoChevronBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
+import Logo from "../../assets/Logo.png";
+
+type AgentConfig = {
+  name: string;
+  avatar: string;
+  status: string;
 };
 
-export default function ChatHeader({ title, onBack, onClose }: ChatHeaderProps) {
+type ChatHeaderProps = {
+  onBack?: () => void;
+  onClose: () => void;
+  agentConfig?: AgentConfig;
+  chatMode?: 'bot' | 'human';
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+};
+
+
+const ChatHeader: React.FC<ChatHeaderProps> = ({ onBack, onClose, agentConfig, chatMode, isExpanded, onToggleExpand }) => {
+  const isHuman = chatMode === 'human' && agentConfig;
+  const avatarSrc = isHuman ? agentConfig!.avatar : Logo;
+  const displayName = isHuman ? agentConfig!.name : 'MIA';
+  const status = isHuman ? agentConfig!.status : 'Online';
   return (
-    <div className="bg-primary text-white p-4 flex items-center gap-3 relative z-10">
-      {/* Simple, consistent header used across the widget screens. */}
+    <div className="bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
       {onBack ? (
-        <button onClick={onBack} className="text-2xl cursor-pointer">
-          <IoChevronBack />
+        <button onClick={onBack} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Back">
+          <IoChevronBack size={18} className="sm:block" />
         </button>
       ) : (
-        // Keep title alignment consistent when back isn't available.
         <div className="w-6" />
       )}
-      {/* Brand + assistant name + screen title */}
-      <div className="flex items-center gap-2 flex-1">
-        <img src={bot} alt="Old Mutual" className="w-7 h-7 object-contain" />
-        <span className="text-lg font-semibold">MIA</span>
-        <span className="text-base font-normal ml-2">{title}</span>
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+        <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
+          <img src={avatarSrc} alt={displayName} className="w-full h-full object-contain rounded-full" />
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="font-semibold text-white text-xs sm:text-sm truncate">{displayName}</span>
+          <span className="text-xs text-white/80 leading-tight">{status}</span>
+        </div>
       </div>
-      {/* Close returns control to the host page */}
-      <button onClick={onClose} className="text-2xl cursor-pointer">
-        <IoClose />
-      </button>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={onToggleExpand}
+          className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer"
+          title={isExpanded ? "Collapse" : "Expand"}
+        >
+          {isExpanded ? <IoContractOutline size={18} className="sm:block" /> : <IoExpandOutline size={18} className="sm:block" />}
+        </button>
+        <button onClick={onClose} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer" title="Close">
+          <IoClose size={18} className="sm:block" />
+        </button>
+      </div>
     </div>
   );
-}
+};
+
+export default ChatHeader;
+

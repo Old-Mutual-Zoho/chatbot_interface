@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ChatbotContainer from "./ChatbotContainer";
 import { IoClose } from "react-icons/io5";
-import bot from "../../assets/bot.png";
+import Logo from "../../assets/Logo.png";
 
 export default function ChatbotWidget() {
   // Floating launcher that toggles the full chatbot panel.
@@ -65,7 +65,7 @@ export default function ChatbotWidget() {
               <IoClose size={36} />
             ) : (
               <img
-                src={bot}
+                src={Logo}
                 alt="AI assistant"
                 className="w-full h-full object-cover"
                 draggable={false}

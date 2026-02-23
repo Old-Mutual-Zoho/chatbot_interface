@@ -9,6 +9,9 @@ import { PurchaseSummary } from "./PurchaseSummary";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { MobileMoneyForm } from "./MobileMoneyForm";
 import { PaymentLoadingScreen } from "./PaymentLoadingScreen";
+import { AgentBubble } from "./AgentBubble";
+import Logo from "../../../assets/Logo.png";
+import humanAvatar from "../../../assets/ai-profile.jpeg";
 
 interface MessageRendererProps {
   message: ChatMessage | ActionCardMessage | PurchaseSummaryMessage | PaymentMethodSelectorMessage | MobileMoneyFormMessage | PaymentLoadingScreenMessage;
@@ -18,9 +21,11 @@ interface MessageRendererProps {
   onSubmitMobilePayment?: (phoneNumber: string) => void;
   loading?: boolean;
   lastSelected?: string | null;
+  chatMode?: 'bot' | 'human';
+  avatar?: string;
 }
 
-export const MessageRenderer: React.FC<MessageRendererProps> = ({
+export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string }> = ({
   message,
   onActionCardSelect,
   onConfirmPayment,
@@ -28,6 +33,8 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   onSubmitMobilePayment,
   loading,
   lastSelected,
+  chatMode,
+  avatar,
 }) => {
   if (message.type === "loading") {
     return <LoadingBubble />;
@@ -75,6 +82,13 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   if (message.sender === "user") {
     return <UserBubble message={message as ChatMessage} />;
   }
-  return <BotBubble message={message as ChatMessage} />;
+  // For new incoming bot messages, use avatar from message if present, else fallback
+  if (message.sender === "bot") {
+    const avatarSrc = avatar || (chatMode === "human" ? humanAvatar : Logo);
+    return chatMode === "human"
+      ? <AgentBubble message={message as ChatMessage} avatar={avatarSrc} />
+      : <BotBubble message={message as ChatMessage} avatar={avatarSrc} />;
+  }
+  return <BotBubble message={message as ChatMessage} avatar={Logo} />;
 };
 

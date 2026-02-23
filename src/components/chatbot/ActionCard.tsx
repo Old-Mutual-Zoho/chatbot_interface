@@ -18,6 +18,15 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
   // Lock after first click to avoid double submits.
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
+  // Add Talk to Agent button as the last option if not already present
+  const hasTalkToAgent = options.some(opt => opt.value === 'talk-to-agent');
+  const extendedOptions = hasTalkToAgent
+    ? options
+    : [
+        ...options,
+        { label: 'Talk to Agent', value: 'talk-to-agent' }
+      ];
+
   return (
     <div
       className="bg-white rounded-xl mx-auto flex flex-col items-center"
@@ -33,7 +42,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ options, onSelect, loadi
         boxShadow: '0 2px 8px rgba(0,120,71,0.08)',
       }}
     >
-      {options.map((opt, idx) => {
+      {extendedOptions.map((opt, idx) => {
         // Keep the chosen option highlighted during loading.
         const isActive = (activeIdx === idx) || (lastSelected && opt.value === lastSelected);
         return (
