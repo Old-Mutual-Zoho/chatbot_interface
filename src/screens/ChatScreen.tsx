@@ -1,9 +1,9 @@
-import botAvatar from "../assets/bot.png";
+import Logo from "../assets/Logo.png";
 import humanAvatar from "../assets/ai-profile.jpeg";
 // Centralized agent configs
 const BOT_CONFIG = {
   name: "Mutual Intelligence Assistant",
-  avatar: botAvatar,
+  avatar: Logo,
   status: "Online",
 };
 

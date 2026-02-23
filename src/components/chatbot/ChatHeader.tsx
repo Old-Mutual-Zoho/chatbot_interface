@@ -1,7 +1,7 @@
 
 import React from "react";
 import { IoChevronBack, IoClose, IoExpandOutline, IoContractOutline } from "react-icons/io5";
-import bot from "../../assets/bot.png";
+import Logo from "../../assets/Logo.png";
 
 type AgentConfig = {
   name: string;
@@ -21,7 +21,7 @@ type ChatHeaderProps = {
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onBack, onClose, agentConfig, chatMode, isExpanded, onToggleExpand }) => {
   const isHuman = chatMode === 'human' && agentConfig;
-  const avatarSrc = isHuman ? agentConfig!.avatar : bot;
+  const avatarSrc = isHuman ? agentConfig!.avatar : Logo;
   const displayName = isHuman ? agentConfig!.name : 'MIA';
   const status = isHuman ? agentConfig!.status : 'Online';
   return (

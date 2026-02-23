@@ -4,7 +4,7 @@ import {
   IoChatbubbles,
 } from "react-icons/io5";
 import { BsChatRightText } from "react-icons/bs";
-import logo from "../assets/Logo.png";
+import OMlogo from "../assets/OMLogo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
 import product3 from "../assets/product3.png";
@@ -30,7 +30,7 @@ export default function HomeScreen({
       >
         {/* Logo */}
         <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">
-          <img src={logo} className="w-full h-full" />
+          <img src={OMlogo} className="w-full h-full" />
         </div>
 
         <h1 className="text-6xl mb-2">Old Mutual</h1>

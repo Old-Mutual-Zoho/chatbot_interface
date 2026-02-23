@@ -10,7 +10,7 @@ import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { MobileMoneyForm } from "./MobileMoneyForm";
 import { PaymentLoadingScreen } from "./PaymentLoadingScreen";
 import { AgentBubble } from "./AgentBubble";
-import botAvatar from "../../../assets/bot.png";
+import Logo from "../../../assets/Logo.png";
 import humanAvatar from "../../../assets/ai-profile.jpeg";
 
 interface MessageRendererProps {
@@ -84,11 +84,11 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
   }
   // For new incoming bot messages, use avatar from message if present, else fallback
   if (message.sender === "bot") {
-    const avatarSrc = avatar || (chatMode === "human" ? humanAvatar : botAvatar);
+    const avatarSrc = avatar || (chatMode === "human" ? humanAvatar : Logo);
     return chatMode === "human"
       ? <AgentBubble message={message as ChatMessage} avatar={avatarSrc} />
       : <BotBubble message={message as ChatMessage} avatar={avatarSrc} />;
   }
-  return <BotBubble message={message as ChatMessage} avatar={botAvatar} />;
+  return <BotBubble message={message as ChatMessage} avatar={Logo} />;
 };
 
