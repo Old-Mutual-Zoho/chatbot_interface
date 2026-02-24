@@ -25,7 +25,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onBack, onClose, agentConfig, c
   const displayName = isHuman ? agentConfig!.name : 'MIA';
   const status = isHuman ? agentConfig!.status : 'Online';
   return (
-    <div className="bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
+    <div className="shrink-0 bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
       {onBack ? (
         <button onClick={onBack} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Back">
           <IoChevronBack size={18} className="sm:block" />

@@ -1102,8 +1102,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     <div
       className={
         isWhatsApp
-          ? 'flex flex-col w-full bg-white min-h-screen md:min-h-0 md:h-full'
-          : 'flex flex-col w-full bg-white min-h-screen md:min-h-0 md:h-full md:max-w-md md:mx-auto md:shadow-xl md:rounded-2xl'
+          ? 'flex flex-col w-full bg-white h-full min-h-0'
+          : 'flex flex-col w-full bg-white h-full min-h-0 md:max-w-md md:mx-auto md:shadow-xl md:rounded-2xl'
       }
     >
       {/* Header (web only) */}
@@ -1119,7 +1119,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       ) : null}
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 om-show-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 om-show-scrollbar">
           {/* System Divider Message */}
           {!isWhatsApp && showDivider && (
             <div
@@ -1156,8 +1156,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               }
               if (!isWhatsApp && message.type === "custom-welcome" && state.showWelcomeCard) {
                 return (
-                  <div key={"welcome-" + message.id} className="flex justify-start animate-fade-in mb-4">
-                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden max-w-[80%]">
+                  <div key={"welcome-" + message.id} className="flex w-full justify-center animate-fade-in mb-4">
+                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden w-full max-w-sm sm:max-w-md md:max-w-lg">
                       <img src={WelcomeImage} alt="Welcome" className="w-full object-cover rounded-t-xl" />
                       <div className="px-4 pt-3 pb-2">
                         <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
@@ -1304,8 +1304,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area (sticky; keyboard-safe) */}
-      <div className="sticky bottom-0 bg-white p-3 border-t border-gray-200">
+      {/* Input Area */}
+      <div className="shrink-0 bg-white p-3 border-t border-gray-200">
         <div className="flex gap-2">
           <input
             ref={inputRef}

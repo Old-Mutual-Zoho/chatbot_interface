@@ -2,7 +2,7 @@ import WelcomeImage from "../../../assets/Welcome.png";
 
 export default function CustomWelcomeCard() {
   return (
-    <div className="flex flex-col items-center bg-gray-100 rounded-2xl px-4 py-6 mb-2 animate-fade-in">
+    <div className="w-full max-w-sm sm:max-w-md md:max-w-lg mx-auto flex flex-col items-center bg-gray-100 rounded-2xl px-4 py-6 mb-2 animate-fade-in">
       <img
         src={WelcomeImage}
         alt="Welcome Bot"

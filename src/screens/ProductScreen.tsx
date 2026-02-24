@@ -105,7 +105,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
     <div className="flex flex-col w-full h-full bg-white">
 
       {/* Header: navigation and close */}
-      <div className="h-14 bg-primary text-white flex items-center px-4">
+      <div className="h-14 shrink-0 bg-primary text-white flex items-center px-4">
         <button
           onClick={() => {
             // Inside General Insurance: back takes you up one level (products -> subcategories).
