@@ -58,7 +58,7 @@ export default function ChatbotWidget() {
   return createPortal(
     <>
       {/* Floating Button + Teaser */}
-      <div className="om-launcher om-launcher--intro relative">
+      <div className={`om-launcher om-launcher--intro relative ${open ? "om-launcher--open" : ""}`}>
         <div className={`flex items-center gap-3 ${open ? "" : "om-float"}`}>
           {/* Teaser bubble */}
           {showTeaser && !open && (
@@ -111,8 +111,8 @@ export default function ChatbotWidget() {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-[9998] bg-black/30"
           />
-          <div className="fixed bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto">
-            <div className="w-[95vw] h-[80vh] md:w-[400px] md:h-[680px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
+          <div className="fixed bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto flex items-end">
+            <div className="w-[95vw] h-[80vh] max-h-[calc(100dvh-6rem)] mb-16 md:w-[400px] md:h-[680px] md:max-h-[calc(100dvh-6rem)] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
               <ChatbotContainer onClose={() => setOpen(false)} />
             </div>
           </div>
