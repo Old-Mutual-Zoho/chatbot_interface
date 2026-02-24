@@ -12,7 +12,7 @@ export const AgentBubble: React.FC<AgentBubbleProps> = ({ message, avatar, chann
   const isShort = (message.text || '').length <= 40;
   const isWhatsApp = channel === 'whatsapp';
   return (
-    <div className="flex justify-start mb-2 animate-fade-in gap-2 items-end">
+    <div className="flex w-full justify-start mb-2 animate-fade-in gap-2 items-end">
       {!isWhatsApp ? (
         <img src={avatar} alt="Agent" className="w-5 h-5 sm:w-6 sm:h-6 object-contain rounded-full flex-shrink-0" />
       ) : null}

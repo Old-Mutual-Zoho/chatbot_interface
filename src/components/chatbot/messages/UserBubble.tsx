@@ -10,7 +10,7 @@ export const UserBubble: React.FC<UserBubbleProps> = ({ message, channel = 'web'
   const isShort = (message.text || '').length <= 40;
   const isWhatsApp = channel === 'whatsapp';
   return (
-    <div className="flex justify-end mb-2 animate-fade-in mr-3 sm:mr-5 gap-2 items-end">
+    <div className="flex w-full justify-end mb-2 animate-fade-in gap-2 items-end">
       <div className="bg-green-100 rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%] break-words">
         <div className={isShort && message.timestamp ? "flex items-center justify-between gap-2" : undefined}>
           <p className="break-words whitespace-pre-wrap leading-relaxed text-sm flex-1">{message.text}</p>
