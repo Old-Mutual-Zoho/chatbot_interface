@@ -61,6 +61,9 @@ const toBackendProductKey = (product: string | null | undefined): string | null 
 };
 
 type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
+
+import type { PaymentMethod } from "../components/chatbot/messages/PaymentMethodSelector";
+
 type Action =
   { type: "RESET"; selectedProduct?: string | null }
 | { type: "SET_INPUT"; payload: string }
@@ -75,7 +78,7 @@ type Action =
   | { type: "START_BUY_FLOW" }
   | { type: "SHOW_PURCHASE_SUMMARY"; payload: { productName: string; price: string; duration: string } }
   | { type: "SHOW_PAYMENT_METHOD_SELECTOR" }
-  | { type: "SELECT_PAYMENT_METHOD"; payload: "mobile" | "card" | "flexipay" }
+  | { type: "SELECT_PAYMENT_METHOD"; payload: PaymentMethod }
   | { type: "SHOW_MOBILE_MONEY_FORM" }
   | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
 
@@ -947,20 +950,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }, 900);
   };
 
-  const handleSelectPaymentMethod = (method: "mobile" | "card" | "flexipay") => {
+  const handleSelectPaymentMethod = (method: PaymentMethod) => {
     dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
-
-    if (method === "mobile") {
-      // Show loading briefly before showing mobile money form
+    if (method === "MTN" || method === "AIRTEL") {
       setTimeout(() => {
         dispatch({ type: "SHOW_MOBILE_MONEY_FORM" });
       }, 800);
-    } else {
-      // For card and flexipay, show coming soon message
+    } else if (method === "FLEXIPAY") {
       setTimeout(() => {
         dispatch({
           type: "RECEIVE_BOT_REPLY",
-          payload: `${method === "card" ? "Card Payment" : "FlexiPay"} is coming soon. Please use Mobile Money for now.`,
+          payload: `FlexiPay is coming soon. Please use MTN or Airtel Mobile Money for now.`,
           chatMode,
         });
       }, 800);

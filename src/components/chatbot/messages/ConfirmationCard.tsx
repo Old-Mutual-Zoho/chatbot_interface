@@ -12,7 +12,7 @@ export interface CardFieldConfig {
 
 export interface ConfirmationCardProps {
   data: Record<string, unknown>;
-  labels: Record<string, string>;
+  labels?: Record<string, string>;
   fieldTypes?: Record<string, CardFieldConfig>;
   confirmDisabled?: boolean;
   loading?: boolean;
@@ -142,7 +142,7 @@ const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, field
       <div className="divide-y divide-gray-200 mb-4">
         {Object.entries(displayData).map(([key, value]) => (
           <div key={key} className="py-2 flex justify-between items-center">
-            <span className="font-medium text-gray-700">{labels[key] || key}</span>
+            <span className="font-medium text-gray-700">{(labels && labels[key]) || key}</span>
             {editMode ? (
               <span className="text-gray-900 text-right break-all w-2/3">{renderField(key, value as string)}</span>
             ) : (
