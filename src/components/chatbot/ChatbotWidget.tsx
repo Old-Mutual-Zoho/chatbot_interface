@@ -111,8 +111,8 @@ export default function ChatbotWidget() {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-[9998] bg-black/30"
           />
-          <div className="fixed top-4 bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto flex items-end">
-            <div className="w-[95vw] h-[80vh] max-h-full mb-16 md:w-[400px] md:h-[680px] md:max-h-full overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
+          <div className="fixed top-4 bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto flex items-end pb-20">
+            <div className="w-[95vw] h-[80dvh] max-h-full md:w-[400px] md:h-[680px] md:max-h-full overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
               <ChatbotContainer onClose={() => setOpen(false)} />
             </div>
           </div>
