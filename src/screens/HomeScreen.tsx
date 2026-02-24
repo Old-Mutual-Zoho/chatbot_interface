@@ -55,7 +55,7 @@ export default function HomeScreen({
 
       {/* Cards */}
       <div className="mt-6 px-4 pb-4">
-        <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-sm bg-white">
+        <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-lg bg-white">
           <div className="grid grid-cols-3 gap-3">
             {/* Personal category */}
             <button
@@ -66,7 +66,7 @@ export default function HomeScreen({
                 src={product1}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
+              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
                 Life Insurance
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
@@ -83,7 +83,7 @@ export default function HomeScreen({
                 src={product2}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-semibold pt-1 pb-1 text-gray-800">
+              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
                 General Insurance
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
@@ -100,8 +100,7 @@ export default function HomeScreen({
                 src={product3}
                 className="w-13 h-13 rounded-full object-cover mb-2"
               />
-              <p className="text-xs font-semibold text-center leading-tight">
-                {" "}
+              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
                 Savings & Investment
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">

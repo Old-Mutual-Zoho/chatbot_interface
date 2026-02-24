@@ -107,6 +107,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Pattern background (non-landing screens) */
+.om-pattern-bg {
+  background-image: url('./assets/pattern.jpg');
+  background-repeat: repeat;
+  background-position: top left;
+  /* Downscale the source image so the motif doesn't look zoomed-in */
+  background-size: 320px auto;
+}
+
 
 :root {
   --font-primary: 'Nunito', sans-serif;

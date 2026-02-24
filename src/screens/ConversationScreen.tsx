@@ -50,7 +50,7 @@ export default function ConversationScreen({
   );
 
   return (
-    <div className="flex flex-col h-full w-full bg-white">
+    <div className="flex flex-col h-full w-full bg-white om-pattern-bg">
       {/* Header: navigation and close */}
       <div className="h-14 bg-primary text-white flex items-center px-4">
         <button onClick={onBack} className="mr-3 text-xl cursor-pointer" aria-label="Back">

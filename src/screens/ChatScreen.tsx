@@ -1101,8 +1101,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     <div
       className={
         isWhatsApp
-          ? 'flex flex-col w-full bg-white h-full min-h-0'
-          : 'flex flex-col w-full bg-white h-full min-h-0 md:max-w-md md:mx-auto md:shadow-xl md:rounded-2xl'
+          ? 'flex flex-col w-full bg-white om-pattern-bg h-full min-h-0'
+          : 'flex flex-col w-full bg-white om-pattern-bg h-full min-h-0 md:max-w-md md:mx-auto md:shadow-xl md:rounded-2xl'
       }
     >
       {/* Header (web only) */}
@@ -1193,9 +1193,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
                   : message.sender;
                 if (prevSender !== currSender) {
-                  spacingClass = "mb-6";
+                  spacingClass = "mb-4";
                 } else if (idx !== filteredMessages.length - 1) {
-                  spacingClass = "mb-2";
+                  spacingClass = "mb-0.5";
                 }
               }
 
@@ -1210,10 +1210,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < BASE_ACTION_OPTION_COUNT)
                 );
               if (shouldShowActionCard) {
+                // The action card is effectively a continuation of the bot message.
+                // Keep the gap between the bot prompt and its action buttons tight.
+                const msgSpacing = "mb-1";
                 if (isWhatsApp) {
                   const optionLines = state.availableOptions.map((o) => `- ${o.label}`).join('\n');
                   return [
-                    <div key={message.id + "-msg"} className={spacingClass}>
+                    <div key={message.id + "-msg"} className={msgSpacing}>
                       <MessageRenderer
                         message={message}
                         avatar={(message as any).avatar}
@@ -1221,7 +1224,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         channel="whatsapp"
                       />
                     </div>,
-                    <div key={"whatsapp-options-" + message.id} className="mb-2">
+                    <div key={"whatsapp-options-" + message.id} className="mb-1">
                       <MessageRenderer
                         message={{
                           id: `whatsapp-options-${message.id}`,
@@ -1236,7 +1239,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   ];
                 }
                 return [
-                  <div key={message.id + "-msg"} className={spacingClass}>
+                  <div key={message.id + "-msg"} className={msgSpacing}>
                     <MessageRenderer
                       message={message}
                       onConfirmPayment={handleConfirmPayment}
