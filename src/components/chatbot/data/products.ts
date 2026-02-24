@@ -43,10 +43,10 @@ export const GENERAL_INSURANCE_SUBCATEGORIES: Record<
   "motor-insurance": {
     label: "Motor Insurance",
     products: [
-      "Motor Private Insurance",
-      "Motor 3rd Party",
+      "Motor Private",
+      "Motor Third Party",
       "Motor Commercial",
-      "Motor COMESA Insurance",
+      "Motor COMESA ",
     ],
   },
   "sme-business-protection": {
@@ -83,7 +83,7 @@ export const GENERAL_INSURANCE_SUBCATEGORIES: Record<
     products: [
       "Industrial All Risks",
       "Bankers Blanket Bond",
-      "Marine (Open Cover, Hull, Cargo)",
+      "Marine Cargo Insurance",
     ],
   },
 } as const;
