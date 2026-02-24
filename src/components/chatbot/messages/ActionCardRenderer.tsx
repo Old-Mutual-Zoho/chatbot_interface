@@ -12,7 +12,7 @@ interface ActionCardRendererProps {
 
 export const ActionCardRenderer: React.FC<ActionCardRendererProps> = ({ message, onSelect, loading, lastSelected }) => {
   return (
-    <div className="flex justify-start animate-fade-in">
+    <div className="w-full flex justify-center animate-fade-in px-2 sm:px-4">
       <ActionCard options={message.options} onSelect={onSelect} loading={loading} lastSelected={lastSelected} />
     </div>
   );

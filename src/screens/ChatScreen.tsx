@@ -46,9 +46,10 @@ const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit",
 const ACTION_OPTIONS: ActionOption[] = [
   { label: "General Info", value: "personal_accident" },
   { label: "Get My Quote", value: "quote" },
-  { label: "Exclusions", value: "exclusions" },
   { label: "Buy Now", value: "buy" },
 ];
+
+const BASE_ACTION_OPTION_COUNT = ACTION_OPTIONS.length;
 
 const toBackendProductKey = (product: string | null | undefined): string | null => {
   if (!product) return null;
@@ -259,10 +260,8 @@ function reducer(state: State, action: Action): State {
       };
       newMessages.push(botReply);
       const remainingOptions = action.payload.remainingOptions;
-      if (
-        action.payload.response === "How can I help you today?" &&
-        remainingOptions.length === 4
-      ) {
+      // Initial prompt: show ONLY the action buttons (no follow-up prompt).
+      if (action.payload.response === "How can I help you today?" && remainingOptions.length > 0) {
         newMessages = [
           ...newMessages,
           {
@@ -1207,8 +1206,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 state.showActionCard &&
                 state.availableOptions.length > 0 &&
                 (
-                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === 4) ||
-                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < 4)
+                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === BASE_ACTION_OPTION_COUNT) ||
+                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < BASE_ACTION_OPTION_COUNT)
                 );
               if (shouldShowActionCard) {
                 if (isWhatsApp) {
@@ -1248,7 +1247,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       channel="web"
                     />
                   </div>,
-                  <div key={"action-card-" + message.id} className="flex justify-start mt-0">
+                  <div key={"action-card-" + message.id} className="flex w-full justify-center mt-0">
                     <MessageRenderer
                       message={{
                         id: "dynamic-action-card",
