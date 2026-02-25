@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
 import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
 
+import CardForm, { type CardFieldConfig } from "./CardForm";
+
 // ...existing code...
 import type { GuidedStepResponse } from "../../services/api";
 
@@ -22,9 +24,14 @@ interface GuidedStepRendererProps {
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   step,
   values,
+  errors,
+  onClearError,
+  onChange,
   onSubmit,
   onBack,
   loading = false,
+  titleFallback,
+  confirmOnFormSubmit = false,
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -129,10 +136,85 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 
 
   if (!step) return null;
+
+  const buildPayloadFromValues = () => {
+    const payloadToSend: Record<string, unknown> = {};
+
+    if (step.type !== "form" || !Array.isArray(step.fields)) {
+      return { ...values } as Record<string, unknown>;
+    }
+
+    for (const f of step.fields ?? []) {
+      const raw = values[f.name] ?? "";
+      const t = String(f.type ?? "").toLowerCase();
+      const rawStr = raw == null ? "" : String(raw);
+
+      if (t === "number" || t === "integer") {
+        const trimmed = rawStr.trim();
+        if (!trimmed) {
+          payloadToSend[f.name] = "";
+        } else {
+          const n = t === "integer" ? Number.parseInt(trimmed, 10) : Number(trimmed);
+          payloadToSend[f.name] = Number.isFinite(n) ? n : trimmed;
+        }
+        continue;
+      }
+
+      if (t === "checkbox-group") {
+        const trimmed = rawStr.trim();
+        payloadToSend[f.name] = trimmed
+          ? trimmed.split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+        continue;
+      }
+
+      payloadToSend[f.name] = raw;
+    }
+
+    return payloadToSend;
+  };
+
   switch (step.type) {
     case "form":
-      // Card payment forms removed. Implement other form handling here if needed.
-      return null;
+		// Backend-driven form step: render fields using the existing CardForm.
+		// This is what powers the guided quote experience (PA / Motor / Travel / Serenicare etc).
+		return (
+			<CardForm
+				title={String(titleFallback ?? "Quote Details")}
+				description={step.message}
+				fields={(step.fields ?? []).map((f) =>
+					({
+						name: f.name,
+						label: f.label,
+						type: f.type,
+						required: f.required,
+						placeholder: f.placeholder,
+						minLength: f.minLength,
+						maxLength: f.maxLength,
+						options: (f.options ?? []).map((o) => ({ label: o.label, value: o.value })),
+						// CardForm supports these optional keys; keep them if backend provides them.
+						defaultValue: f.defaultValue,
+					}) as CardFieldConfig)
+				}
+				values={values}
+				externalErrors={errors}
+				onClearExternalError={onClearError}
+				onChange={onChange}
+				showBack={!!onBack}
+				onBack={onBack}
+				nextButtonLabel={confirmOnFormSubmit ? "Review" : "Continue"}
+				nextDisabled={loading}
+				onNext={() => {
+					const payloadToSend = buildPayloadFromValues();
+					if (confirmOnFormSubmit) {
+						setConfirmationData(payloadToSend);
+						setShowConfirmation(true);
+						return;
+					}
+					onSubmit(payloadToSend);
+				}}
+			/>
+		);
     case "product_cards":
       return (
         <ProductCardsStep

@@ -150,7 +150,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const isTravelSurePlus =
     normalizedSelectedProduct === 'travelsureplus' ||
     normalizedSelectedProduct === 'travelplus' ||
-    normalizedSelectedProduct === 'travelinsurance';
+    normalizedSelectedProduct === 'travelinsurance' ||
+    // Some UIs send a generic "Travel" label/key.
+    normalizedSelectedProduct === 'travel';
     
 
   // --- Backend-driven Personal Accident guided flow state ---
@@ -761,7 +763,20 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       </div>
     );
   }  
-  return null;
+
+
+  // If we get here, the user selected a product but we don't yet have a guided quote flow wired up
+  // for it. Return a small, friendly card instead of rendering nothing.
+  return (
+    <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+      <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+        <p className="text-gray-900 font-medium">Quote form not available yet.</p>
+        <p className="text-sm text-gray-600 mt-1">
+          We don&apos;t currently have a guided quote form for <span className="font-medium">{selectedProduct}</span>.
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default QuoteFormScreen;

@@ -36,34 +36,40 @@ const toGeneralInfoProductKey = (product: string): string | null => {
   return GENERAL_INFO_ALLOWED_KEYS.has(mapped) ? mapped : null;
 };
 
-export function useGeneralInformation(sessionId: string | null, product: string | null) {
+export function useGeneralInformation(product: string | null) {
   const [info, setInfo] = useState<GeneralInformation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInfo = useCallback(async () => {
-    if (!sessionId || !product) return null;
+  // Fetches general info for the currently-selected product.
+  // NOTE: we accept an optional override because click-time values are often the freshest.
+  const fetchInfo = useCallback(async (productOverride?: string | null) => {
+    const effectiveProduct = productOverride ?? product;
+    if (!effectiveProduct) {
+      return { data: null as GeneralInformation | null, error: null as string | null };
+    }
 
-    const productKey = toGeneralInfoProductKey(product);
+    const productKey = toGeneralInfoProductKey(effectiveProduct);
     if (!productKey) {
       setError('Unsupported product key for General Information.');
-      return null;
+      return { data: null, error: 'Unsupported product key for General Information.' };
     }
 
     setLoading(true);
     setError(null);
     try {
-      const data = await getGeneralInformation(sessionId, productKey);
+      const data = await getGeneralInformation(productKey);
       setInfo(data);
-      return data;
+      return { data, error: null };
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } }, message?: string };
-      setError(err?.response?.data?.detail || err?.message || 'Failed to fetch general information');
-      return null;
+      const message = err?.response?.data?.detail || err?.message || 'Failed to fetch general information';
+      setError(message);
+      return { data: null, error: message };
     } finally {
       setLoading(false);
     }
-  }, [sessionId, product]);
+  }, [product]);
 
   return { info, loading, error, fetchInfo };
 }

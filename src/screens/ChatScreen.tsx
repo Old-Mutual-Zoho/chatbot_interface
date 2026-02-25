@@ -626,13 +626,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // General Info UI state (must be after selectedProduct and sessionId are defined)
   const [showGeneralInfo, setShowGeneralInfo] = useState(false);
-  const selectedProductRef = useRef<string | null>(
-    toBackendProductKey(selectedProduct)
-  );
-  useEffect(() => {
-    selectedProductRef.current = toBackendProductKey(selectedProduct);
-  }, [selectedProduct]);
-  const { info: generalInfo, loading: generalInfoLoading, error: generalInfoError, fetchInfo } = useGeneralInformation(sessionId, selectedProductRef.current);
+  // Important: keep this as derived state (not a ref) so React re-renders when the product changes.
+  const selectedProductKey = toBackendProductKey(selectedProduct);
+  const { info: generalInfo, loading: generalInfoLoading, error: generalInfoError, fetchInfo } = useGeneralInformation(selectedProductKey);
  
 
   // Fetch bot response and manage sessionId
@@ -867,19 +863,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         });
         return;
       }
-      const productKey = PRODUCT_KEY_MAP[selectedProduct.replace(/\s+/g, '_').toLowerCase()] || selectedProduct;
-      if (selectedProductRef && selectedProductRef.current !== productKey) {
-        selectedProductRef.current = productKey;
-      }
       try {
-        const data = await fetchInfo();
+        // Recompute the product key at click-time to avoid any timing issues.
+        const productKey = toBackendProductKey(selectedProduct);
+        const result = await fetchInfo(productKey);
+        const data = result.data;
         let infoText = "";
         if (data && (data.definition || data.benefits || data.eligibility)) {
           if (data.definition) infoText += `Definition: ${data.definition}\n`;
           if (data.benefits && data.benefits.length > 0) infoText += `Benefits: ${data.benefits.join(", ")}\n`;
           if (data.eligibility) infoText += `Eligibility: ${data.eligibility}`;
-        } else if (generalInfoError) {
-          infoText = generalInfoError;
+        } else if (result.error) {
+          // Show the real backend error (e.g. 401/404 detail) in the chat.
+          infoText = result.error;
         } else {
           infoText = "No general information found for this product.";
         }

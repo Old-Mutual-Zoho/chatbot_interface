@@ -18,11 +18,11 @@ export interface GeneralInformation {
 	[key: string]: unknown;
 }
 
-export async function getGeneralInformation(session_id: string, product: string) {
-	const { data } = await api.get<GeneralInformation>(
-		`/general-information`,
-		{ params: { session_id, product } }
-	);
+export async function getGeneralInformation(product: string) {
+	// Backend expects only `product` as a query param.
+	const { data } = await api.get<GeneralInformation>(`/general-information`, {
+		params: { product },
+	});
 	return data;
 }
 
@@ -43,7 +43,12 @@ export const api = axios.create({
 // Ensure X-API-KEY is always sent, even if headers are overridden elsewhere
 api.interceptors.request.use((config) => {
 	config.headers = config.headers || {};
-	config.headers['X-API-KEY'] = API_KEY;
+	// Avoid sending `X-API-KEY: undefined` when the env var isn't set.
+	if (API_KEY) {
+		config.headers['X-API-KEY'] = API_KEY;
+	} else {
+		delete (config.headers as Record<string, unknown>)['X-API-KEY'];
+	}
 	return config;
 });
 
