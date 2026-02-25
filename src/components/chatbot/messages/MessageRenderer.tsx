@@ -128,7 +128,8 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
     );
   }
   if (message.type === "payment-loading-screen") {
-    return <PaymentLoadingScreen />;
+    const m = message as PaymentLoadingScreenMessage;
+    return <PaymentLoadingScreen variant={m.variant} text={m.text} />;
   }
   if (message.sender === "user") {
     return <UserBubble message={message as ChatMessage} channel="web" />;

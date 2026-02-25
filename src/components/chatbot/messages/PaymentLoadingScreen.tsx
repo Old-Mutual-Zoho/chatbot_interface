@@ -1,6 +1,23 @@
 import React from "react";
 
-export const PaymentLoadingScreen: React.FC = () => {
+import type { PaymentLoadingScreenVariant } from "./actionCardTypes";
+
+type PaymentLoadingScreenProps = {
+  variant?: PaymentLoadingScreenVariant;
+  text?: string;
+};
+
+export const PaymentLoadingScreen: React.FC<PaymentLoadingScreenProps> = ({
+  variant = "payment",
+  text,
+}) => {
+  const defaultTextByVariant: Record<PaymentLoadingScreenVariant, string> = {
+    quote: "Calculating your quote... Please wait",
+    payment: "Processing or verifying your details...",
+    escalation: "Connecting you to a human agent... Please wait.",
+  };
+
+  const displayText = text ?? defaultTextByVariant[variant];
   return (
     <div className="flex flex-col items-center justify-center py-12 w-full">
       {/* Loading Spinner */}
@@ -49,7 +66,7 @@ export const PaymentLoadingScreen: React.FC = () => {
 
       {/* Loading Text */}
       <p className="text-gray-900 font-semibold text-lg text-center escalation-loader">
-        Connecting you to a human agent... Please wait.
+        {displayText}
       </p>
     </div>
   );

@@ -34,6 +34,7 @@ import WelcomeImage from "../assets/Welcome.png";
 import { IoSend } from "react-icons/io5";
 import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
+import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
@@ -82,7 +83,7 @@ type Action =
   | { type: "SHOW_MOBILE_MONEY_FORM" }
   | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
 
-  | { type: "SHOW_PAYMENT_LOADING_SCREEN" }
+  | { type: "SHOW_PAYMENT_LOADING_SCREEN"; variant?: PaymentLoadingScreenVariant; text?: string }
   | { type: "CONFIRM_PURCHASE" }
   | { type: "PURCHASE_SUCCESS"; payload: string }
   | { type: "PURCHASE_FAILED"; payload: string };
@@ -473,6 +474,8 @@ function reducer(state: State, action: Action): State {
         id: `payment-loading-${Date.now()}`,
         sender: "bot",
         type: "payment-loading-screen",
+        variant: action.variant ?? "payment",
+        text: action.text,
         timestamp: getTimeString(),
       };
       return {
@@ -563,6 +566,8 @@ type ChatMessageWithTimestamp = (ExtendedChatMessage & { timestamp?: string }) |
   type: "payment-loading-screen";
   sender: "bot";
   timestamp?: string;
+  variant?: PaymentLoadingScreenVariant;
+  text?: string;
 };
 
 
@@ -773,7 +778,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   function showEscalationLoader() {
     if (escalationState.current.inProgress) return;
     escalationState.current.inProgress = true;
-    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN" });
+    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN", variant: "escalation" });
     autoScrollToBottom();
     escalationState.current.timeout = window.setTimeout(() => {
       removeEscalationLoader();
@@ -976,7 +981,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     // Show loading screen after confirmation message
     setTimeout(() => {
-      dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN" });
+      dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN", variant: "payment" });
     }, 300);
 
     try {

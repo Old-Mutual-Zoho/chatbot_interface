@@ -113,7 +113,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   }, [loading, showLoading]);
 
   if (showLoading) {
-    return <PaymentLoadingScreen />;
+    return <PaymentLoadingScreen variant="quote" />;
   }
 
   if (showConfirmation && confirmationData) {

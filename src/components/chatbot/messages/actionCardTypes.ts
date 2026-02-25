@@ -31,10 +31,14 @@ export type MobileMoneyFormMessage = {
   isLoading?: boolean;
 };
 
+export type PaymentLoadingScreenVariant = "quote" | "payment" | "escalation";
+
 export type PaymentLoadingScreenMessage = {
   id: string;
   type: "payment-loading-screen";
   sender: "bot";
+  variant?: PaymentLoadingScreenVariant;
+  text?: string;
 };
 
 export type ExtendedChatMessage = ChatMessage | ActionCardMessage | PurchaseSummaryMessage | PaymentMethodSelectorMessage | MobileMoneyFormMessage | PaymentLoadingScreenMessage;
