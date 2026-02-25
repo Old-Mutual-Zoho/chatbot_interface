@@ -13,11 +13,13 @@ import { AgentBubble } from "./AgentBubble";
 import Logo from "../../../assets/Logo.png";
 import humanAvatar from "../../../assets/ai-profile.jpeg";
 
+import type { PaymentMethod } from "./PaymentMethodSelector";
+
 interface MessageRendererProps {
   message: ChatMessage | ActionCardMessage | PurchaseSummaryMessage | PaymentMethodSelectorMessage | MobileMoneyFormMessage | PaymentLoadingScreenMessage;
   onActionCardSelect?: (option: import("../ActionCard").ActionOption) => void;
   onConfirmPayment?: () => void;
-  onSelectPaymentMethod?: (method: "mobile" | "card" | "flexipay") => void;
+  onSelectPaymentMethod?: (method: PaymentMethod) => void;
   onSubmitMobilePayment?: (phoneNumber: string) => void;
   loading?: boolean;
   lastSelected?: string | null;

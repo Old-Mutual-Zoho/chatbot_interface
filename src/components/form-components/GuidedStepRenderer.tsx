@@ -3,8 +3,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
 import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
 
-import CardForm from "./CardForm";
-import type { CardFieldConfig } from "./CardForm";
+// ...existing code...
 import type { GuidedStepResponse } from "../../services/api";
 
 interface GuidedStepRendererProps {
@@ -23,19 +22,13 @@ interface GuidedStepRendererProps {
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   step,
   values,
-  errors,
-  onClearError,
-  onChange,
   onSubmit,
   onBack,
   loading = false,
-  titleFallback = "Details",
-  confirmOnFormSubmit = false,
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);
-  const [confirmationLabels, setConfirmationLabels] = useState<Record<string, string>>({});
   // Loading state for Get Quote
   const [showLoading, setShowLoading] = useState(false);
   const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
@@ -121,10 +114,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       <>
         <ConfirmationCard
           data={confirmationData}
-          labels={confirmationLabels}
-          fieldTypes={step && step.type === 'form' && 'fields' in step && Array.isArray((step as { fields?: CardFieldConfig[] }).fields)
-            ? Object.fromEntries(((step as { fields?: CardFieldConfig[] }).fields ?? []).map((f: CardFieldConfig) => [f.name, f]))
-            : {}}
+          // ...existing code...
           onEdit={(values) => {
             setConfirmationData(values);
           }}
@@ -141,37 +131,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   if (!step) return null;
   switch (step.type) {
     case "form":
-      // A normal form with one or more fields.
-      return (
-        <FormStep
-          step={step as Extract<GuidedStepResponse, { type: "form" }>}
-          titleFallback={titleFallback}
-          values={values}
-          errors={errors}
-          onClearError={onClearError}
-          onChange={onChange}
-          onSubmit={(payload) => {
-            if (!confirmOnFormSubmit) {
-              onSubmit(payload);
-              return;
-            }
-
-            const labels: Record<string, string> = {};
-            ((step as { fields?: CardFieldConfig[] }).fields ?? []).forEach((f: CardFieldConfig) => {
-              labels[f.name] = f.label ?? f.name;
-            });
-            setConfirmationLabels(labels);
-
-            // Show a full review of all collected values, not just the last step.
-            // This also ensures the backend receives all relevant keys when the user submits.
-            const merged: Record<string, unknown> = { ...values, ...payload };
-            setConfirmationData(merged);
-            setShowConfirmation(true);
-          }}
-          onBack={onBack}
-          loading={loading}
-        />
-      );
+      // Card payment forms removed. Implement other form handling here if needed.
+      return null;
     case "product_cards":
       return (
         <ProductCardsStep
@@ -241,84 +202,7 @@ const ProductCardsStep: React.FC<{
   );
 };
 
-const FormStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "form" }>;
-  titleFallback: string;
-  values: Record<string, string>;
-  errors?: Record<string, string>;
-  onClearError?: (name: string) => void;
-  onChange: (name: string, value: string) => void;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  onBack?: () => void;
-  loading: boolean;
-}> = ({ step, titleFallback, values, errors, onClearError, onChange, onSubmit, onBack, loading }) => {
-  // Use only backend-provided options for all fields, including vehicleMake
-  const fields: CardFieldConfig[] = useMemo(() => {
-    const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
-    return (step.fields ?? []).map((f) => ({
-      name: f.name,
-      label: f.label ?? f.name,
-      type: f.type,
-      required: f.required,
-      placeholder: f.placeholder,
-      minLength: f.minLength,
-      maxLength: f.maxLength,
-      options: (f.options ?? []).map((o: unknown) => {
-        if (!isRecord(o)) return { label: '', value: '' };
-        const label = typeof o.label === 'string' ? o.label : String(o.label ?? '');
-        const value = typeof o.value === 'string' ? o.value : String(o.value ?? '');
-        return { label, value };
-      }).filter((opt) => opt.label || opt.value),
-    }));
-  }, [step.fields]);
-
-  return (
-    <CardForm
-      title={step.message ?? titleFallback}
-      fields={fields}
-      values={values}
-      externalErrors={errors}
-      onClearExternalError={onClearError}
-      onChange={onChange}
-      onNext={() => {
-        // When the user clicks Next, we build the object we will send back.
-        // It’s usually: { fieldName: fieldValue } for each form field.
-        const payload: Record<string, unknown> = {};
-        for (const f of step.fields ?? []) {
-          const raw = values[f.name] ?? "";
-          const t = String(f.type ?? "").toLowerCase();
-
-          if (t === "number" || t === "integer") {
-            // Turn number text into a real number (but keep empty as "" if nothing was typed).
-            const trimmed = String(raw).trim();
-            if (!trimmed) {
-              payload[f.name] = "";
-            } else {
-              const n = t === "integer" ? Number.parseInt(trimmed, 10) : Number(trimmed);
-              payload[f.name] = Number.isFinite(n) ? n : trimmed;
-            }
-            continue;
-          }
-
-          if (t === "checkbox-group") {
-            // Some checkbox groups come back as "a, b, c". Convert that into ["a","b","c"].
-            const trimmed = String(raw).trim();
-            payload[f.name] = trimmed ? trimmed.split(",").map((s) => s.trim()).filter(Boolean) : [];
-            continue;
-          }
-
-          payload[f.name] = raw;
-        }
-        onSubmit(payload);
-      }}
-      onBack={onBack}
-      showBack={!!onBack}
-      showNext
-      nextButtonLabel="Next"
-      nextDisabled={loading}
-    />
-  );
-};
+// CardForm and FormStep removed as card payments are no longer supported.
 
 const PremiumSummaryStep: React.FC<{
   step: Extract<GuidedStepResponse, { type: "premium_summary" }>;
