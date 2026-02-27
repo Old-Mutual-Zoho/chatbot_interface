@@ -695,6 +695,45 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return null;
   };
 
+  const normalizeOutgoingMessageForBackend = (rawMessage: string): string => {
+    // Conversational UX: users often say "car" instead of "Motor Private".
+    // If the message looks like a quote request, rewrite it to include the canonical product label.
+    const lower = rawMessage.toLowerCase();
+
+    const isQuoteIntent =
+      lower.includes('quote') ||
+      lower.includes('quotation') ||
+      lower.includes('premium') ||
+      lower.includes('how much') ||
+      lower.includes('price') ||
+      lower.includes('cost');
+
+    if (!isQuoteIntent) return rawMessage;
+
+    // Motor insurance synonyms
+    const wantsThirdParty =
+      lower.includes('third party') ||
+      lower.includes('thirdparty') ||
+      lower.includes('3rd party') ||
+      lower.includes('3rdparty');
+    if (wantsThirdParty) {
+      return 'Get My Quote for Motor Third Party';
+    }
+
+    const mentionsCar = /\b(car|vehicle|auto|automobile)\b/.test(lower);
+    const alreadyMentionsMotor =
+      lower.includes('motor private') ||
+      lower.includes('motor third party') ||
+      lower.includes('motor third') ||
+      lower.includes('motor private insurance');
+
+    if (mentionsCar && !alreadyMentionsMotor) {
+      return 'Get My Quote for Motor Private Insurance';
+    }
+
+    return rawMessage;
+  };
+
   // General Info UI state (must be after selectedProduct and sessionId are defined)
   const [showGeneralInfo, setShowGeneralInfo] = useState(false);
   // Important: keep this as derived state (not a ref) so React re-renders when the product changes.
@@ -711,7 +750,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return { kind: 'text', text: "Connecting to chat..." };
     }
     try {
-      const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: option });
+      const messageForBackend = (!selectedProduct && !inlineGuidedStep)
+        ? normalizeOutgoingMessageForBackend(option)
+        : option;
+
+      const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: messageForBackend });
 
       // Update sessionId if backend returns a new one
       if (response && typeof response === 'object') {
