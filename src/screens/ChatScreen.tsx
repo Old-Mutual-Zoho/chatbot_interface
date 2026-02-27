@@ -13,6 +13,7 @@ const HUMAN_CONFIG = {
   status: "Online",
 };
 import ChatHeader from "../components/chatbot/ChatHeader";
+import PostConversationFeedback from "../components/chatbot/PostConversationFeedback";
 type State = {
   messages: ChatMessageWithTimestamp[];
   availableOptions: ActionOption[];
@@ -579,6 +580,8 @@ type ChatScreenProps = {
   sessionId: string | null;
   sessionLoading?: boolean;
   sessionError?: string | null;
+  isConversationEnded?: boolean;
+  onSubmitFeedback?: (payload: { rating: number; feedback: string }) => void;
   channel?: 'web' | 'whatsapp';
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -602,6 +605,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   sessionId: sessionIdProp,
   sessionLoading,
   sessionError,
+  isConversationEnded = false,
+  onSubmitFeedback,
   renderCustomContent,
   // Removed unused agentConfig
   chatMode: _chatMode,
@@ -1121,38 +1126,49 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       ) : null}
 
       {/* Messages Container */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 om-show-scrollbar">
-          {/* System Divider Message */}
-          {!isWhatsApp && showDivider && (
-            <div
-              ref={dividerRef}
-              className="w-full flex justify-center items-center mb-2 min-h-6 animate-fade-in"
-            >
-              <span className="w-full text-center text-xs text-gray-400 select-none">
-                Connected to live agent
-              </span>
-            </div>
-          )}
+      <div className={
+        isConversationEnded
+          ? "flex-1 min-h-0"
+          : "flex-1 min-h-0 overflow-y-auto px-4 py-3 om-show-scrollbar"
+      }>
+        {isConversationEnded ? (
+          <PostConversationFeedback
+            isConversationEnded
+            onSubmitFeedback={onSubmitFeedback}
+          />
+        ) : (
+          <>
+            {/* System Divider Message */}
+            {!isWhatsApp && showDivider && (
+              <div
+                ref={dividerRef}
+                className="w-full flex justify-center items-center mb-2 min-h-6 animate-fade-in"
+              >
+                <span className="w-full text-center text-xs text-gray-400 select-none">
+                  Connected to live agent
+                </span>
+              </div>
+            )}
 
-          {state.messages
-            .filter((msg) => {
-              // ...existing code...
-              if (state.isPaymentMode) {
-                return (
-                  msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                  msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                  msg.type === "payment-method-selector" ||
-                  msg.type === "mobile-money-form" ||
-                  msg.type === "payment-loading-screen" ||
-                  msg.type === "loading" ||
-                  (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                  (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-                );
-              }
-              return true;
-            })
-            .map((message, idx) => {
-              // ...existing code...
+            {state.messages
+              .filter((msg) => {
+                // ...existing code...
+                if (state.isPaymentMode) {
+                  return (
+                    msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                    msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                    msg.type === "payment-method-selector" ||
+                    msg.type === "mobile-money-form" ||
+                    msg.type === "payment-loading-screen" ||
+                    msg.type === "loading" ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                    (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+                  );
+                }
+                return true;
+              })
+              .map((message, idx) => {
+                // ...existing code...
               if (message.type === "custom-welcome" && !state.showWelcomeCard) {
                 return null;
               }
@@ -1306,10 +1322,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} />
+          </>
+        )}
       </div>
 
       {/* Input Area */}
+      {!isConversationEnded && (
       <div className="shrink-0 bg-white p-3 border-t border-gray-200">
         <div className="flex gap-2">
           <input
@@ -1331,6 +1350,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* General Info Modal/Card (web only) */}
       {!isWhatsApp && showGeneralInfo && (

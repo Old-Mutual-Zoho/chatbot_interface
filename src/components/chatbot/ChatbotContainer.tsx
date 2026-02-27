@@ -52,6 +52,10 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   // Toggle the wide view.
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Post-conversation feedback state (applies to both guided + normal conversations).
+  const [isConversationEnded, setIsConversationEnded] = useState(false);
+  const [pendingExit, setPendingExit] = useState<"back" | "close" | null>(null);
+
   // Backend session ids.
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -105,6 +109,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   };
 
   const startNewConversation = () => {
+    setIsConversationEnded(false);
+    setPendingExit(null);
     setActiveConversationId(null);
     resetChat();
     setChatSessionKey((k) => k + 1);
@@ -156,10 +162,46 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     const convo = conversations.find((c) => c.id === conversationId);
     if (!convo) return;
 
+    setIsConversationEnded(false);
+    setPendingExit(null);
     setActiveConversationId(conversationId);
     setSelectedProduct(convo.selectedProduct ?? null);
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
+  };
+
+  const performBack = () => {
+    saveOrArchiveConversationIfAny();
+    resetChat();
+    setActiveConversationId(null);
+    setScreen("conversations");
+  };
+
+  const performClose = () => {
+    saveOrArchiveConversationIfAny();
+    onClose();
+  };
+
+  const requestEndConversation = (exitType: "back" | "close") => {
+    if (!isConversationEnded) {
+      setIsConversationEnded(true);
+      setPendingExit(exitType);
+      return;
+    }
+    // If already ended, treat another click as "exit now".
+    if (exitType === "back") performBack();
+    else performClose();
+  };
+
+  const handleSubmitFeedback = (payload: { rating: number; feedback: string }) => {
+    void payload;
+    // Keep this component reusable: integration can later POST to an API.
+    // For now, proceed with whatever exit the user originally requested.
+    const exit = pendingExit;
+    setIsConversationEnded(false);
+    setPendingExit(null);
+    if (exit === "back") performBack();
+    else if (exit === "close") performClose();
   };
 
   const deleteConversation = (conversationId: string) => {
@@ -215,21 +257,15 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
         <FadeWrapper isVisible={screen === "chat"}>
           <ChatScreen
             key={chatSessionKey}
-            onBackClick={() => {
-              saveOrArchiveConversationIfAny();
-              resetChat();
-              setActiveConversationId(null);
-              setScreen("conversations");
-            }}
-            onCloseClick={() => {
-              saveOrArchiveConversationIfAny();
-              onClose();
-            }}
+            onBackClick={() => requestEndConversation("back")}
+            onCloseClick={() => requestEndConversation("close")}
             selectedProduct={selectedProduct}
             userId={userId}
             sessionId={sessionId}
             sessionLoading={!userId || !sessionId}
             sessionError={sessionError}
+            isConversationEnded={isConversationEnded}
+            onSubmitFeedback={handleSubmitFeedback}
             initialMessages={
               activeConversationId
                 ? (conversations.find((c) => c.id === activeConversationId)?.messages ?? [])
@@ -260,6 +296,8 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
                 saveOrArchiveConversationIfAny();
                 setActiveConversationId(null);
                 setSelectedProduct(product);
+                setIsConversationEnded(false);
+                setPendingExit(null);
                 setChatSessionKey((k) => k + 1);
                 setScreen("chat");
               }}
