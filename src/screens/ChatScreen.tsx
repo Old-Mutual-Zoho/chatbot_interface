@@ -606,8 +606,8 @@ type ChatScreenProps = {
   };
   chatMode: 'bot' | 'human';
   setChatMode: (mode: 'bot' | 'human') => void;
-  initialMessages?: any[];
-  onMessagesChange?: (messages: any[]) => void;
+  initialMessages?: ChatMessageWithTimestamp[];
+  onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void;
 };
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -622,8 +622,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSubmitFeedback,
   renderCustomContent,
   // Removed unused agentConfig
-  chatMode: _chatMode,
-  setChatMode: _setChatMode,
   initialMessages,
   onMessagesChange,
   channel = 'web',
@@ -657,6 +655,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const inlineGuidedRef = useRef<HTMLDivElement>(null);
 
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+  const getMessageAvatar = (msg: ChatMessageWithTimestamp): string | undefined => {
+    const avatarValue = (msg as unknown as { avatar?: unknown }).avatar;
+    return typeof avatarValue === 'string' ? avatarValue : undefined;
+  };
+
+  const extractSessionIdFromResponse = (res: unknown): string | null => {
+    if (!isRecord(res)) return null;
+    const direct = res['session_id'];
+    if (typeof direct === 'string' && direct.trim()) return direct;
+
+    const responseObj = res['response'];
+    if (isRecord(responseObj)) {
+      const nested = responseObj['session_id'];
+      if (typeof nested === 'string' && nested.trim()) return nested;
+    }
+    return null;
+  };
 
   const extractGuidedStep = (res: unknown): GuidedStepResponse | null => {
     // Walk nested `response.response` layers until we find an object with a `type`.
@@ -809,18 +825,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: messageForBackend });
 
       // Update sessionId if backend returns a new one
-      if (response && typeof response === 'object') {
-        if ('session_id' in response && typeof (response as any).session_id === 'string' && (response as any).session_id !== sessionId) {
-          setSessionId((response as any).session_id);
-        } else if (
-          (response as any).response &&
-          typeof (response as any).response === 'object' &&
-          'session_id' in (response as any).response &&
-          typeof (response as any).response.session_id === 'string' &&
-          (response as any).response.session_id !== sessionId
-        ) {
-          setSessionId((response as any).response.session_id);
-        }
+      const nextSessionId = extractSessionIdFromResponse(response);
+      if (nextSessionId && nextSessionId !== sessionId) {
+        setSessionId(nextSessionId);
       }
 
       const guidedStep = extractGuidedStep(response);
@@ -829,26 +836,62 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         return { kind: 'guided', step: guidedStep, complete };
       }
 
-      if (typeof response === 'object' && response !== null) {
-        if (typeof (response as any).response === 'object' && (response as any).response !== null && typeof (response as any).response.response === 'string') {
-          return { kind: 'text', text: (response as any).response.response };
+      if (isRecord(response)) {
+        const rawResponseField: unknown = response['response'];
+        const responseObj = isRecord(rawResponseField) ? rawResponseField : null;
+
+        const responseResponseValue = responseObj ? responseObj['response'] : undefined;
+        if (typeof responseResponseValue === 'string' && responseResponseValue.trim()) {
+          return { kind: 'text', text: responseResponseValue };
         }
-        if (typeof (response as any).response === 'string') {
-          return { kind: 'text', text: (response as any).response };
+
+        if (typeof rawResponseField === 'string' && rawResponseField.trim()) {
+          return { kind: 'text', text: rawResponseField };
         }
-        if (typeof (response as any).message === 'string') {
-          return { kind: 'text', text: (response as any).message };
+
+        const messageValue = response['message'];
+        if (typeof messageValue === 'string' && messageValue.trim()) {
+          return { kind: 'text', text: messageValue };
         }
-        if (Array.isArray((response as any).options) && (response as any).options.length > 0) {
-          const optionsText = (response as any).options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return {
-            kind: 'text',
-            text: `${(response as any).message || (response as any).response?.message || 'Please choose an option:'}\n${optionsText}`,
-          };
+
+        const optionsValue = response['options'];
+        if (Array.isArray(optionsValue) && optionsValue.length > 0) {
+          const labels = optionsValue
+            .map((opt) => {
+              if (!isRecord(opt)) return null;
+              const label = opt['label'];
+              return typeof label === 'string' ? label : null;
+            })
+            .filter((label): label is string => !!label);
+
+          if (labels.length > 0) {
+            const prompt =
+              (typeof response['message'] === 'string' && response['message'].trim())
+                ? response['message']
+                : (responseObj && typeof responseObj['message'] === 'string' ? (responseObj['message'] as string) : 'Please choose an option:');
+            return { kind: 'text', text: `${prompt}\n${labels.map((l) => `- ${l}`).join('\n')}` };
+          }
         }
-        if ((response as any).response && Array.isArray((response as any).response.options)) {
-          const optionsText = (response as any).response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return { kind: 'text', text: `${(response as any).response.message || 'Please choose an option:'}\n${optionsText}` };
+
+        if (responseObj) {
+          const nestedOptions = responseObj['options'];
+          if (Array.isArray(nestedOptions) && nestedOptions.length > 0) {
+            const labels = nestedOptions
+              .map((opt) => {
+                if (!isRecord(opt)) return null;
+                const label = opt['label'];
+                return typeof label === 'string' ? label : null;
+              })
+              .filter((label): label is string => !!label);
+
+            if (labels.length > 0) {
+              const prompt =
+                (typeof responseObj['message'] === 'string' && (responseObj['message'] as string).trim())
+                  ? (responseObj['message'] as string)
+                  : 'Please choose an option:';
+              return { kind: 'text', text: `${prompt}\n${labels.map((l) => `- ${l}`).join('\n')}` };
+            }
+          }
         }
       }
 
@@ -868,18 +911,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         form_data: payload,
       });
 
-      if (res && typeof res === 'object') {
-        if ('session_id' in res && typeof (res as any).session_id === 'string' && (res as any).session_id !== sessionId) {
-          setSessionId((res as any).session_id);
-        } else if (
-          (res as any).response &&
-          typeof (res as any).response === 'object' &&
-          'session_id' in (res as any).response &&
-          typeof (res as any).response.session_id === 'string' &&
-          (res as any).response.session_id !== sessionId
-        ) {
-          setSessionId((res as any).response.session_id);
-        }
+      const nextSessionId = extractSessionIdFromResponse(res);
+      if (nextSessionId && nextSessionId !== sessionId) {
+        setSessionId(nextSessionId);
       }
 
       const nextStep = extractGuidedStep(res);
@@ -1064,8 +1098,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         (msg) =>
           msg.sender === 'bot' &&
           msg.type === 'text' &&
-          typeof (msg as any).text === 'string' &&
-          (msg as any).text.startsWith('Hi 👋 This is Joy from Old Mutual')
+          typeof msg.text === 'string' &&
+          msg.text.startsWith('Hi 👋 This is Joy from Old Mutual')
       );
       if (!hasHumanWelcome) {
         appendHumanMessage();
@@ -1329,7 +1363,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         chatMode,
       });
     }
-  }, [showGeneralInfo, generalInfoError]);
+  }, [showGeneralInfo, generalInfoError, chatMode]);
 
   // Divider state: only show once, only when switching to human mode, after loader disappears and before first human message
   const [showDivider, setShowDivider] = useState(false);
@@ -1490,7 +1524,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     <div key={message.id + "-msg"} className={msgSpacing}>
                       <MessageRenderer
                         message={message}
-                        avatar={(message as any).avatar}
+                        avatar={getMessageAvatar(message)}
                         chatMode={chatMode}
                         channel="whatsapp"
                       />
@@ -1516,7 +1550,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onConfirmPayment={handleConfirmPayment}
                       onSelectPaymentMethod={handleSelectPaymentMethod}
                       onSubmitMobilePayment={handleSubmitMobilePayment}
-                      avatar={(message as any).avatar}
+                      avatar={getMessageAvatar(message)}
                       chatMode={chatMode}
                       channel="web"
                     />
@@ -1550,7 +1584,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     onConfirmPayment={handleConfirmPayment}
                     onSelectPaymentMethod={handleSelectPaymentMethod}
                     onSubmitMobilePayment={handleSubmitMobilePayment}
-                    avatar={(message as any).avatar}
+                    avatar={getMessageAvatar(message)}
                     chatMode={chatMode}
                     channel={isWhatsApp ? 'whatsapp' : 'web'}
                   />
