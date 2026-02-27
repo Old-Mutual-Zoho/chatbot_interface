@@ -14,6 +14,7 @@ const HUMAN_CONFIG = {
 };
 import ChatHeader from "../components/chatbot/ChatHeader";
 import PostConversationFeedback from "../components/chatbot/PostConversationFeedback";
+import { GuidedStepRenderer } from "../components/form-components/GuidedStepRenderer";
 type State = {
   messages: ChatMessageWithTimestamp[];
   availableOptions: ActionOption[];
@@ -38,6 +39,7 @@ import type { ExtendedChatMessage } from "../components/chatbot/messages/actionC
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
 import { sendChatMessage, initiatePurchase } from "../services/api";
+import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
 // Removed unused AGENT_CONFIG import
@@ -70,6 +72,7 @@ type Action =
   { type: "RESET"; selectedProduct?: string | null }
 | { type: "SET_INPUT"; payload: string }
 | { type: "SEND_MESSAGE" }
+| { type: "CLEAR_LOADING" }
 | { type: "RECEIVE_BOT_REPLY"; payload: string; chatMode: 'bot' | 'human' }
   | { type: "SELECT_OPTION"; payload: ActionOption }
   | { type: "RECEIVE_OPTION_RESPONSE"; payload: { response: string; option: ActionOption; remainingOptions: ActionOption[] } }
@@ -178,6 +181,16 @@ function reducer(state: State, action: Action): State {
         messages: [...state.messages, userMessage, loadingMessage],
         inputValue: "",
         isSending: true,
+      };
+    }
+    case "CLEAR_LOADING": {
+      const filtered = state.messages.filter((msg) => msg.type !== "loading");
+      return {
+        ...state,
+        messages: filtered,
+        isSending: false,
+        loading: false,
+        showActionCard: false,
       };
     }
     case "RECEIVE_BOT_REPLY": {
@@ -636,6 +649,52 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
+  // Conversational inline guided quote flow (backend-driven)
+  const [inlineGuidedStep, setInlineGuidedStep] = useState<GuidedStepResponse | null>(null);
+  const [inlineGuidedValues, setInlineGuidedValues] = useState<Record<string, string>>({});
+  const [inlineGuidedErrors, setInlineGuidedErrors] = useState<Record<string, string>>({});
+  const [inlineGuidedLoading, setInlineGuidedLoading] = useState(false);
+  const inlineGuidedRef = useRef<HTMLDivElement>(null);
+
+  const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+  const extractGuidedStep = (res: unknown): GuidedStepResponse | null => {
+    // Walk nested `response.response` layers until we find an object with a `type`.
+    const tryUnwrap = (value: unknown): GuidedStepResponse | null => {
+      let current: unknown = value;
+      for (let i = 0; i < 6; i += 1) {
+        if (!isRecord(current)) return null;
+        const typeValue = current['type'];
+        if (typeof typeValue === 'string') return current as GuidedStepResponse;
+        current = current['response'];
+      }
+      return null;
+    };
+
+    if (!isRecord(res)) return null;
+    return tryUnwrap(res['response']) || tryUnwrap(res);
+  };
+
+  const extractIsComplete = (res: unknown): boolean => {
+    if (!isRecord(res)) return false;
+    const responseObj = isRecord(res['response']) ? (res['response'] as Record<string, unknown>) : null;
+    const completeValue = (responseObj ? responseObj['complete'] : undefined) ?? res['complete'];
+    return completeValue === true;
+  };
+
+  const extractTextFromChatResponse = (res: unknown): string | null => {
+    if (!isRecord(res)) return null;
+    if (typeof res['message'] === 'string' && (res['message'] as string).trim()) return res['message'] as string;
+
+    const responseObj = res['response'];
+    if (isRecord(responseObj)) {
+      const inner = responseObj['response'];
+      if (isRecord(inner) && typeof inner['message'] === 'string' && (inner['message'] as string).trim()) return inner['message'] as string;
+      if (typeof responseObj['message'] === 'string' && (responseObj['message'] as string).trim()) return responseObj['message'] as string;
+    }
+    return null;
+  };
+
   // General Info UI state (must be after selectedProduct and sessionId are defined)
   const [showGeneralInfo, setShowGeneralInfo] = useState(false);
   // Important: keep this as derived state (not a ref) so React re-renders when the product changes.
@@ -643,49 +702,111 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const { info: generalInfo, loading: generalInfoLoading, error: generalInfoError, fetchInfo } = useGeneralInformation(selectedProductKey);
  
 
-  // Fetch bot response and manage sessionId
-  const fetchBotResponse = async (option: string) => {
+  // Fetch bot response and manage sessionId (supports backend-driven guided steps)
+  const fetchBotResponse = async (option: string): Promise<
+    | { kind: 'guided'; step: GuidedStepResponse; complete: boolean }
+    | { kind: 'text'; text: string }
+  > => {
     if (!userId) {
-      return "Connecting to chat...";
+      return { kind: 'text', text: "Connecting to chat..." };
     }
     try {
       const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: option });
+
       // Update sessionId if backend returns a new one
       if (response && typeof response === 'object') {
-        if ('session_id' in response && typeof response.session_id === 'string' && response.session_id !== sessionId) {
-          setSessionId(response.session_id);
+        if ('session_id' in response && typeof (response as any).session_id === 'string' && (response as any).session_id !== sessionId) {
+          setSessionId((response as any).session_id);
         } else if (
-          response.response &&
-          typeof response.response === 'object' &&
-          'session_id' in response.response &&
-          typeof response.response.session_id === 'string' &&
-          response.response.session_id !== sessionId
+          (response as any).response &&
+          typeof (response as any).response === 'object' &&
+          'session_id' in (response as any).response &&
+          typeof (response as any).response.session_id === 'string' &&
+          (response as any).response.session_id !== sessionId
         ) {
-          setSessionId(response.response.session_id);
+          setSessionId((response as any).response.session_id);
         }
       }
+
+      const guidedStep = extractGuidedStep(response);
+      const complete = extractIsComplete(response);
+      if (guidedStep) {
+        return { kind: 'guided', step: guidedStep, complete };
+      }
+
       if (typeof response === 'object' && response !== null) {
-        if (typeof response.response === 'object' && response.response !== null && typeof response.response.response === 'string') {
-          return response.response.response;
+        if (typeof (response as any).response === 'object' && (response as any).response !== null && typeof (response as any).response.response === 'string') {
+          return { kind: 'text', text: (response as any).response.response };
         }
-        if (typeof response.response === 'string') {
-          return response.response;
+        if (typeof (response as any).response === 'string') {
+          return { kind: 'text', text: (response as any).response };
         }
-        if (typeof response.message === 'string') {
-          return response.message;
+        if (typeof (response as any).message === 'string') {
+          return { kind: 'text', text: (response as any).message };
         }
-        if (Array.isArray(response.options) && response.options.length > 0) {
-          const optionsText = response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return `${response.message || response.response?.message || 'Please choose an option:'}\n${optionsText}`;
+        if (Array.isArray((response as any).options) && (response as any).options.length > 0) {
+          const optionsText = (response as any).options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          return {
+            kind: 'text',
+            text: `${(response as any).message || (response as any).response?.message || 'Please choose an option:'}\n${optionsText}`,
+          };
         }
-        if (response.response && Array.isArray(response.response.options)) {
-          const optionsText = response.response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
-          return `${response.response.message || 'Please choose an option:'}\n${optionsText}`;
+        if ((response as any).response && Array.isArray((response as any).response.options)) {
+          const optionsText = (response as any).response.options.map((opt: { label: string }) => `- ${opt.label}`).join('\n');
+          return { kind: 'text', text: `${(response as any).response.message || 'Please choose an option:'}\n${optionsText}` };
         }
       }
-      return typeof response === 'string' ? response : 'Sorry, I could not understand the server response.';
+
+      return { kind: 'text', text: typeof response === 'string' ? response : 'Sorry, I could not understand the server response.' };
     } catch {
-      return "Sorry, I couldn't retrieve information from the server.";
+      return { kind: 'text', text: "Sorry, I couldn't retrieve information from the server." };
+    }
+  };
+
+  const submitInlineGuided = async (payload: Record<string, unknown>) => {
+    if (!userId) return;
+    setInlineGuidedLoading(true);
+    try {
+      const res = await sendChatMessage({
+        user_id: userId,
+        session_id: sessionId || '',
+        form_data: payload,
+      });
+
+      if (res && typeof res === 'object') {
+        if ('session_id' in res && typeof (res as any).session_id === 'string' && (res as any).session_id !== sessionId) {
+          setSessionId((res as any).session_id);
+        } else if (
+          (res as any).response &&
+          typeof (res as any).response === 'object' &&
+          'session_id' in (res as any).response &&
+          typeof (res as any).response.session_id === 'string' &&
+          (res as any).response.session_id !== sessionId
+        ) {
+          setSessionId((res as any).response.session_id);
+        }
+      }
+
+      const nextStep = extractGuidedStep(res);
+      const complete = extractIsComplete(res);
+      if (complete && !nextStep) {
+        setInlineGuidedStep(null);
+        setInlineGuidedValues({});
+        setInlineGuidedErrors({});
+        const msg = extractTextFromChatResponse(res);
+        if (msg) {
+          dispatch({ type: 'RECEIVE_BOT_REPLY', payload: msg, chatMode });
+        }
+        return;
+      }
+
+      if (nextStep) {
+        setInlineGuidedStep(nextStep);
+      }
+    } catch {
+      setInlineGuidedErrors((prev) => ({ ...prev, _error: 'Failed to submit. Please try again.' }));
+    } finally {
+      setInlineGuidedLoading(false);
     }
   };
 
@@ -698,6 +819,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Reset all chat state when selectedProduct changes (new conversation)
   useEffect(() => {
+    setInlineGuidedStep(null);
+    setInlineGuidedValues({});
+    setInlineGuidedErrors({});
+    setInlineGuidedLoading(false);
     dispatch({ type: "RESET", selectedProduct });
     const followupTimeout = setTimeout(() => {
       dispatch({
@@ -726,6 +851,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }, [state.showQuoteForm, state.quoteFormKey]);
 
   useEffect(() => {
+    if (!inlineGuidedStep) return;
+    inlineGuidedRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [inlineGuidedStep]);
+
+  useEffect(() => {
     inputRef.current?.focus();
   }, []);
   useEffect(() => {
@@ -738,6 +868,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
+
+    const outgoingText = state.inputValue;
 
     // Escalation keyword detection (text input)
     const messageLower = state.inputValue.toLowerCase();
@@ -763,8 +895,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     // Otherwise, proceed with normal bot response
     (async () => {
-      const reply = await fetchBotResponse(state.inputValue);
-      dispatch({ type: "RECEIVE_BOT_REPLY", payload: reply, chatMode });
+      const result = await fetchBotResponse(outgoingText);
+      if (result.kind === 'guided') {
+        dispatch({ type: 'CLEAR_LOADING' });
+        setInlineGuidedStep(result.step);
+        return;
+      }
+      dispatch({ type: "RECEIVE_BOT_REPLY", payload: result.text, chatMode });
     })();
   };
 
@@ -934,11 +1071,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
     // Handle Get My Quote (quote) flow
     if (option.value === "quote") {
-      // Mark the option as selected (for UI state)
-      dispatch({ type: "SELECT_OPTION", payload: option });
-      // Show the quote form (renders QuoteFormScreen)
-      dispatch({ type: "SHOW_QUOTE_FORM", payload: { label: option.label } });
-      // Do NOT dispatch RECEIVE_OPTION_RESPONSE for 'quote' (prevents bot message/loading)
+      // Guided flow (selected product): keep the existing embedded QuoteFormScreen.
+      if (selectedProduct) {
+        dispatch({ type: "SELECT_OPTION", payload: option });
+        dispatch({ type: "SHOW_QUOTE_FORM", payload: { label: option.label } });
+        return;
+      }
+
+      // Conversational flow: backend can return guided step payloads.
+      dispatch({ type: "SET_INPUT", payload: option.label });
+      dispatch({ type: "SEND_MESSAGE" });
+      setTimeout(async () => {
+        const result = await fetchBotResponse(option.label);
+        if (result.kind === 'guided') {
+          dispatch({ type: 'CLEAR_LOADING' });
+          setInlineGuidedStep(result.step);
+          return;
+        }
+        dispatch({ type: "RECEIVE_BOT_REPLY", payload: result.text, chatMode });
+      }, 250);
+
       return;
     }
     // Compute the new available options after selection
@@ -953,8 +1105,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       },
     });
     setTimeout(async () => {
-      const response = await fetchBotResponse(option.label);
-      dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response, option, remainingOptions: newAvailableOptions } });
+      const result = await fetchBotResponse(option.label);
+      if (result.kind === 'guided') {
+        setInlineGuidedStep(result.step);
+        dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response: "", option, remainingOptions: newAvailableOptions } });
+        return;
+      }
+      dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response: result.text, option, remainingOptions: newAvailableOptions } });
     }, 900);
   };
 
@@ -1318,6 +1475,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   userId={userId}
                   sessionId={sessionId}
                   onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isWhatsApp && !selectedProduct && inlineGuidedStep && (
+            <div ref={inlineGuidedRef} className="flex justify-start animate-fade-in mb-4">
+              <div className="w-full">
+                <GuidedStepRenderer
+                  step={inlineGuidedStep}
+                  values={inlineGuidedValues}
+                  errors={inlineGuidedErrors}
+                  onClearError={(name) => {
+                    setInlineGuidedErrors((prev) => {
+                      const next = { ...prev };
+                      delete next[name];
+                      return next;
+                    });
+                  }}
+                  onChange={(name, value) => {
+                    setInlineGuidedValues((prev) => ({ ...prev, [name]: value }));
+                  }}
+                  onSubmit={submitInlineGuided}
+                  loading={inlineGuidedLoading}
+                  titleFallback="Quote Details"
                 />
               </div>
             </div>
