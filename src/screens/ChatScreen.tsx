@@ -38,7 +38,7 @@ import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
-import { sendChatMessage, initiatePurchase } from "../services/api";
+import { sendChatMessage, initiatePurchase, startGuidedQuote } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
@@ -734,6 +734,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return rawMessage;
   };
 
+  const inferQuoteFlowName = (rawMessage: string): string | null => {
+    const lower = rawMessage.toLowerCase();
+    const isQuoteIntent =
+      lower.includes('quote') ||
+      lower.includes('quotation') ||
+      lower.includes('premium') ||
+      lower.includes('how much') ||
+      lower.includes('price') ||
+      lower.includes('cost');
+    if (!isQuoteIntent) return null;
+
+    // Motor insurance: treat “car/vehicle/auto” as Motor Private by default.
+    const wantsThirdParty =
+      lower.includes('third party') ||
+      lower.includes('thirdparty') ||
+      lower.includes('3rd party') ||
+      lower.includes('3rdparty');
+    if (wantsThirdParty) return null;
+
+    const mentionsCar = /\b(car|vehicle|auto|automobile)\b/.test(lower);
+    if (mentionsCar) return 'motor_private';
+
+    // If the user explicitly mentions the canonical product name, infer as well.
+    if (lower.includes('motor private')) return 'motor_private';
+
+    return null;
+  };
+
   // General Info UI state (must be after selectedProduct and sessionId are defined)
   const [showGeneralInfo, setShowGeneralInfo] = useState(false);
   // Important: keep this as derived state (not a ref) so React re-renders when the product changes.
@@ -750,6 +778,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return { kind: 'text', text: "Connecting to chat..." };
     }
     try {
+      // If the user is in a conversational flow and clearly requests a quote for a known product synonym,
+      // prefer the explicit guided start endpoint so we reliably get a GuidedStepResponse.
+      if (!selectedProduct && !inlineGuidedStep) {
+        const inferredFlow = inferQuoteFlowName(option);
+        if (inferredFlow && userId) {
+          try {
+            const guided = await startGuidedQuote({
+              user_id: userId,
+              flow_name: inferredFlow,
+              session_id: sessionId || undefined,
+              initial_data: undefined,
+            });
+            if (guided?.session_id && guided.session_id !== sessionId) {
+              setSessionId(guided.session_id);
+            }
+            if (guided?.response) {
+              return { kind: 'guided', step: guided.response, complete: false };
+            }
+          } catch {
+            // Fall back to normal chat messaging if the guided start is not supported.
+          }
+        }
+      }
+
       const messageForBackend = (!selectedProduct && !inlineGuidedStep)
         ? normalizeOutgoingMessageForBackend(option)
         : option;
