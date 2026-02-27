@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ChatbotContainer from "./ChatbotContainer";
 import { IoClose } from "react-icons/io5";
@@ -8,43 +8,49 @@ export default function ChatbotWidget() {
   // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const PORTAL_ID = "om-chatbot-portal";
+  const PORTAL_ID = "om-chatbot-portal";
+  const [portalNode] = useState<HTMLElement | null>(() => {
+    if (typeof document === "undefined") return null;
     const existing = document.getElementById(PORTAL_ID) as HTMLElement | null;
-    if (existing) {
-      setPortalNode(existing);
-      return;
-    }
+    if (existing) return existing;
 
     const node = document.createElement("div");
     node.id = PORTAL_ID;
     node.setAttribute("data-om-chatbot-root", "true");
+    node.setAttribute("data-om-chatbot-created", "true");
     // Mount under body as requested (portal prevents clipping by parent containers).
     document.body.appendChild(node);
-    setPortalNode(node);
+    return node;
+  });
 
+  useEffect(() => {
     return () => {
-      node.remove();
+      if (!portalNode) return;
+      if (portalNode.getAttribute("data-om-chatbot-created") === "true") {
+        portalNode.remove();
+      }
     };
-  }, []);
+  }, [portalNode]);
+
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // Teaser appears shortly after load to invite the user in.
   useEffect(() => {
     const timer = setTimeout(() => {
-      setShowTeaser(true);
+      if (!openRef.current) setShowTeaser(true);
     }, 4000);
 
     return () => clearTimeout(timer);
   }, []);
 
-  // Keep teaser and panel mutually exclusive.
-  useEffect(() => {
-    if (open) setShowTeaser(false);
-  }, [open]);
+  const handleClose = () => {
+    setOpen(false);
+    setShowTeaser(false);
+  };
 
-  // Keep teaser and panel mutually exclusive.
   const handleToggleOpen = () => {
     setOpen((prev) => {
       const next = !prev;
@@ -108,12 +114,12 @@ export default function ChatbotWidget() {
           <button
             type="button"
             aria-label="Close chatbot"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
             className="fixed inset-0 z-[9998] bg-black/30"
           />
-          <div className="fixed top-4 bottom-4 right-4 z-[9999] om-panel-enter pointer-events-auto flex items-end pb-20">
-            <div className="w-[95vw] h-[80dvh] max-h-full md:w-[400px] md:h-[680px] md:max-h-full overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
-              <ChatbotContainer onClose={() => setOpen(false)} />
+          <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(6rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9999] om-panel-enter pointer-events-auto">
+            <div className="w-[92vw] max-w-[480px] h-full max-h-full md:w-[500px] lg:w-[520px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
+              <ChatbotContainer onClose={handleClose} />
             </div>
           </div>
         </>

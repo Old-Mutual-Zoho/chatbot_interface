@@ -8,22 +8,25 @@ import OMlogo from "../assets/OMLogo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
 import product3 from "../assets/product3.png";
+import agentAvatar from "../assets/ai-profile.jpeg";
 import type { TopCategoryId } from "../components/chatbot/productTree";
 
 export default function HomeScreen({
   onStartChat,
   onGoToConversation,
   onSelectCategory,
+  onTalkToAgent,
 }: {
   onStartChat: () => void;
   onGoToConversation: () => void;
   onSelectCategory: (categoryId: TopCategoryId) => void;
+  onTalkToAgent: () => void;
 }) {
   return (
     <div className="flex flex-col h-full w-full bg-white">
       {/* Header */}
       <div
-        className="rounded-3xl p-6 pb-10 text-white bg-gradient-to-br from-primary to-primary/80"
+        className="rounded-3xl px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
       >
         {/* Logo */}
         <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">
@@ -56,7 +59,7 @@ export default function HomeScreen({
       {/* Cards */}
       <div className="mt-6 px-4 pb-4">
         <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-lg bg-white">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Personal category */}
             <button
               onClick={() => onSelectCategory("personal")}
@@ -105,6 +108,23 @@ export default function HomeScreen({
               </p>
               <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
                 Chat Now
+              </span>
+            </button>
+
+            {/* Talk to an Agent */}
+            <button
+              onClick={onTalkToAgent}
+              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+            >
+              <img
+                src={agentAvatar}
+                className="w-13 h-13 rounded-full object-cover mb-2"
+              />
+              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
+                Talk to an Agent
+              </p>
+              <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
+                Talk Now
               </span>
             </button>
           </div>
