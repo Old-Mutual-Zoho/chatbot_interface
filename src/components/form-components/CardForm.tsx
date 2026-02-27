@@ -631,7 +631,8 @@ const CardForm: React.FC<CardFormProps> = ({
             if (!showIfMatches(field.showIf)) return null;
           }
           // Validation logic
-          const value = values[field.name] || "";
+          const rawValue = (values as Record<string, unknown>)[field.name];
+          const value = rawValue == null ? "" : String(rawValue);
           const { error } = validateField(field);
           const externalError = externalErrors?.[field.name];
           const shouldShowError = (showErrors || touchedFields[field.name]) && !!error;
@@ -756,24 +757,27 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
                 <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
-                  {field.options.map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                  {field.options.map((opt) => {
+                    const optValue = String((opt as unknown as { value: unknown }).value);
+                    return (
+                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
                       <input
                         type="radio"
                         name={field.name}
-                        value={opt.value}
-                        checked={value === opt.value}
+                        value={optValue}
+                        checked={value === optValue}
                         onChange={() => {
                           markTouched(field.name);
                           onClearExternalError?.(field.name);
-                          onChange(field.name, opt.value);
-                          handleConfirmField(field, opt.value);
+                          onChange(field.name, optValue);
+                          handleConfirmField(field, optValue);
                         }}
                         className="accent-green-600"
                       />
                       <span>{opt.label}</span>
                     </label>
-                  ))}
+                  );
+                  })}
                 </div>
                 {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
                 {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
@@ -792,21 +796,23 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
                 <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
-                  {field.options.map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                  {field.options.map((opt) => {
+                    const optValue = String((opt as unknown as { value: unknown }).value);
+                    return (
+                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
                       <input
                         type="checkbox"
                         name={field.name}
-                        value={opt.value}
-                        checked={selected.includes(opt.value)}
+                        value={optValue}
+                        checked={selected.includes(optValue)}
                         onChange={() => {
                           markTouched(field.name);
                           onClearExternalError?.(field.name);
                           let updated: string[];
-                          if (selected.includes(opt.value)) {
-                            updated = selected.filter((v) => v !== opt.value);
+                          if (selected.includes(optValue)) {
+                            updated = selected.filter((v) => v !== optValue);
                           } else {
-                            updated = [...selected, opt.value];
+                            updated = [...selected, optValue];
                           }
                           onChange(field.name, updated.join(","));
                         }}
@@ -814,7 +820,8 @@ const CardForm: React.FC<CardFormProps> = ({
                       />
                       <span>{opt.label}</span>
                     </label>
-                  ))}
+                  );
+                  })}
                 </div>
                 {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
                 {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}

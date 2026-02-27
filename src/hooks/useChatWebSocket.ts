@@ -38,8 +38,14 @@ export function useChatWebSocket(userId: string) {
     if (!userId) return;
 
     // Build a ws:// or wss:// URL from the API base URL.
-    const baseUrl = import.meta.env.VITE_API_BASE_URL; // e.g. "https://your-app.railway.app"
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL ||
+      "https://rag-production-44a1.up.railway.app/api/v1";
     const apiKey = import.meta.env.VITE_API_KEY;
+    if (!apiKey) {
+      setReadyState("closed");
+      return;
+    }
     const wsUrl = `${baseUrl.replace(/^http/, "ws")}/ws/chat?api_key=${encodeURIComponent(apiKey)}`;
 
     // Open a new WebSocket connection.

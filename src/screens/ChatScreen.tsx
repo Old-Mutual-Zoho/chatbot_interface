@@ -578,6 +578,7 @@ type ChatScreenProps = {
   userId: string | null;
   sessionId: string | null;
   sessionLoading?: boolean;
+  sessionError?: string | null;
   channel?: 'web' | 'whatsapp';
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -600,6 +601,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   userId,
   sessionId: sessionIdProp,
   sessionLoading,
+  sessionError,
   renderCustomContent,
   // Removed unused agentConfig
   chatMode: _chatMode,
@@ -1263,7 +1265,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onConfirmPayment={handleConfirmPayment}
                       onSelectPaymentMethod={handleSelectPaymentMethod}
                       onSubmitMobilePayment={handleSubmitMobilePayment}
-                      loading={state.loading || !!sessionLoading}
+                      loading={state.loading || !!sessionLoading || !!sessionError}
                       lastSelected={state.lastSelected}
                       channel="web"
                     />
@@ -1316,13 +1318,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             value={state.inputValue}
             onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
             onKeyPress={handleKeyPress}
-            placeholder={sessionLoading ? "Connecting..." : "Type a message..."}
-            disabled={state.isSending || sessionLoading}
+            placeholder={sessionError ? sessionError : (sessionLoading ? "Connecting..." : "Type a message...")}
+            disabled={state.isSending || sessionLoading || !!sessionError}
             className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
           />
           <button
             onClick={handleSendMessage}
-            disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading}
+            disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError}
             className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
           >
             <IoSend size={16} className="sm:block" />
