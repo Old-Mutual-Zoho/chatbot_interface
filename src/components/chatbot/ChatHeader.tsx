@@ -25,34 +25,42 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onBack, onClose, agentConfig, c
   const displayName = isHuman ? agentConfig!.name : 'MIA';
   const status = isHuman ? agentConfig!.status : 'Online';
   return (
-    <div className="shrink-0 bg-primary text-white px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
+    <div className="shrink-0 w-full h-16 bg-primary text-white px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3">
       {onBack ? (
-        <button onClick={onBack} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer flex-shrink-0" title="Back">
-          <IoChevronBack size={18} className="sm:block" />
+        <button
+          onClick={onBack}
+          className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition cursor-pointer flex-shrink-0"
+          title="Back"
+        >
+          <IoChevronBack size={20} className="sm:block" />
         </button>
       ) : (
-        <div className="w-6" />
+        <div className="w-9" />
       )}
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-        <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
+        <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0">
           <img src={avatarSrc} alt={displayName} className="w-full h-full object-contain rounded-full" />
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="font-semibold text-white text-xs sm:text-sm truncate">{displayName}</span>
-          <span className="text-xs text-white/80 leading-tight">{status}</span>
+          <span className="font-semibold text-white text-sm sm:text-base leading-tight truncate">{displayName}</span>
+          <span className="text-[11px] sm:text-xs text-white/80 leading-tight">{status}</span>
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={onToggleExpand}
-          className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition cursor-pointer"
           title={isExpanded ? "Collapse" : "Expand"}
         >
-          {isExpanded ? <IoContractOutline size={18} className="sm:block" /> : <IoExpandOutline size={18} className="sm:block" />}
+          {isExpanded ? <IoContractOutline size={20} className="sm:block" /> : <IoExpandOutline size={20} className="sm:block" />}
         </button>
-        <button onClick={onClose} className="flex items-center text-white hover:bg-white/10 p-1 rounded transition cursor-pointer" title="Close">
-          <IoClose size={18} className="sm:block" />
+        <button
+          onClick={onClose}
+          className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+          title="Close"
+        >
+          <IoClose size={20} className="sm:block" />
         </button>
       </div>
     </div>

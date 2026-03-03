@@ -18,7 +18,7 @@ export const AgentBubble: React.FC<AgentBubbleProps> = ({ message, avatar, chann
       ) : null}
       <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[80%] break-words">
         <div className={isShort && message.timestamp ? "flex items-center justify-between gap-2" : undefined}>
-          <div className="break-words whitespace-pre-wrap leading-relaxed text-sm flex-1">
+          <div className="break-words whitespace-pre-wrap leading-relaxed text-base flex-1">
             <ReactMarkdown>{message.text || ""}</ReactMarkdown>
           </div>
           {!isWhatsApp && isShort && message.timestamp && (

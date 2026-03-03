@@ -29,7 +29,7 @@ export const BotBubble: React.FC<BotBubbleProps> = ({ message, avatar, channel =
         }
       >
         <div className={isShort && message.timestamp ? "flex items-center justify-between gap-2" : undefined}>
-          <div className="break-words whitespace-pre-wrap leading-relaxed text-sm flex-1">
+          <div className="break-words whitespace-pre-wrap leading-relaxed text-base flex-1">
             <ReactMarkdown>{message.text || ""}</ReactMarkdown>
           </div>
           {!isWhatsApp && isShort && message.timestamp && (

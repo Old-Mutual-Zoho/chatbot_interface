@@ -105,7 +105,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
     <div className="flex flex-col w-full h-full bg-white om-pattern-bg">
 
       {/* Header: navigation and close */}
-      <div className="h-14 shrink-0 bg-primary text-white flex items-center px-4">
+      <div className="h-16 shrink-0 bg-primary text-white flex items-center px-4">
         <button
           onClick={() => {
             // Inside General Insurance: back takes you up one level (products -> subcategories).
@@ -132,7 +132,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
             // Otherwise, delegate navigation to the parent screen.
             onBack();
           }}
-          className="mr-3 text-xl cursor-pointer"
+          className="mr-2 w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition cursor-pointer text-2xl leading-none"
         >
           ←
         </button>
@@ -141,10 +141,10 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
         <button
           type="button"
           onClick={onClose}
-          className="text-xl cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition cursor-pointer"
           aria-label="Close"
         >
-          <IoClose />
+          <IoClose size={20} />
         </button>
       </div>
 

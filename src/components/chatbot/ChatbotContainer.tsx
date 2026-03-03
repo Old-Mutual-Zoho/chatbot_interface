@@ -226,7 +226,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     <div
       className={
         [
-          'flex flex-col w-full h-full bg-white overflow-visible min-h-0 pt-2',
+          'flex flex-col w-full h-full bg-white overflow-visible min-h-0',
         ].join(' ')
       }
     >

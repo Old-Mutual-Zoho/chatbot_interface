@@ -52,14 +52,22 @@ export default function ConversationScreen({
   return (
     <div className="flex flex-col h-full w-full bg-white om-pattern-bg">
       {/* Header: navigation and close */}
-      <div className="h-14 bg-primary text-white flex items-center px-4">
-        <button onClick={onBack} className="mr-3 text-xl cursor-pointer" aria-label="Back">
-          <IoChevronBack />
+      <div className="h-16 shrink-0 bg-primary text-white flex items-center px-4">
+        <button
+          onClick={onBack}
+          className="mr-2 w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition cursor-pointer"
+          aria-label="Back"
+        >
+          <IoChevronBack size={20} />
         </button>
         <h2 className="text-lg font-semibold">Conversations</h2>
         <div className="flex-1" />
-        <button onClick={onClose} className="text-xl cursor-pointer" aria-label="Close">
-          <IoClose />
+        <button
+          onClick={onClose}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition cursor-pointer"
+          aria-label="Close"
+        >
+          <IoClose size={20} />
         </button>
       </div>
 
