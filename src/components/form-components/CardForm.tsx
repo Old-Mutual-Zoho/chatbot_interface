@@ -185,6 +185,13 @@ const CardForm: React.FC<CardFormProps> = ({
   const currentGroupEnd = (fieldGroup + 1) * groupSize;
   const currentGroupFields = allVisibleFields.slice(currentGroupStart, currentGroupEnd);
 
+  const [showErrors, setShowErrors] = React.useState(false);
+  const [touchedFields, setTouchedFields] = React.useState<Record<string, boolean>>({});
+
+  const markTouched = (name: string) => {
+    setTouchedFields((prev) => (prev[name] ? prev : { ...prev, [name]: true }));
+  };
+
   const resolveRelativeDate = (spec?: string) => {
     if (!spec) return undefined;
     const s = spec.trim().toLowerCase();
@@ -403,14 +410,32 @@ const CardForm: React.FC<CardFormProps> = ({
     return { valid: true, error: "" };
   };
 
+  const isFieldConfirmedForReveal = (field: CardFieldConfig) => {
+    const rawValue = values[field.name] ?? "";
+    const value = String(rawValue);
+    const hasValue = value.trim().length > 0;
+    const touched = !!touchedFields[field.name];
+    return hasValue || touched;
+  };
+
+  const isFieldCompleteForReveal = (field: CardFieldConfig) => {
+    // If a field is currently hidden by showIf, treat it as complete so it doesn't block reveal.
+    if (field.showIf && !showIfMatches(field.showIf)) return true;
+
+    // Progressive reveal should wait until the user has interacted (touched) or provided a value,
+    // even when a field is optional (optional empty values are otherwise "valid").
+    if (!isFieldConfirmedForReveal(field)) return false;
+    return validateField(field).valid;
+  };
+
   // Progressive reveal within each group: show 1 field at a time.
   // The next field appears only after the previous one validates.
   const getRevealCountForGroup = (groupFields: CardFieldConfig[]) => {
     if (groupFields.length <= 1) return groupFields.length;
 
     for (let i = 0; i < groupFields.length; i++) {
-      const { valid } = validateField(groupFields[i]);
-      if (!valid) {
+      const complete = isFieldCompleteForReveal(groupFields[i]);
+      if (!complete) {
         return i + 1;
       }
     }
@@ -471,12 +496,6 @@ const CardForm: React.FC<CardFormProps> = ({
 
   // State for button active (clicked) effect
   const [nextActive, setNextActive] = React.useState(false);
-  const [showErrors, setShowErrors] = React.useState(false);
-  const [touchedFields, setTouchedFields] = React.useState<Record<string, boolean>>({});
-
-  const markTouched = (name: string) => {
-    setTouchedFields((prev) => (prev[name] ? prev : { ...prev, [name]: true }));
-  };
 
   const limitUgandaMobileDigits = (raw: string) => {
     const s = String(raw ?? "");
@@ -607,16 +626,18 @@ const CardForm: React.FC<CardFormProps> = ({
 
   return (
     <div
-      className="w-full mt-2 rounded-2xl p-6 sm:p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200"
+      className="w-full max-w-xl mx-auto mt-2 rounded-3xl p-6 sm:p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200 shadow-2xl"
     >
       <div key={transitionKey} className={transitionClass}>
       <div className="w-full mb-4">
-        <h2 className="text-xl font-bold text-center text-primary">
-          {title}
-        </h2>
-        <div className="w-12 mx-auto mt-2 mb-2 border-b-2 border-green-200 rounded-full" />
+        <div className="w-full px-1">
+          <h2 className="text-lg sm:text-xl font-bold text-center text-primary">
+            {title}
+          </h2>
+          <div aria-hidden="true" className="mx-auto mt-2 h-1 w-12 rounded-full bg-primary" />
+        </div>
         {description && (
-          <p className="mt-2 text-center text-sm text-gray-600 leading-snug">
+          <p className="mt-3 text-center text-sm text-gray-600 leading-snug">
             {description}
           </p>
         )}
@@ -667,8 +688,8 @@ const CardForm: React.FC<CardFormProps> = ({
 
             return (
               <div key={field.name} className="w-full">
-                <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
-                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                <label htmlFor={field.name} className="block text-base font-semibold text-gray-800 mb-2">
+                  {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
                 {groupValue.length === 0 && (
@@ -728,7 +749,7 @@ const CardForm: React.FC<CardFormProps> = ({
                               value={subValue as string}
                               maxLength={subMaxLen}
                               onChange={e => handleFieldChange(activeIdx, subField.name, applyInputCaps(subField, e.target.value))}
-                              className="w-full px-3 py-3 border border-gray-300 rounded text-base"
+                              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40"
                               placeholder={subField.placeholder}
                             />
                           </div>
@@ -752,15 +773,15 @@ const CardForm: React.FC<CardFormProps> = ({
           if (field.type === "radio" && Array.isArray(field.options)) {
             return (
               <div key={field.name} className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                <label className="block text-base font-semibold text-gray-800 mb-2">
+                  {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
-                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-primary/20">
                   {field.options.map((opt) => {
                     const optValue = String((opt as unknown as { value: unknown }).value);
                     return (
-                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-primary/5 rounded-lg px-2 py-2 transition">
                       <input
                         type="radio"
                         name={field.name}
@@ -772,7 +793,7 @@ const CardForm: React.FC<CardFormProps> = ({
                           onChange(field.name, optValue);
                           handleConfirmField(field, optValue);
                         }}
-                        className="accent-green-600"
+                        className="accent-primary"
                       />
                       <span>{opt.label}</span>
                     </label>
@@ -791,15 +812,15 @@ const CardForm: React.FC<CardFormProps> = ({
             const selected = value ? value.split(",") : [];
             return (
               <div key={field.name} className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                <label className="block text-base font-semibold text-gray-800 mb-2">
+                  {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
-                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded border border-green-200">
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-primary/20">
                   {field.options.map((opt) => {
                     const optValue = String((opt as unknown as { value: unknown }).value);
                     return (
-                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-green-50 rounded px-1 py-1 transition">
+                    <label key={optValue} className="flex items-center gap-2 cursor-pointer hover:bg-primary/5 rounded-lg px-2 py-2 transition">
                       <input
                         type="checkbox"
                         name={field.name}
@@ -816,7 +837,7 @@ const CardForm: React.FC<CardFormProps> = ({
                           }
                           onChange(field.name, updated.join(","));
                         }}
-                        className="accent-green-600"
+                        className="accent-primary"
                       />
                       <span>{opt.label}</span>
                     </label>
@@ -917,13 +938,13 @@ const CardForm: React.FC<CardFormProps> = ({
                     }
                   }}
                   onBlur={() => markTouched(field.name)}
-                  className={`w-full px-4 py-2 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-green-50 focus:bg-white transition focus:outline-none`}
+                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                 />
 
                 {isOpen && (
                   <div
                     ref={comboboxMenuRef}
-                    className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-green-200 shadow-lg max-h-72 overflow-y-auto overscroll-contain"
+                    className="absolute z-50 mt-1 w-full bg-white rounded-xl border border-primary/20 shadow-lg max-h-72 overflow-y-auto overscroll-contain"
                     onWheel={(e) => e.stopPropagation()}
                   >
                     {filteredOptions.length === 0 ? (
@@ -945,7 +966,7 @@ const CardForm: React.FC<CardFormProps> = ({
                             setComboboxActiveIndex(-1);
                           }}
                           data-combobox-active={idx === comboboxActiveIndex ? "true" : "false"}
-                          className={`w-full text-left px-4 py-2 text-sm transition ${idx === comboboxActiveIndex ? 'bg-green-100' : 'bg-white'} hover:bg-green-50 ${value === opt.value ? 'font-semibold' : ''}`}
+                          className={`w-full text-left px-4 py-2 text-sm transition ${idx === comboboxActiveIndex ? 'bg-primary/10' : 'bg-white'} hover:bg-primary/5 ${value === opt.value ? 'font-semibold' : ''}`}
                         >
                           {opt.label}
                         </button>
@@ -965,8 +986,8 @@ const CardForm: React.FC<CardFormProps> = ({
             const placeholderText = field.placeholder || "Select an option";
             return (
               <div key={field.name}>
-                <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
-                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                <label htmlFor={field.name} className="block text-base font-semibold text-gray-800 mb-2">
+                  {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
                 <select
@@ -984,7 +1005,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     markTouched(field.name);
                     handleConfirmField(field);
                   }}
-                  className={`w-full px-4 py-2 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                 >
                   <option value="" disabled>
                     {placeholderText}
@@ -1004,8 +1025,8 @@ const CardForm: React.FC<CardFormProps> = ({
           // Default field rendering
           return (
             <div key={field.name}>
-              <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-1">
-                {field.label} {field.required && <span className="text-red-500">*</span>}
+              <label htmlFor={field.name} className="block text-base font-semibold text-gray-800 mb-2">
+                {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                 {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
               </label>
               {field.type === "date" ? (
@@ -1033,7 +1054,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   dateFormat="yyyy-MM-dd"
                   placeholderText={field.placeholder || "mm/dd/yyyy"}
                   readOnly={field.readOnly}
-                  className={`w-full px-4 py-2 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                   calendarClassName="om-datepicker-popup"
                   showMonthDropdown
                   showYearDropdown
@@ -1073,7 +1094,7 @@ const CardForm: React.FC<CardFormProps> = ({
                       (e.currentTarget as HTMLInputElement).blur();
                     }
                   }}
-                  className={`w-full px-4 py-2 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-2 focus:ring-primary`}
+                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                   placeholder={field.placeholder}
                 />
               )}
@@ -1090,7 +1111,7 @@ const CardForm: React.FC<CardFormProps> = ({
             type="button"
             onClick={handleBackClick}
             disabled={backDisabled}
-            className={`flex-1 px-4 py-2 rounded-lg ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-300 cursor-pointer'}`}
+            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition shadow-sm ${backDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 active:scale-95 cursor-pointer'}`}
           >
             Back
           </button>
@@ -1103,14 +1124,14 @@ const CardForm: React.FC<CardFormProps> = ({
             onMouseUp={handleNextMouseUp}
             onMouseLeave={handleNextMouseLeave}
             disabled={(autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled}
-            className={`flex-1 mt-0 py-2 px-4 bg-linear-to-r from-primary to-green-600 text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2 tracking-wide${((autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled) ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer'} ${nextActive ? 'scale-105 ring-2 ring-green-400' : ''} hover:from-green-700 hover:to-green-500 hover:scale-105 hover:ring-2 hover:ring-green-400`}
+            className={`flex-1 mt-0 py-3 px-4 bg-primary text-white font-semibold rounded-xl transition text-base shadow-md flex items-center justify-center gap-2 tracking-wide${((autoAdvance ? !allStepFieldsValid : !allCurrentGroupFilled) || nextDisabled) ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer active:scale-95 hover:bg-primary hover:shadow-lg'} ${nextActive ? 'ring-4 ring-primary/20' : ''}`}
           >
             {nextLabel}
           </button>
         )}
       </div>
       <div className="w-full mt-3 text-xs text-gray-500 text-center">
-        Fields marked with <span className="text-red-500">*</span> are compulsory.
+        Fields marked with <span className="text-accent font-semibold">*</span> are compulsory.
       </div>
       </div>
     </div>

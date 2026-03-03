@@ -36,14 +36,25 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);
-  // Loading state for Get Quote
-  const [showLoading, setShowLoading] = useState(false);
+  // Quote submission UX: after user submits the confirmation card, show thank-you first,
+  // then keep the analyzing screen visible until the backend actually advances the step.
+  const [awaitingQuoteResult, setAwaitingQuoteResult] = useState(false);
+  const [submittedStepKey, setSubmittedStepKey] = useState<string | null>(null);
   const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
-  const loadingStartedAtRef = useRef<number | null>(null);
   // Ref to scroll to bottom after loading
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Allow showing confirmation even if step is null, since we might be confirming after the last step.  
   if (!step && !(showConfirmation && confirmationData)) return null;
+
+  const getStepKey = (s: GuidedStepResponse | null): string => {
+    if (!s) return "__null__";
+    if (s.type !== "form") return s.type;
+    const fieldKey = Array.isArray(s.fields)
+      ? s.fields.map((f) => `${String(f.name)}:${String(f.type ?? "")}`).join("|")
+      : "";
+    return `form::${fieldKey}`;
+  };
+
    // Modular handler: show loader, then return to chat
   const handleSubmitFromReview = () => {
     if (!confirmationData) return;
@@ -80,40 +91,55 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       }
     }
 
-    loadingStartedAtRef.current = Date.now();
     setQuoteButtonDisabled(true);
-    setShowLoading(true);
+    setSubmittedStepKey(getStepKey(step));
+    setAwaitingQuoteResult(true);
     onSubmit(payloadToSend);
   };
 
   useEffect(() => {
-    // When the parent finishes submitting, hide the loader after a short minimum delay.
-    if (!showLoading) return;
-    if (loading) return;
+    if (!awaitingQuoteResult) return;
 
-    const minMs = 1400;
-    const startedAt = loadingStartedAtRef.current ?? Date.now();
-    const elapsed = Date.now() - startedAt;
-    const remaining = Math.max(0, minMs - elapsed);
+    // Keep the analyzing screen up until the backend advances to a new step
+    // (premium summary / next question / completion). This prevents the form from
+    // flashing back if `loading` flips false before `step` updates.
+    const currentKey = getStepKey(step);
 
-    const timer = window.setTimeout(() => {
-      setShowLoading(false);
-      setShowConfirmation(false);
-      setQuoteButtonDisabled(false);
+    // If we submitted while `step` was null (allowed by this component),
+    // treat "advance" as the backend sending any non-null step.
+    const submittedFromNullStep = submittedStepKey === "__null__";
+    const didAdvance = submittedFromNullStep
+      ? step != null
+      : (!step || step.type !== "form" || (submittedStepKey != null && currentKey !== submittedStepKey));
 
-      // Scroll so the next step (e.g., premium summary) is in view.
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-      }, 50);
-    }, remaining);
+    if (!didAdvance) return;
 
-    return () => window.clearTimeout(timer);
-  }, [loading, showLoading]);
+    setAwaitingQuoteResult(false);
+    setShowConfirmation(false);
+    setQuoteButtonDisabled(false);
 
-  if (showLoading) {
-    return <PaymentLoadingScreen variant="quote" />;
+    // Scroll so the next step (e.g., premium summary) is in view.
+    setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 50);
+  }, [awaitingQuoteResult, step, submittedStepKey]);
+
+  if (awaitingQuoteResult) {
+    return (
+      <>
+        <div className="flex w-full justify-start mb-2 animate-fade-in">
+          <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[80%] break-words">
+            <div className="break-words whitespace-pre-wrap leading-relaxed text-base">
+              Thank you! Your details have been submitted.
+            </div>
+          </div>
+        </div>
+        <PaymentLoadingScreen variant="quote" />
+        <div ref={messagesEndRef} />
+      </>
+    );
   }
 
   if (showConfirmation && confirmationData) {
