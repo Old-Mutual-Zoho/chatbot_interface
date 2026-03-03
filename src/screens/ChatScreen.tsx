@@ -644,7 +644,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Escalation state
   // const [escalating, setEscalating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
   // Conversational inline guided quote flow (backend-driven)
@@ -1034,12 +1034,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     })();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const resizeTypingArea = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    const maxHeightPx = 160;
+    const nextHeight = Math.min(el.scrollHeight, maxHeightPx);
+    el.style.height = `${nextHeight}px`;
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !state.isSending) {
       e.preventDefault();
       handleSendMessage();
     }
   };
+
+  useEffect(() => {
+    resizeTypingArea(inputRef.current);
+  }, []);
 
   // general info button for products
   // Escalation loader logic (persistent across renders)
@@ -1641,16 +1653,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {/* Input Area */}
       {!isConversationEnded && (
       <div className="shrink-0 bg-white p-3 border-t border-gray-200">
-        <div className="flex gap-2">
-          <input
+        <div className="flex gap-2 items-end">
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={state.inputValue}
-            onChange={(e) => dispatch({ type: "SET_INPUT", payload: e.target.value })}
-            onKeyPress={handleKeyPress}
+            onChange={(e) => {
+              dispatch({ type: "SET_INPUT", payload: e.target.value });
+              resizeTypingArea(e.currentTarget);
+            }}
+            onKeyDown={handleKeyPress}
             placeholder={sessionError ? sessionError : (sessionLoading ? "Connecting..." : "Type a message...")}
             disabled={state.isSending || sessionLoading || !!sessionError}
-            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm disabled:bg-gray-50 disabled:cursor-not-allowed transition"
+            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
           />
           <button
             onClick={handleSendMessage}
