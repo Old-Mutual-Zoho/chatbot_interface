@@ -606,7 +606,6 @@ type ChatScreenProps = {
   };
   chatMode: 'bot' | 'human';
   setChatMode: (mode: 'bot' | 'human') => void;
-  startInAgentMode?: boolean;
   initialMessages?: ChatMessageWithTimestamp[];
   onMessagesChange?: (messages: ChatMessageWithTimestamp[]) => void;
 };
@@ -623,7 +622,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSubmitFeedback,
   renderCustomContent,
   // Removed unused agentConfig
-  startInAgentMode = false,
   initialMessages,
   onMessagesChange,
   channel = 'web',
@@ -1080,14 +1078,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     updateHeader(HUMAN_CONFIG);
     // Do NOT call appendHumanMessage() here; let useEffect handle it after chatMode is set
   }
-
-  // Landing page CTA: open chat directly in agent mode.
-  useEffect(() => {
-    if (!startInAgentMode) return;
-    if (chatMode === 'human') return;
-    switchToHumanAgent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startInAgentMode]);
 
   function updateHeader(config: typeof BOT_CONFIG) {
     setHeaderConfig(config);

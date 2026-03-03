@@ -28,7 +28,9 @@ export async function getGeneralInformation(product: string) {
 
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://rag-production-44a1.up.railway.app/api/v1';
+// Prefer explicit env configuration (e.g., DigitalOcean). If not provided,
+// fall back to same-origin so a single-domain deployment can work.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 export const api = axios.create({

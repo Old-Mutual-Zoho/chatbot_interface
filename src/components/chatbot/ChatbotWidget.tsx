@@ -8,6 +8,13 @@ export default function ChatbotWidget() {
   // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
+
+  const debug =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).has("omdebug") ||
+      window.localStorage.getItem("omdebug") === "1");
+
   const PORTAL_ID = "om-chatbot-portal";
   const [portalNode] = useState<HTMLElement | null>(() => {
     if (typeof document === "undefined") return null;
@@ -18,19 +25,47 @@ export default function ChatbotWidget() {
     node.id = PORTAL_ID;
     node.setAttribute("data-om-chatbot-root", "true");
     node.setAttribute("data-om-chatbot-created", "true");
-    // Mount under body as requested (portal prevents clipping by parent containers).
-    document.body.appendChild(node);
+    // Append happens in an effect to make this resilient to StrictMode effect replay
+    // and to cases where <body> isn't ready yet.
     return node;
   });
 
   useEffect(() => {
+    if (!portalNode) return;
+    // Ensure the portal node is attached. In dev StrictMode, effects can be
+    // replayed and cleanups run even during initial load, so we re-attach if needed.
+    if (!document.documentElement.contains(portalNode)) {
+      if (document.body) document.body.appendChild(portalNode);
+      else document.documentElement.appendChild(portalNode);
+    }
+
+    if (debug) {
+      console.debug("[ChatbotWidget] portal attached", {
+        inDom: document.documentElement.contains(portalNode),
+        parent: portalNode.parentElement?.tagName,
+      });
+    }
+
     return () => {
       if (!portalNode) return;
-      if (portalNode.getAttribute("data-om-chatbot-created") === "true") {
-        portalNode.remove();
-      }
+      // In dev, don't remove the portal node; StrictMode can trigger cleanups
+      // during initial load, which would make the widget disappear.
+      if (import.meta.env.DEV) return;
+      if (portalNode.getAttribute("data-om-chatbot-created") === "true") portalNode.remove();
     };
-  }, [portalNode]);
+  }, [debug, portalNode]);
+
+  useEffect(() => {
+    if (!portalNode) return;
+    portalNode.setAttribute("data-om-open", open ? "true" : "false");
+    if (debug) {
+      console.debug("[ChatbotWidget] state", {
+        open,
+        showTeaser,
+        portalInDom: document.documentElement.contains(portalNode),
+      });
+    }
+  }, [debug, open, portalNode, showTeaser]);
 
   const openRef = useRef(open);
   useEffect(() => {
@@ -59,12 +94,62 @@ export default function ChatbotWidget() {
     });
   };
 
-  if (!portalNode) return null;
+  // Inline positioning so the launcher/panel still appear even if the host page
+  // doesn't load our CSS (or overrides common utility classes).
+  const launcherStyle: React.CSSProperties = {
+    position: "fixed",
+    right: "1rem",
+    bottom: open
+      ? "calc(0.25rem + env(safe-area-inset-bottom))"
+      : "calc(1rem + env(safe-area-inset-bottom))",
+    zIndex: 2147483647,
+    display: "block",
+    opacity: 1,
+    visibility: "visible",
+    pointerEvents: "auto",
+  };
 
-  return createPortal(
+  const backdropStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    zIndex: 2147483646,
+    background: "rgba(0,0,0,0.3)",
+  };
+
+  const panelAnchorStyle: React.CSSProperties = {
+    position: "fixed",
+    top: "calc(1rem + env(safe-area-inset-top))",
+    bottom: "calc(6rem + env(safe-area-inset-bottom))",
+    right: "calc(1rem + env(safe-area-inset-right))",
+    zIndex: 2147483647,
+    pointerEvents: "auto",
+  };
+
+  const launcherButtonStyle: React.CSSProperties = {
+    width: 64,
+    height: 64,
+    borderRadius: 9999,
+    borderWidth: 3,
+    borderStyle: "solid",
+    borderColor: open ? "#ffffff" : "var(--color-primary, #00A651)",
+    background: "var(--color-primary, #00A651)",
+    color: "#ffffff",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    boxShadow: "0 12px 26px rgba(0,0,0,0.18)",
+    cursor: "pointer",
+  };
+
+  const content = (
     <>
       {/* Floating Button + Teaser */}
-      <div className={`om-launcher om-launcher--intro relative ${open ? "om-launcher--open" : ""}`}>
+      <div
+        className={`om-launcher om-launcher--intro relative ${open ? "om-launcher--open" : ""}`}
+        style={launcherStyle}
+      >
         <div className={`flex items-center gap-3 ${open ? "" : "om-float"}`}>
           {/* Teaser bubble */}
           {showTeaser && !open && (
@@ -93,6 +178,7 @@ export default function ChatbotWidget() {
             className={`cursor-pointer bg-primary text-white w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] p-0 ${
               open ? "border-white" : "border-primary"
             }`}
+            style={launcherButtonStyle}
           >
             {open ? (
               <IoClose size={32} />
@@ -116,15 +202,20 @@ export default function ChatbotWidget() {
             aria-label="Close chatbot"
             onClick={handleClose}
             className="fixed inset-0 z-[9998] bg-black/30"
+            style={backdropStyle}
           />
-          <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(6rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9999] om-panel-enter pointer-events-auto">
+          <div
+            className="fixed top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(6rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9999] om-panel-enter pointer-events-auto"
+            style={panelAnchorStyle}
+          >
             <div className="w-[92vw] max-w-[480px] h-full max-h-full md:w-[500px] lg:w-[520px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
               <ChatbotContainer onClose={handleClose} />
             </div>
           </div>
         </>
       )}
-    </>,
-    portalNode,
+    </>
   );
+
+  return portalNode ? createPortal(content, portalNode) : content;
 }

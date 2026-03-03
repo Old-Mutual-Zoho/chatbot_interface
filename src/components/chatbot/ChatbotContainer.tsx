@@ -52,9 +52,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   // Toggle the wide view.
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Landing page entry: start chat directly in agent mode.
-  const [startInAgentMode, setStartInAgentMode] = useState(false);
-
   // Post-conversation feedback state (applies to both guided + normal conversations).
   const [isConversationEnded, setIsConversationEnded] = useState(false);
   const [pendingExit, setPendingExit] = useState<"back" | "close" | null>(null);
@@ -67,7 +64,14 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   const getSessionErrorMessage = (error: unknown) => {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
+      const message =
+        typeof error.response?.data === "object" && error.response?.data && "message" in error.response.data
+          ? String((error.response.data as { message?: unknown }).message)
+          : undefined;
       if (status === 401) return "Failed to connect (missing/invalid API key)";
+      if (status === 404 && message?.toLowerCase().includes("application not found")) {
+        return "Failed to connect (backend URL not found / Railway app missing)";
+      }
       if (status) return `Failed to connect (HTTP ${status})`;
       return "Failed to connect (network error)";
     }
@@ -115,17 +119,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
     setIsConversationEnded(false);
     setPendingExit(null);
     setActiveConversationId(null);
-    setStartInAgentMode(false);
-    resetChat();
-    setChatSessionKey((k) => k + 1);
-    setScreen("chat");
-  };
-
-  const startAgentConversation = () => {
-    setIsConversationEnded(false);
-    setPendingExit(null);
-    setActiveConversationId(null);
-    setStartInAgentMode(true);
     resetChat();
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
@@ -245,9 +238,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             onStartChat={() => {
               startNewConversation();
             }}
-            onTalkToAgent={() => {
-              startAgentConversation();
-            }}
             onGoToConversation={() => {
               setScreen("conversations");
             }}
@@ -283,7 +273,6 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
             sessionError={sessionError}
             isConversationEnded={isConversationEnded}
             onSubmitFeedback={handleSubmitFeedback}
-            startInAgentMode={startInAgentMode}
             initialMessages={
               activeConversationId
                 ? (conversations.find((c) => c.id === activeConversationId)?.messages ?? [])

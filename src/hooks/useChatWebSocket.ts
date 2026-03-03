@@ -38,9 +38,12 @@ export function useChatWebSocket(userId: string) {
     if (!userId) return;
 
     // Build a ws:// or wss:// URL from the API base URL.
-    const baseUrl =
-      import.meta.env.VITE_API_BASE_URL ||
-      "https://rag-production-44a1.up.railway.app/api/v1";
+    // Prefer explicit env configuration (e.g., DigitalOcean). If not provided,
+    // fall back to same-origin so a single-domain deployment can work.
+    const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+    const baseUrl = rawBaseUrl.startsWith("http")
+      ? rawBaseUrl
+      : `${window.location.origin}${rawBaseUrl.startsWith("/") ? "" : "/"}${rawBaseUrl}`;
     const apiKey = import.meta.env.VITE_API_KEY;
     if (!apiKey) {
       setReadyState("closed");
