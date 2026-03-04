@@ -42,6 +42,7 @@ import { sendChatMessage, initiatePurchase, startGuidedQuote } from "../services
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
+import { FeedbackActionBar } from "../components/chatbot/FeedbackActionBar";
 // Removed unused AGENT_CONFIG import
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -647,6 +648,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const quoteFormRef = useRef<HTMLDivElement>(null);
 
+  // Contextual feedback actions shown under the latest bot text response
+  const [showFeedbackActions, setShowFeedbackActions] = useState(false);
+  const [feedbackAnchorMessageId, setFeedbackAnchorMessageId] = useState<string | null>(null);
+  const lastBotTextIdRef = useRef<string | null>(null);
+  const suppressNextFeedbackBarRef = useRef(false);
+
   // Conversational inline guided quote flow (backend-driven)
   const [inlineGuidedStep, setInlineGuidedStep] = useState<GuidedStepResponse | null>(null);
   const [inlineGuidedValues, setInlineGuidedValues] = useState<Record<string, string>>({});
@@ -655,6 +662,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const inlineGuidedRef = useRef<HTMLDivElement>(null);
 
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+  useEffect(() => {
+    if (isWhatsApp) return;
+
+    // Find the latest bot text message id
+    const lastBotText = [...state.messages]
+      .reverse()
+      .find((m) => m.sender === 'bot' && m.type === 'text' && typeof (m as any).text === 'string');
+    const nextId = (lastBotText as any)?.id ?? null;
+
+    if (!nextId || nextId === lastBotTextIdRef.current) return;
+
+    lastBotTextIdRef.current = nextId;
+    setFeedbackAnchorMessageId(nextId);
+
+    if (suppressNextFeedbackBarRef.current) {
+      suppressNextFeedbackBarRef.current = false;
+      setShowFeedbackActions(false);
+      return;
+    }
+
+    // Only show the action bar for bot-mode conversations
+    setShowFeedbackActions(chatMode === 'bot');
+  }, [state.messages, isWhatsApp, chatMode]);
 
   const getMessageAvatar = (msg: ChatMessageWithTimestamp): string | undefined => {
     const avatarValue = (msg as unknown as { avatar?: unknown }).avatar;
@@ -998,6 +1029,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const handleSendMessage = () => {
     if (state.inputValue.trim() === "") return;
 
+    // Hide contextual feedback bar when the user sends a new message
+    setShowFeedbackActions(false);
+
     const outgoingText = state.inputValue;
 
     // Escalation keyword detection (text input)
@@ -1254,6 +1288,47 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
       dispatch({ type: "RECEIVE_OPTION_RESPONSE", payload: { response: result.text, option, remainingOptions: newAvailableOptions } });
     }, 900);
+  };
+
+  const productInContext = (selectedProduct && selectedProduct.trim()) ? selectedProduct.trim() : null;
+
+  const handleFeedbackThumbsUp = () => {
+    suppressNextFeedbackBarRef.current = true;
+    setShowFeedbackActions(false);
+    dispatch({
+      type: "RECEIVE_BOT_REPLY",
+      payload: productInContext
+        ? `You're welcome! If you have any questions about ${productInContext}, just let me know.`
+        : "You're welcome! If you have any questions, just let me know.",
+      chatMode: 'bot',
+    });
+  };
+
+  const handleFeedbackThumbsDown = () => {
+    suppressNextFeedbackBarRef.current = true;
+    setShowFeedbackActions(false);
+    dispatch({
+      type: "RECEIVE_BOT_REPLY",
+      payload:
+        "Sorry if that wasn’t helpful. \"Could you clarify your question or provide a little more detail so I can assist you better?\"",
+      chatMode: 'bot',
+    });
+  };
+
+  const handleFeedbackConnectAgent = () => {
+    setShowFeedbackActions(false);
+    handleEscalation();
+  };
+
+  const shouldShowFeedbackForMessage = (message: any) => {
+    return (
+      !isWhatsApp &&
+      chatMode === 'bot' &&
+      showFeedbackActions &&
+      feedbackAnchorMessageId === message?.id &&
+      message?.sender === 'bot' &&
+      message?.type === 'text'
+    );
   };
 
   const handleSelectPaymentMethod = (method: PaymentMethod) => {
@@ -1566,6 +1641,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       chatMode={chatMode}
                       channel="web"
                     />
+                    {shouldShowFeedbackForMessage(message) ? (
+                      <div className="flex w-full justify-start mt-2 pl-7 sm:pl-8">
+                        <FeedbackActionBar
+                          onThumbsUp={handleFeedbackThumbsUp}
+                          onThumbsDown={handleFeedbackThumbsDown}
+                          onConnectAgent={handleFeedbackConnectAgent}
+                        />
+                      </div>
+                    ) : null}
                   </div>,
                   <div key={"action-card-" + message.id} className="flex w-full justify-center mt-0">
                     <MessageRenderer
@@ -1600,6 +1684,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     chatMode={chatMode}
                     channel={isWhatsApp ? 'whatsapp' : 'web'}
                   />
+                  {shouldShowFeedbackForMessage(message) ? (
+                    <div className="flex w-full justify-start mt-2 pl-7 sm:pl-8">
+                      <FeedbackActionBar
+                        onThumbsUp={handleFeedbackThumbsUp}
+                        onThumbsDown={handleFeedbackThumbsDown}
+                        onConnectAgent={handleFeedbackConnectAgent}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -1659,6 +1752,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             rows={1}
             value={state.inputValue}
             onChange={(e) => {
+              // Hide contextual feedback bar as soon as the user starts typing
+              if (showFeedbackActions) setShowFeedbackActions(false);
               dispatch({ type: "SET_INPUT", payload: e.target.value });
               resizeTypingArea(e.currentTarget);
             }}
