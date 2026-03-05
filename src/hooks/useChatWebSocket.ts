@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { getEmbedToken } from "../config/runtimeAuth";
 
 // Message shape we send to the backend over WebSocket.
 export interface ChatMessagePayload {
@@ -44,12 +45,18 @@ export function useChatWebSocket(userId: string) {
     const baseUrl = rawBaseUrl.startsWith("http")
       ? rawBaseUrl
       : `${window.location.origin}${rawBaseUrl.startsWith("/") ? "" : "/"}${rawBaseUrl}`;
+
+    const token = getEmbedToken();
     const apiKey = import.meta.env.VITE_API_KEY;
-    if (!apiKey) {
+    if (!token && !apiKey) {
       setReadyState("closed");
       return;
     }
-    const wsUrl = `${baseUrl.replace(/^http/, "ws")}/ws/chat?api_key=${encodeURIComponent(apiKey)}`;
+
+    const wsBase = `${baseUrl.replace(/^http/, "ws")}/ws/chat`;
+    const wsUrl = token
+      ? `${wsBase}?token=${encodeURIComponent(token)}`
+      : `${wsBase}?api_key=${encodeURIComponent(apiKey)}`;
 
     // Open a new WebSocket connection.
     const ws = new WebSocket(wsUrl);

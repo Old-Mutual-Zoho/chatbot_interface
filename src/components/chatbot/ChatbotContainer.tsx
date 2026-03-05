@@ -12,7 +12,13 @@ import ProductScreen from "../../screens/ProductScreen";
 
 import { AGENT_CONFIG } from '../../config/agentConfig';
 
-export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
+export default function ChatbotContainer({
+  onClose,
+  initialScreen = "home",
+}: {
+  onClose: () => void;
+  initialScreen?: "home" | "chat" | "products" | "conversations";
+}) {
   // Main wrapper for the chatbot screens.
 
   // Key used to save chats in localStorage.
@@ -32,7 +38,7 @@ export default function ChatbotContainer({ onClose }: { onClose: () => void }) {
   };
 
   // Simple local router for the widget.
-  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations">("home");
+  const [screen, setScreen] = useState<"home" | "chat" | "products" | "conversations">(initialScreen);
   const [selectedCategoryId, setSelectedCategoryId] = useState<TopCategoryId | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 

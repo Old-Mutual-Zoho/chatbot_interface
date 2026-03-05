@@ -27,6 +27,7 @@ export async function getGeneralInformation(product: string) {
 }
 
 import axios from 'axios';
+import { getEmbedToken } from '../config/runtimeAuth';
 
 // Prefer explicit env configuration (e.g., DigitalOcean). If not provided,
 // fall back to same-origin so a single-domain deployment can work.
@@ -41,15 +42,23 @@ export const api = axios.create({
 	},
 });
 
-// Ensure X-API-KEY is always sent, even if headers are overridden elsewhere
+// Ensure auth is always sent, even if headers are overridden elsewhere.
+// Priority:
+// 1) iframe embed token (Authorization: Bearer)
+// 2) legacy env API key (X-API-KEY)
 api.interceptors.request.use((config) => {
 	config.headers = config.headers || {};
-	// Avoid sending `X-API-KEY: undefined` when the env var isn't set.
-	if (API_KEY) {
-		config.headers['X-API-KEY'] = API_KEY;
-	} else {
+	const token = getEmbedToken();
+	if (token) {
+		(config.headers as Record<string, unknown>)['Authorization'] = `Bearer ${token}`;
 		delete (config.headers as Record<string, unknown>)['X-API-KEY'];
+		return config;
 	}
+
+	delete (config.headers as Record<string, unknown>)['Authorization'];
+	// Avoid sending `X-API-KEY: undefined` when the env var isn't set.
+	if (API_KEY) config.headers['X-API-KEY'] = API_KEY;
+	else delete (config.headers as Record<string, unknown>)['X-API-KEY'];
 	return config;
 });
 

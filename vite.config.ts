@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -27,6 +28,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       rollupOptions: {
+        input: {
+          main: resolve(__dirname, "index.html"),
+          embed: resolve(__dirname, "embed.html"),
+          hostTest: resolve(__dirname, "host-test.html"),
+        },
         output: {
           manualChunks(id) {
             if (!id.includes("node_modules")) return;

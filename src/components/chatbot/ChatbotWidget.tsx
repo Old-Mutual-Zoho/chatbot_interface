@@ -4,7 +4,11 @@ import ChatbotContainer from "./ChatbotContainer";
 import { IoClose } from "react-icons/io5";
 import Logo from "../../assets/Logo.png";
 
-export default function ChatbotWidget() {
+export default function ChatbotWidget({
+  teaser = true,
+}: {
+  teaser?: boolean;
+}) {
   // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
@@ -74,6 +78,7 @@ export default function ChatbotWidget() {
 
   // Teaser appears shortly after load to invite the user in.
   useEffect(() => {
+    if (!teaser) return;
     const timer = setTimeout(() => {
       if (!openRef.current) setShowTeaser(true);
     }, 4000);
@@ -152,7 +157,7 @@ export default function ChatbotWidget() {
       >
         <div className={`flex items-center gap-3 ${open ? "" : "om-float"}`}>
           {/* Teaser bubble */}
-          {showTeaser && !open && (
+          {teaser && showTeaser && !open && (
             <div className="group relative max-w-xs bg-white rounded-xl shadow-lg px-4 py-3 text-xs sm:text-sm text-gray-800 leading-snug select-none cursor-pointer om-panel-enter">
               <button
                 type="button"
