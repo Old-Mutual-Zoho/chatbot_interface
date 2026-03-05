@@ -157,6 +157,41 @@ const buildFallbackFormStepFromFieldErrors = (
   } as GuidedStepResponse;
 };
 
+const toStoredStringValue = (value: unknown): string => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => (v == null ? '' : String(v)).trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
+const mergeFormDataForSummary = (
+  prev: Record<string, unknown>,
+  payload: Record<string, unknown>
+): Record<string, unknown> => {
+  const next: Record<string, unknown> = { ...prev };
+  for (const [key, rawValue] of Object.entries(payload)) {
+    const k = String(key ?? '').trim();
+    if (!k) continue;
+    if (k === 'action') continue;
+    if (k.startsWith('_')) continue;
+    next[k] = toStoredStringValue(rawValue);
+  }
+  return next;
+};
+
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
@@ -323,6 +358,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       return payload;
     })();
 
+    const mergedSerenicareData = mergeFormDataForSummary(serenicareFormData, normalizedPayload);
+    setSerenicareFormData(mergedSerenicareData);
+
     setSerenicareLoading(true);
     setSerenicareFieldErrors({});
     try {
@@ -341,7 +379,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
         (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
-        serenicareFormData
+        mergedSerenicareData
       );
 
       if (!resolved || resolved.complete || !resolved.step) {
@@ -390,6 +428,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const handlePaSubmit = async (payload: Record<string, unknown>) => {
     const sid = paSessionId ?? sessionId;
     if (!sid || !userId) return;
+
+    const mergedPaData = mergeFormDataForSummary(formData, payload);
+    setFormData(mergedPaData);
+
     setPaLoading(true);
     setPaFieldErrors({});
     try {
@@ -406,7 +448,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
         (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
-        formData
+        mergedPaData
       );
 
       if (!resolved || resolved.complete || !resolved.step) {
@@ -495,6 +537,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const handleMotorSubmit = async (payload: Record<string, unknown>) => {
     const sid = motorSessionId ?? sessionId;
     if (!sid || !userId) return;
+
+    const mergedMotorData = mergeFormDataForSummary(motorFormData, payload);
+    setMotorFormData(mergedMotorData);
+
     setMotorLoading(true);
     setMotorFieldErrors({});
     try {
@@ -511,7 +557,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
         (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
-        motorFormData
+        mergedMotorData
       );
 
       if (!resolved || resolved.complete || !resolved.step) {
@@ -598,6 +644,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const handleTravelSubmit = async (payload: Record<string, unknown>) => {
     const sid = travelSessionId ?? sessionId;
     if (!sid || !userId) return;
+
+    const mergedTravelData = mergeFormDataForSummary(travelFormData, payload);
+    setTravelFormData(mergedTravelData);
+
     setTravelLoading(true);
     setTravelFieldErrors({});
     try {
@@ -613,7 +663,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
         (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
-        travelFormData
+        mergedTravelData
       );
 
       if (!resolved || resolved.complete || !resolved.step) {

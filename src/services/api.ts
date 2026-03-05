@@ -140,7 +140,8 @@ export interface GuidedFormField {
 	help?: string;
 	minLength?: number;
 	maxLength?: number;
-	options?: { value: string; label: string }[];
+	// Backends vary: some send [{value,label}], others send ["Toyota", "Nissan", ...]
+	options?: Array<string | { value?: string; label?: string }>;
 	defaultValue?: string;
 }
 

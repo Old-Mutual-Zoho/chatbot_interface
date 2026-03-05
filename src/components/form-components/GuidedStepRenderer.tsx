@@ -5,6 +5,8 @@ import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
 
 import CardForm, { type CardFieldConfig } from "./CardForm";
 
+import type { CardFieldConfig as ConfirmationFieldConfig } from "../chatbot/messages/ConfirmationCard";
+
 // ...existing code...
 import type { GuidedStepResponse } from "../../services/api";
 
@@ -43,8 +45,99 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   const [quoteButtonDisabled, setQuoteButtonDisabled] = useState(false);
   // Ref to scroll to bottom after loading
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Allow showing confirmation even if step is null, since we might be confirming after the last step.  
-  if (!step && !(showConfirmation && confirmationData)) return null;
+  // Allow showing confirmation even if step is null, since we might be confirming after the last step.
+
+  const humanizeKey = (key: string): string => {
+    const s = String(key ?? '').trim();
+    if (!s) return '';
+    return s
+      .split('_')
+      .filter(Boolean)
+      .map((w) => {
+        const lower = w.toLowerCase();
+        if (lower === 'id') return 'ID';
+        if (lower === 'dob') return 'DOB';
+        if (lower === 'ugx') return 'UGX';
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+  };
+
+  const normalizeOptions = (opts: unknown): Array<{ label: string; value: string }> => {
+    if (!Array.isArray(opts)) return [];
+    return opts
+      .map((o) => {
+        if (typeof o === "string") {
+          const s = o.trim();
+          return s ? { label: s, value: s } : null;
+        }
+        if (!o || typeof o !== 'object') return null;
+        const rec = o as Record<string, unknown>;
+        const rawLabel = rec['label'];
+        const rawValue = rec['value'];
+        const label = typeof rawLabel === 'string' ? rawLabel : (typeof rawValue === 'string' ? rawValue : '');
+        const value = typeof rawValue === 'string' ? rawValue : (typeof rawLabel === 'string' ? rawLabel : '');
+        const l = label.trim();
+        const v = value.trim();
+        if (!l || !v) return null;
+        return { label: l, value: v };
+      })
+      .filter((x): x is { label: string; value: string } => !!x);
+  };
+
+  const buildConfirmationSummary = (
+    allValues: Record<string, string>,
+    currentPayload: Record<string, unknown>
+  ): Record<string, unknown> => {
+    const next: Record<string, unknown> = {};
+
+    const addIfMeaningful = (key: string, value: unknown) => {
+      const k = String(key ?? '').trim();
+      if (!k) return;
+      if (k === 'action') return;
+      if (k.startsWith('_')) return;
+      if (value == null) return;
+      const s = String(value).trim();
+      if (!s) return;
+      next[k] = value;
+    };
+
+    for (const [k, v] of Object.entries(allValues ?? {})) {
+      addIfMeaningful(k, v);
+    }
+    for (const [k, v] of Object.entries(currentPayload ?? {})) {
+      addIfMeaningful(k, v);
+    }
+    return next;
+  };
+
+  const confirmationLabels = useMemo(() => {
+    if (!confirmationData) return {} as Record<string, string>;
+    const next: Record<string, string> = {};
+    for (const key of Object.keys(confirmationData)) {
+      next[key] = humanizeKey(key) || key;
+    }
+    return next;
+  }, [confirmationData]);
+
+  const confirmationFieldTypes = useMemo(() => {
+    const next: Record<string, ConfirmationFieldConfig> = {};
+    if (!step || step.type !== 'form' || !Array.isArray(step.fields)) return next;
+    for (const f of step.fields ?? []) {
+      const name = String(f.name ?? '').trim();
+      if (!name) continue;
+      const label = typeof f.label === 'string' ? f.label : name;
+      next[name] = {
+        name,
+        label,
+        type: String(f.type ?? 'text'),
+        required: Boolean(f.required),
+        placeholder: typeof f.placeholder === 'string' ? f.placeholder : undefined,
+        options: normalizeOptions(f.options),
+      };
+    }
+    return next;
+  }, [step]);
 
   const getStepKey = (s: GuidedStepResponse | null): string => {
     if (!s) return "__null__";
@@ -59,14 +152,24 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   const handleSubmitFromReview = () => {
     if (!confirmationData) return;
 
+    // Only submit the fields that belong to the current backend step.
+    // The confirmation card may show *all* accumulated values, but the backend
+    // session already holds previous steps; sending extra keys can cause validation issues.
+    const nextPayload: Record<string, unknown> = {};
+    if (confirmationData && typeof confirmationData['action'] === 'string') {
+      nextPayload['action'] = confirmationData['action'];
+    }
+
     // Re-normalize the current step's fields (e.g., number inputs) in case the user
     // edited values on the confirmation card (which are strings).
-    const payloadToSend: Record<string, unknown> = { ...confirmationData };
+    const payloadToSend: Record<string, unknown> = nextPayload;
     if (step && step.type === "form" && "fields" in step && Array.isArray(step.fields)) {
       for (const f of step.fields ?? []) {
         const raw = payloadToSend[f.name] ?? values[f.name] ?? "";
+        const fromReview = (confirmationData as Record<string, unknown>)[f.name];
+        const rawFromReview = fromReview ?? raw;
         const t = String(f.type ?? "").toLowerCase();
-        const rawStr = raw == null ? "" : String(raw);
+        const rawStr = rawFromReview == null ? "" : String(rawFromReview);
 
         if (t === "number" || t === "integer") {
           const trimmed = rawStr.trim();
@@ -87,7 +190,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           continue;
         }
 
-        payloadToSend[f.name] = raw;
+        payloadToSend[f.name] = rawFromReview;
       }
     }
 
@@ -97,36 +200,27 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     onSubmit(payloadToSend);
   };
 
-  useEffect(() => {
-    if (!awaitingQuoteResult) return;
-
-    // Keep the analyzing screen up until the backend advances to a new step
-    // (premium summary / next question / completion). This prevents the form from
-    // flashing back if `loading` flips false before `step` updates.
+  // Determine whether the backend has advanced to a new step since the user submitted.
+  // Used to stop showing the analyzing screen without needing effect-driven state resets.
+  const didAdvance = useMemo(() => {
     const currentKey = getStepKey(step);
-
-    // If we submitted while `step` was null (allowed by this component),
-    // treat "advance" as the backend sending any non-null step.
     const submittedFromNullStep = submittedStepKey === "__null__";
-    const didAdvance = submittedFromNullStep
+    return submittedFromNullStep
       ? step != null
       : (!step || step.type !== "form" || (submittedStepKey != null && currentKey !== submittedStepKey));
+  }, [step, submittedStepKey]);
 
+  useEffect(() => {
+    if (!awaitingQuoteResult) return;
     if (!didAdvance) return;
-
-    setAwaitingQuoteResult(false);
-    setShowConfirmation(false);
-    setQuoteButtonDisabled(false);
-
     // Scroll so the next step (e.g., premium summary) is in view.
-    setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-      }
+    const t = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 50);
-  }, [awaitingQuoteResult, step, submittedStepKey]);
+    return () => window.clearTimeout(t);
+  }, [awaitingQuoteResult, didAdvance]);
 
-  if (awaitingQuoteResult) {
+  if (awaitingQuoteResult && !didAdvance) {
     return (
       <>
         <div className="flex w-full justify-start mb-2 animate-fade-in">
@@ -142,11 +236,13 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     );
   }
 
-  if (showConfirmation && confirmationData) {
+  if (showConfirmation && confirmationData && !didAdvance) {
     return (
       <>
         <ConfirmationCard
           data={confirmationData}
+          labels={confirmationLabels}
+          fieldTypes={confirmationFieldTypes}
           // ...existing code...
           onEdit={(values) => {
             setConfirmationData(values);
@@ -217,7 +313,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 						placeholder: f.placeholder,
 						minLength: f.minLength,
 						maxLength: f.maxLength,
-						options: (f.options ?? []).map((o) => ({ label: o.label, value: o.value })),
+						options: normalizeOptions(f.options),
 						// CardForm supports these optional keys; keep them if backend provides them.
 						defaultValue: f.defaultValue,
 					}) as CardFieldConfig)
@@ -233,7 +329,9 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 				onNext={() => {
 					const payloadToSend = buildPayloadFromValues();
 					if (confirmOnFormSubmit) {
-						setConfirmationData(payloadToSend);
+              // Show a full summary of all values captured so far (across steps).
+              // Keep the current-step payload inside the confirmation as well.
+            setConfirmationData(buildConfirmationSummary(values, payloadToSend));
 						setShowConfirmation(true);
 						return;
 					}

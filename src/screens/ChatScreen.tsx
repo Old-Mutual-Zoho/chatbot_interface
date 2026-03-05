@@ -1008,6 +1008,44 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const submitInlineGuided = async (payload: Record<string, unknown>) => {
     if (!userId) return;
+
+    // Persist all user-entered values across guided step types so that
+    // later confirmation steps can display a complete summary.
+    setInlineGuidedValues((prev) => {
+      const next: Record<string, string> = { ...prev };
+      for (const [key, rawValue] of Object.entries(payload)) {
+        const k = String(key ?? '').trim();
+        if (!k) continue;
+        if (k === 'action') continue;
+        if (k.startsWith('_')) continue;
+        if (rawValue == null) {
+          next[k] = '';
+          continue;
+        }
+        if (typeof rawValue === 'string') {
+          next[k] = rawValue;
+          continue;
+        }
+        if (typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+          next[k] = String(rawValue);
+          continue;
+        }
+        if (Array.isArray(rawValue)) {
+          next[k] = rawValue
+            .map((v) => (v == null ? '' : String(v)).trim())
+            .filter(Boolean)
+            .join(', ');
+          continue;
+        }
+        try {
+          next[k] = JSON.stringify(rawValue);
+        } catch {
+          next[k] = String(rawValue);
+        }
+      }
+      return next;
+    });
+
     setInlineGuidedLoading(true);
     try {
       const payloadToSend = inlineGuidedPendingAction ? { ...payload, action: inlineGuidedPendingAction } : payload;
