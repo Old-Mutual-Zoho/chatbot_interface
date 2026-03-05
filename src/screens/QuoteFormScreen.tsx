@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import type { GuidedStepResponse } from '../services/api';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
 import { LoadingBubble } from "../components/chatbot/messages/LoadingBubble";
+import type { CardFieldConfig as ConfirmationFieldConfig } from '../components/chatbot/messages/ConfirmationCard';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -157,6 +158,49 @@ const buildFallbackFormStepFromFieldErrors = (
   } as GuidedStepResponse;
 };
 
+const buildConfirmationFieldTypeHintsFromStep = (
+  step: GuidedStepResponse | null
+): Record<string, ConfirmationFieldConfig> => {
+  if (!step) return {};
+
+  if (step.type === 'radio') {
+    const key = step.question_id && step.question_id.trim() ? step.question_id : '';
+    if (!key) return {};
+    return {
+      [key]: {
+        name: key,
+        label: typeof step.message === 'string' && step.message.trim() ? step.message : key,
+        type: 'radio',
+        options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+      },
+    };
+  }
+
+  if (step.type === 'yes_no_details') {
+    const key = step.question_id && step.question_id.trim() ? step.question_id : '';
+    if (!key) return {};
+    const next: Record<string, ConfirmationFieldConfig> = {
+      [key]: {
+        name: key,
+        label: typeof step.message === 'string' && step.message.trim() ? step.message : key,
+        type: 'radio',
+        options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+      },
+    };
+    if (step.details_field?.name) {
+      const detailsKey = step.details_field.name;
+      next[detailsKey] = {
+        name: detailsKey,
+        label: step.details_field.label ?? detailsKey,
+        type: 'text',
+      };
+    }
+    return next;
+  }
+
+  return {};
+};
+
 const toStoredStringValue = (value: unknown): string => {
   if (value == null) return '';
   if (typeof value === 'string') return value;
@@ -256,6 +300,22 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         name.includes('coverlimit') ||
         name.includes('cover_limit') ||
         (label.includes('cover') && label.includes('limit'))
+      );
+    });
+  };
+
+  const shouldConfirmMotorBeforeSubmit = (step: GuidedStepResponse | null): boolean => {
+    if (!step || step.type !== 'form') return false;
+    const fields = step.fields ?? [];
+    return fields.some((f) => {
+      const name = String(f.name ?? '').trim().toLowerCase();
+      const label = String(f.label ?? '').trim().toLowerCase();
+      // Motor Private final field is "car usage".
+      return (
+        name === 'car_usage' ||
+        name === 'carusage' ||
+        name.includes('car_usage') ||
+        label.includes('car usage')
       );
     });
   };
@@ -489,6 +549,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [motorFieldErrors, setMotorFieldErrors] = useState<Record<string, string>>({});
   const [motorFormData, setMotorFormData] = useState<Record<string, unknown>>({});
   const [motorPendingAction, setMotorPendingAction] = useState<string | null>(null);
+  const [motorConfirmationFieldTypes, setMotorConfirmationFieldTypes] = useState<Record<string, ConfirmationFieldConfig>>({});
 
   // Start or resume backend-driven Motor Private flow
   useEffect(() => {
@@ -497,6 +558,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setMotorComplete(false);
     setMotorFieldErrors({});
     setMotorFormData({});
+    setMotorConfirmationFieldTypes({});
     (async () => {
       try {
         const response = await startGuidedQuote({
@@ -537,6 +599,13 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const handleMotorSubmit = async (payload: Record<string, unknown>) => {
     const sid = motorSessionId ?? sessionId;
     if (!sid || !userId) return;
+
+    // Capture field metadata from the current step so the confirmation card can render
+    // radio/yes-no controls (instead of falling back to text inputs).
+    setMotorConfirmationFieldTypes((prev) => ({
+      ...prev,
+      ...buildConfirmationFieldTypeHintsFromStep(motorStepPayload),
+    }));
 
     const mergedMotorData = mergeFormDataForSummary(motorFormData, payload);
     setMotorFormData(mergedMotorData);
@@ -878,7 +947,10 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onChange={handleMotorChange}
         onSubmit={handleMotorSubmit}
         loading={motorLoading}
-        confirmOnFormSubmit={shouldConfirmBeforeSubmit(motorStepPayload)}
+        confirmationFieldTypeHints={motorConfirmationFieldTypes}
+        // Motor final form step contains "car usage"; show Review -> confirmation card there.
+        confirmOnFormSubmit={shouldConfirmMotorBeforeSubmit(motorStepPayload)}
+        confirmOnPremiumSummaryActions={false}
       />
     );
   }

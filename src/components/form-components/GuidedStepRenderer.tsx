@@ -21,6 +21,8 @@ interface GuidedStepRendererProps {
   loading?: boolean;
   titleFallback?: string;
   confirmOnFormSubmit?: boolean;
+  confirmationFieldTypeHints?: Record<string, ConfirmationFieldConfig>;
+  confirmOnPremiumSummaryActions?: boolean;
 }
 
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
@@ -34,6 +36,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   loading = false,
   titleFallback,
   confirmOnFormSubmit = false,
+  confirmationFieldTypeHints,
+  confirmOnPremiumSummaryActions = false,
 }) => {
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -94,7 +98,6 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     const addIfMeaningful = (key: string, value: unknown) => {
       const k = String(key ?? '').trim();
       if (!k) return;
-      if (k === 'action') return;
       if (k.startsWith('_')) return;
       if (value == null) return;
       const s = String(value).trim();
@@ -111,6 +114,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     return next;
   };
 
+  const handlePremiumSummarySubmit = (payload: Record<string, unknown>) => {
+    if (!confirmOnPremiumSummaryActions) {
+      onSubmit(payload);
+      return;
+    }
+    setConfirmationData(buildConfirmationSummary(values, payload));
+    setShowConfirmation(true);
+  };
+
   const confirmationLabels = useMemo(() => {
     if (!confirmationData) return {} as Record<string, string>;
     const next: Record<string, string> = {};
@@ -121,7 +133,9 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   }, [confirmationData]);
 
   const confirmationFieldTypes = useMemo(() => {
-    const next: Record<string, ConfirmationFieldConfig> = {};
+    const next: Record<string, ConfirmationFieldConfig> = {
+      ...(confirmationFieldTypeHints ?? {}),
+    };
     if (!step || step.type !== 'form' || !Array.isArray(step.fields)) return next;
     for (const f of step.fields ?? []) {
       const name = String(f.name ?? '').trim();
@@ -137,7 +151,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       };
     }
     return next;
-  }, [step]);
+  }, [confirmationFieldTypeHints, step]);
 
   const getStepKey = (s: GuidedStepResponse | null): string => {
     if (!s) return "__null__";
@@ -349,7 +363,13 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       );
     case "premium_summary":
       // A summary card showing prices and action buttons.
-      return <PremiumSummaryStep step={step as Extract<GuidedStepResponse, { type: "premium_summary" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <PremiumSummaryStep
+          step={step as Extract<GuidedStepResponse, { type: "premium_summary" }>}
+          onSubmit={handlePremiumSummarySubmit}
+          loading={loading}
+        />
+      );
     case "yes_no_details":
       // A yes/no (or choice) question that may show an extra textbox.
       return <YesNoDetailsStep step={step as Extract<GuidedStepResponse, { type: "yes_no_details" }> } onSubmit={onSubmit} loading={loading} />;

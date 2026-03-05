@@ -26,12 +26,30 @@ const ConfirmationCard: React.FC<ConfirmationCardProps> = ({ data, labels, field
   const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
   const [buttonText, setButtonText] = useState<'edit' | 'cancel' | 'save'>('edit');
 
-  // Prepare display data
-  const displayData = editMode ? editValues : Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v == null ? '' : String(v)]));
+  const isUserVisibleKey = (key: string) => {
+    const k = String(key ?? '').trim();
+    if (!k) return false;
+    if (k === 'action') return false;
+    if (k.startsWith('_')) return false;
+    return true;
+  };
+
+  // Prepare display data (hide internal keys like action/_raw)
+  const displayData = editMode
+    ? Object.fromEntries(Object.entries(editValues).filter(([k]) => isUserVisibleKey(k)))
+    : Object.fromEntries(
+        Object.entries(data)
+          .filter(([k]) => isUserVisibleKey(k))
+          .map(([k, v]) => [k, v == null ? '' : String(v)])
+      );
 
   // Enter edit mode
   const handleEdit = useCallback(() => {
-    const strData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v == null ? '' : String(v)]));
+    const strData = Object.fromEntries(
+      Object.entries(data)
+        .filter(([k]) => isUserVisibleKey(k))
+        .map(([k, v]) => [k, v == null ? '' : String(v)])
+    );
     setEditValues(strData);
     setOriginalValues(strData);
     setEditMode(true);
