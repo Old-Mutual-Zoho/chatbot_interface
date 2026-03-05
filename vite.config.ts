@@ -31,7 +31,6 @@ export default defineConfig(({ mode }) => {
         input: {
           main: resolve(__dirname, "index.html"),
           embed: resolve(__dirname, "embed.html"),
-          hostTest: resolve(__dirname, "host-test.html"),
         },
         output: {
           manualChunks(id) {
