@@ -38,7 +38,7 @@ import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
-import { sendChatMessage, initiatePurchase, startGuidedQuote } from "../services/api";
+import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
@@ -65,7 +65,11 @@ const toBackendProductKey = (product: string | null | undefined): string | null 
   );
 };
 
-type ChatInitOptions = { selectedProduct?: string | null; isGuidedFlow: boolean; initialMessages?: ChatMessageWithTimestamp[] };
+type ChatInitOptions = {
+  selectedProduct?: string | null;
+  isGuidedFlow: boolean;
+  initialMessages?: ChatMessageWithTimestamp[];
+};
 
 import type { PaymentMethod } from "../components/chatbot/messages/PaymentMethodSelector";
 
@@ -89,6 +93,7 @@ type Action =
   | { type: "SUBMIT_MOBILE_PAYMENT"; payload: string }
 
   | { type: "SHOW_PAYMENT_LOADING_SCREEN"; variant?: PaymentLoadingScreenVariant; text?: string }
+  | { type: "CLEAR_PAYMENT_LOADING_SCREEN"; variant?: PaymentLoadingScreenVariant }
   | { type: "CONFIRM_PURCHASE" }
   | { type: "PURCHASE_SUCCESS"; payload: string }
   | { type: "PURCHASE_FAILED"; payload: string };
@@ -115,6 +120,7 @@ type Action =
       quoteFormKey: 0,
     };
   }
+
   const welcomeMsg: ChatMessageWithTimestamp = {
     id: "welcome-1",
     type: "custom-welcome",
@@ -500,6 +506,20 @@ function reducer(state: State, action: Action): State {
         isPurchasing: true,
       };
     }
+    case "CLEAR_PAYMENT_LOADING_SCREEN": {
+      const nextMessages = state.messages.filter((msg) => {
+        if (msg.type !== "payment-loading-screen") return true;
+        if (!action.variant) return false;
+        const msgVariant = (msg as Extract<ChatMessageWithTimestamp, { type: "payment-loading-screen" }>).variant;
+        return msgVariant !== action.variant;
+      });
+      return {
+        ...state,
+        messages: nextMessages,
+        loading: false,
+        isPurchasing: false,
+      };
+    }
     case "CONFIRM_PURCHASE": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       const loadingMessage: ChatMessageWithTimestamp = {
@@ -596,6 +616,8 @@ type ChatScreenProps = {
   sessionError?: string | null;
   isConversationEnded?: boolean;
   onSubmitFeedback?: (payload: { rating: number; feedback: string }) => void;
+  autoConnectAgent?: boolean;
+  onAutoConnectAgentHandled?: () => void;
   channel?: 'web' | 'whatsapp';
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -621,6 +643,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   sessionError,
   isConversationEnded = false,
   onSubmitFeedback,
+  autoConnectAgent,
+  onAutoConnectAgentHandled,
   renderCustomContent,
   // Removed unused agentConfig
   initialMessages,
@@ -628,6 +652,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   channel = 'web',
 }) => {
   const isWhatsApp = channel === 'whatsapp';
+
+  // Persist whether this chat session is "agent-first" (entered via Chat-with-Agent nav).
+  // This must survive the container clearing autoConnectAgent.
+  const agentRequestedRef = useRef(!!autoConnectAgent);
+  useEffect(() => {
+    if (autoConnectAgent) agentRequestedRef.current = true;
+  }, [autoConnectAgent]);
+
   // Chat mode state
   const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
   const [headerConfig, setHeaderConfig] = useState(BOT_CONFIG);
@@ -659,6 +691,41 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [inlineGuidedValues, setInlineGuidedValues] = useState<Record<string, string>>({});
   const [inlineGuidedErrors, setInlineGuidedErrors] = useState<Record<string, string>>({});
   const [inlineGuidedLoading, setInlineGuidedLoading] = useState(false);
+  const [inlineGuidedPendingAction, setInlineGuidedPendingAction] = useState<string | null>(null);
+
+  const titleCaseFromSnake = (raw: string): string => {
+    const cleaned = String(raw ?? '').trim();
+    if (!cleaned) return '';
+    return cleaned
+      .split('_')
+      .filter(Boolean)
+      .map((w) => {
+        const lower = w.toLowerCase();
+        if (lower === 'id') return 'ID';
+        if (lower === 'dob') return 'DOB';
+        if (lower === 'ugx') return 'UGX';
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+  };
+
+  const buildFallbackFormStepFromFieldErrors = (
+    message: string | undefined,
+    fieldErrors: Record<string, string>
+  ): GuidedStepResponse => {
+    const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
+    return {
+      type: 'form',
+      message: message ?? 'Please provide the required details to continue.',
+      fields: keys.map((name) => ({
+        name,
+        label: titleCaseFromSnake(name) || name,
+        type: 'text',
+        required: true,
+        placeholder: '',
+      })),
+    } as GuidedStepResponse;
+  };
   const inlineGuidedRef = useRef<HTMLDivElement>(null);
 
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -669,8 +736,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // Find the latest bot text message id
     const lastBotText = [...state.messages]
       .reverse()
-      .find((m) => m.sender === 'bot' && m.type === 'text' && typeof (m as any).text === 'string');
-    const nextId = (lastBotText as any)?.id ?? null;
+      .find((m) => {
+        if (m.sender !== 'bot' || m.type !== 'text') return false;
+        const textValue = (m as unknown as { text?: unknown }).text;
+        return typeof textValue === 'string';
+      });
+    const nextId = (() => {
+      const idValue = (lastBotText as unknown as { id?: unknown } | undefined)?.id;
+      return typeof idValue === 'string' ? idValue : null;
+    })();
 
     if (!nextId || nextId === lastBotTextIdRef.current) return;
 
@@ -936,10 +1010,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (!userId) return;
     setInlineGuidedLoading(true);
     try {
+      const payloadToSend = inlineGuidedPendingAction ? { ...payload, action: inlineGuidedPendingAction } : payload;
       const res = await sendChatMessage({
         user_id: userId,
         session_id: sessionId || '',
-        form_data: payload,
+        form_data: payloadToSend,
       });
 
       const nextSessionId = extractSessionIdFromResponse(res);
@@ -953,6 +1028,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         setInlineGuidedStep(null);
         setInlineGuidedValues({});
         setInlineGuidedErrors({});
+        setInlineGuidedPendingAction(null);
         const msg = extractTextFromChatResponse(res);
         if (msg) {
           dispatch({ type: 'RECEIVE_BOT_REPLY', payload: msg, chatMode });
@@ -961,9 +1037,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       if (nextStep) {
+        setInlineGuidedPendingAction(null);
         setInlineGuidedStep(nextStep);
       }
-    } catch {
+    } catch (err) {
+      const validation = extractBackendValidationError(err);
+      if (validation?.fieldErrors) {
+        setInlineGuidedErrors(validation.fieldErrors);
+        const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
+        if (attemptedAction) setInlineGuidedPendingAction(attemptedAction);
+        if (!inlineGuidedStep || inlineGuidedStep.type !== 'form') {
+          setInlineGuidedStep(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
+        }
+        return;
+      }
+
       setInlineGuidedErrors((prev) => ({ ...prev, _error: 'Failed to submit. Please try again.' }));
     } finally {
       setInlineGuidedLoading(false);
@@ -984,6 +1072,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setInlineGuidedErrors({});
     setInlineGuidedLoading(false);
     dispatch({ type: "RESET", selectedProduct });
+
+    // In agent-first mode, do not show the bot's default follow-up prompt.
+    if (agentRequestedRef.current) return;
+
     const followupTimeout = setTimeout(() => {
       dispatch({
         type: "RECEIVE_OPTION_RESPONSE",
@@ -1105,7 +1197,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }
 
   function removeEscalationLoader() {
-    dispatch({ type: "RESET" }); // Use RESET to clear loader
+    dispatch({ type: "CLEAR_PAYMENT_LOADING_SCREEN", variant: "escalation" });
     escalationState.current.inProgress = false;
     if (escalationState.current.timeout) {
       clearTimeout(escalationState.current.timeout);
@@ -1118,6 +1210,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   function handleEscalation() {
     showEscalationLoader();
   }
+
+  // If requested by the container (e.g., user clicked "Chat with Agent" from the landing page),
+  // immediately start the existing escalation flow.
+  const autoConnectTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!autoConnectAgent) {
+      autoConnectTriggeredRef.current = false;
+      return;
+    }
+    if (autoConnectTriggeredRef.current) return;
+    autoConnectTriggeredRef.current = true;
+
+    // Mark this session as agent-first immediately.
+    agentRequestedRef.current = true;
+
+    // Only escalate from bot mode.
+    if (chatMode === 'bot') handleEscalation();
+    onAutoConnectAgentHandled?.();
+    // Intentionally depend only on the trigger flag to avoid re-running due to
+    // internal state changes; the container clears the flag via the callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnectAgent]);
 
   function switchToHumanAgent() {
     setChatMode('human');
@@ -1138,7 +1252,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }
   // Append first human welcome message only after chatMode is set to 'human' and only if not already present
   useEffect(() => {
-    if (chatMode === 'human') {
+    if (chatMode === 'human' && !agentRequestedRef.current) {
       // Check if the human welcome message is already present
       const hasHumanWelcome = state.messages.some(
         (msg) =>
@@ -1320,7 +1434,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     handleEscalation();
   };
 
-  const shouldShowFeedbackForMessage = (message: any) => {
+  const shouldShowFeedbackForMessage = (message: ChatMessageWithTimestamp) => {
     return (
       !isWhatsApp &&
       chatMode === 'bot' &&

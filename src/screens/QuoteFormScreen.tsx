@@ -1,4 +1,4 @@
-import { sendChatMessage, startGuidedQuote } from '../services/api';
+import { extractBackendValidationError, sendChatMessage, startGuidedQuote } from '../services/api';
 import React, { useState, useEffect } from "react";
 import type { GuidedStepResponse } from '../services/api';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
@@ -123,6 +123,40 @@ const extractErrorDetail = (err: unknown): string | null => {
   return null;
 };
 
+const titleCaseFromSnake = (raw: string): string => {
+  const cleaned = String(raw ?? '').trim();
+  if (!cleaned) return '';
+  return cleaned
+    .split('_')
+    .filter(Boolean)
+    .map((w) => {
+      const lower = w.toLowerCase();
+      if (lower === 'id') return 'ID';
+      if (lower === 'dob') return 'DOB';
+      if (lower === 'ugx') return 'UGX';
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+};
+
+const buildFallbackFormStepFromFieldErrors = (
+  message: string | undefined,
+  fieldErrors: Record<string, string>
+): GuidedStepResponse => {
+  const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
+  return {
+    type: 'form',
+    message: message ?? 'Please provide the required details to continue.',
+    fields: keys.map((name) => ({
+      name,
+      label: titleCaseFromSnake(name) || name,
+      type: 'text',
+      required: true,
+      placeholder: '',
+    })),
+  } as GuidedStepResponse;
+};
+
 interface QuoteFormScreenProps {
   selectedProduct?: string | null;
   userId?: string | null;
@@ -162,6 +196,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [paComplete, setPaComplete] = useState(false);
   const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [paPendingAction, setPaPendingAction] = useState<string | null>(null);
 
   // --- Backend-driven Serenicare guided flow state ---
   // Serenicare must not depend on (or reuse) the parent chat session.
@@ -173,6 +208,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [serenicareFieldErrors, setSerenicareFieldErrors] = useState<Record<string, string>>({});
   const [serenicareFormData, setSerenicareFormData] = useState<Record<string, unknown>>({});
   const [serenicareError, setSerenicareError] = useState<string | null>(null);
+  const [serenicarePendingAction, setSerenicarePendingAction] = useState<string | null>(null);
 
   const shouldConfirmBeforeSubmit = (step: GuidedStepResponse | null): boolean => {
     if (!step || step.type !== 'form') return false;
@@ -290,12 +326,17 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setSerenicareLoading(true);
     setSerenicareFieldErrors({});
     try {
+      const normalizedToSend = serenicarePendingAction
+        ? { ...normalizedPayload, action: serenicarePendingAction }
+        : normalizedPayload;
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
-        form_data: normalizedPayload,
+        form_data: normalizedToSend,
       });
       if (res?.session_id && res.session_id !== sid) setSerenicareSessionId(res.session_id);
+
+      setSerenicarePendingAction(null);
 
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
@@ -311,9 +352,24 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
 
       setSerenicareStepPayload(resolved.step);
-    } catch {
-      // Optionally handle field errors from backend here
-      // setSerenicareFieldErrors(err?.fieldErrors || {});
+    } catch (err) {
+      const validation = extractBackendValidationError(err);
+      if (validation?.fieldErrors) {
+        setSerenicareFieldErrors(validation.fieldErrors);
+        const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
+        if (attemptedAction) setSerenicarePendingAction(attemptedAction);
+        if (!serenicareStepPayload || serenicareStepPayload.type !== 'form') {
+          setSerenicareStepPayload(
+            buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors)
+          );
+        }
+        return;
+      }
+
+      setSerenicareFieldErrors((prev) => ({
+        ...prev,
+        _error: extractErrorDetail(err) ?? 'Failed to submit. Please try again.',
+      }));
     } finally {
       setSerenicareLoading(false);
     }
@@ -337,12 +393,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setPaLoading(true);
     setPaFieldErrors({});
     try {
+      const payloadToSend = paPendingAction ? { ...payload, action: paPendingAction } : payload;
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
-        form_data: payload
+        form_data: payloadToSend
       });
       if (res?.session_id && res.session_id !== sid) setPaSessionId(res.session_id);
+
+      setPaPendingAction(null);
 
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
@@ -358,9 +417,22 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
 
       setPaStepPayload(resolved.step);
-    } catch {
-      // Optionally handle field errors from backend here
-      // setPaFieldErrors(e?.fieldErrors || {});
+    } catch (err) {
+      const validation = extractBackendValidationError(err);
+      if (validation?.fieldErrors) {
+        setPaFieldErrors(validation.fieldErrors);
+        const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
+        if (attemptedAction) setPaPendingAction(attemptedAction);
+        if (!paStepPayload || paStepPayload.type !== 'form') {
+          setPaStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
+        }
+        return;
+      }
+
+      setPaFieldErrors((prev) => ({
+        ...prev,
+        _error: extractErrorDetail(err) ?? 'Failed to submit. Please try again.',
+      }));
     } finally {
       setPaLoading(false);
     }
@@ -374,6 +446,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [motorComplete, setMotorComplete] = useState(false);
   const [motorFieldErrors, setMotorFieldErrors] = useState<Record<string, string>>({});
   const [motorFormData, setMotorFormData] = useState<Record<string, unknown>>({});
+  const [motorPendingAction, setMotorPendingAction] = useState<string | null>(null);
 
   // Start or resume backend-driven Motor Private flow
   useEffect(() => {
@@ -425,12 +498,15 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setMotorLoading(true);
     setMotorFieldErrors({});
     try {
+      const payloadToSend = motorPendingAction ? { ...payload, action: motorPendingAction } : payload;
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
-        form_data: payload
+        form_data: payloadToSend
       });
       if (res?.session_id && res.session_id !== sid) setMotorSessionId(res.session_id);
+
+      setMotorPendingAction(null);
 
       const resolved = await resolveNextStepWithAutoAdvance(
         res,
@@ -446,9 +522,22 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
 
       setMotorStepPayload(resolved.step);
-    } catch {
-      // Optionally handle field errors from backend here
-      // setMotorFieldErrors(err?.fieldErrors || {});
+    } catch (err) {
+      const validation = extractBackendValidationError(err);
+      if (validation?.fieldErrors) {
+        setMotorFieldErrors(validation.fieldErrors);
+        const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
+        if (attemptedAction) setMotorPendingAction(attemptedAction);
+        if (!motorStepPayload || motorStepPayload.type !== 'form') {
+          setMotorStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
+        }
+        return;
+      }
+
+      setMotorFieldErrors((prev) => ({
+        ...prev,
+        _error: extractErrorDetail(err) ?? 'Failed to submit. Please try again.',
+      }));
     } finally {
       setMotorLoading(false);
     }
@@ -462,6 +551,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [travelComplete, setTravelComplete] = useState(false);
   const [travelFieldErrors, setTravelFieldErrors] = useState<Record<string, string>>({});
   const [travelFormData, setTravelFormData] = useState<Record<string, unknown>>({});
+  const [travelPendingAction, setTravelPendingAction] = useState<string | null>(null);
 
   // If a parent sessionId arrives later, seed travelSessionId once (same pattern as ChatScreen).
   useEffect(() => {
@@ -511,10 +601,11 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setTravelLoading(true);
     setTravelFieldErrors({});
     try {
+      const payloadToSend = travelPendingAction ? { ...payload, action: travelPendingAction } : payload;
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
-        form_data: payload,
+        form_data: payloadToSend,
       });
 
       if (res?.session_id && res.session_id !== sid) setTravelSessionId(res.session_id);
@@ -532,10 +623,24 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         return;
       }
 
+      setTravelPendingAction(null);
       setTravelStepPayload(resolved.step);
-    } catch {
-      // Optionally handle field errors from backend here
-      // setTravelFieldErrors(err?.fieldErrors || {});
+    } catch (err) {
+      const validation = extractBackendValidationError(err);
+      if (validation?.fieldErrors) {
+        setTravelFieldErrors(validation.fieldErrors);
+        const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
+        if (attemptedAction) setTravelPendingAction(attemptedAction);
+        if (!travelStepPayload || travelStepPayload.type !== 'form') {
+          setTravelStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
+        }
+        return;
+      }
+
+      setTravelFieldErrors((prev) => ({
+        ...prev,
+        _error: extractErrorDetail(err) ?? 'Failed to submit. Please try again.',
+      }));
     } finally {
       setTravelLoading(false);
     }

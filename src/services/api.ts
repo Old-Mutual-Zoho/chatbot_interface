@@ -29,6 +29,51 @@ export async function getGeneralInformation(product: string) {
 import axios from 'axios';
 import { getEmbedToken } from '../config/runtimeAuth';
 
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
+
+export type BackendValidationError = {
+	error?: string;
+	message?: string;
+	field_errors?: Record<string, string>;
+};
+
+export function extractBackendValidationError(
+	err: unknown
+): { message?: string; fieldErrors?: Record<string, string> } | null {
+	if (!isRecord(err)) return null;
+	const response = (err as UnknownRecord)['response'];
+	if (!isRecord(response)) return null;
+	const data = response['data'];
+	if (!isRecord(data)) return null;
+
+	// Some backends wrap details like: { detail: { error, message, field_errors } }
+	const maybeDetail = data['detail'];
+	const payload: UnknownRecord = isRecord(maybeDetail) ? maybeDetail : data;
+
+	const rawError = payload['error'];
+	const rawMessage = payload['message'];
+	const rawFieldErrors = payload['field_errors'];
+
+	const message = typeof rawMessage === 'string' ? rawMessage : undefined;
+
+	let fieldErrors: Record<string, string> | undefined;
+	if (isRecord(rawFieldErrors)) {
+		const next: Record<string, string> = {};
+		for (const [k, v] of Object.entries(rawFieldErrors)) {
+			if (typeof v === 'string') next[k] = v;
+		}
+		if (Object.keys(next).length > 0) fieldErrors = next;
+	}
+
+	// Only treat it as a validation error if the backend says so,
+	// or if it contains field_errors (some backends omit the `error` key).
+	const isValidation = rawError === 'validation_error' || !!fieldErrors;
+	if (!isValidation) return null;
+
+	return { message, fieldErrors };
+}
+
 // Prefer explicit env configuration (e.g., DigitalOcean). If not provided,
 // fall back to same-origin so a single-domain deployment can work.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';

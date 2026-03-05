@@ -2,6 +2,7 @@ import {
   IoChevronForward,
   IoHome,
   IoChatbubbles,
+  IoHeadset,
 } from "react-icons/io5";
 import { BsChatRightText } from "react-icons/bs";
 import OMlogo from "../assets/OMLogo.png";
@@ -12,10 +13,12 @@ import type { TopCategoryId } from "../components/chatbot/productTree";
 
 export default function HomeScreen({
   onStartChat,
+  onChatWithAgent,
   onGoToConversation,
   onSelectCategory,
 }: {
   onStartChat: () => void;
+  onChatWithAgent: () => void;
   onGoToConversation: () => void;
   onSelectCategory: (categoryId: TopCategoryId) => void;
 }) {
@@ -119,6 +122,15 @@ export default function HomeScreen({
           <span className="text-sm mt-1">Home</span>
           <div className="mt-1 h-1 w-10 rounded-full bg-primary" />
         </div>
+
+        <button
+          onClick={onChatWithAgent}
+          className="flex flex-col items-center text-primary cursor-pointer"
+        >
+          <IoHeadset size={26} />
+          <span className="text-sm mt-1">Chat with Agent</span>
+          <div className="mt-1 h-1 w-10 rounded-full bg-transparent" />
+        </button>
 
         <button
           onClick={onGoToConversation}

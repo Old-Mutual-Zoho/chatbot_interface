@@ -58,6 +58,10 @@ export default function ChatbotContainer({
   // Toggle the wide view.
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // When set, the next time we enter ChatScreen we should immediately trigger
+  // the existing agent escalation flow (same logic as clicking "Talk to Agent").
+  const [autoConnectAgent, setAutoConnectAgent] = useState(false);
+
   // Post-conversation feedback state (applies to both guided + normal conversations).
   const [isConversationEnded, setIsConversationEnded] = useState(false);
   const [pendingExit, setPendingExit] = useState<"back" | "close" | null>(null);
@@ -128,6 +132,11 @@ export default function ChatbotContainer({
     resetChat();
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
+  };
+
+  const startChatWithAgent = () => {
+    setAutoConnectAgent(true);
+    startNewConversation();
   };
 
   const saveOrArchiveConversationIfAny = () => {
@@ -244,6 +253,9 @@ export default function ChatbotContainer({
             onStartChat={() => {
               startNewConversation();
             }}
+            onChatWithAgent={() => {
+              startChatWithAgent();
+            }}
             onGoToConversation={() => {
               setScreen("conversations");
             }}
@@ -279,6 +291,8 @@ export default function ChatbotContainer({
             sessionError={sessionError}
             isConversationEnded={isConversationEnded}
             onSubmitFeedback={handleSubmitFeedback}
+            autoConnectAgent={autoConnectAgent}
+            onAutoConnectAgentHandled={() => setAutoConnectAgent(false)}
             initialMessages={
               activeConversationId
                 ? (conversations.find((c) => c.id === activeConversationId)?.messages ?? [])
