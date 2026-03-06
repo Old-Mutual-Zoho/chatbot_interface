@@ -140,14 +140,69 @@ const titleCaseFromSnake = (raw: string): string => {
     .join(' ');
 };
 
-const buildFallbackFormStepFromFieldErrors = (
+const buildFormLevelErrorFromFieldErrors = (
+  message: string | undefined,
+  fieldErrors: Record<string, string>
+): string => {
+  const headline = (typeof message === 'string' && message.trim()) ? message.trim() : 'Please correct the highlighted fields.';
+  const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
+  if (keys.length === 0) return headline;
+  const details = keys
+    .slice(0, 8)
+    .map((k) => `- ${titleCaseFromSnake(k) || k}: ${fieldErrors[k]}`)
+    .join('\n');
+  const more = keys.length > 8 ? `\n- …and ${keys.length - 8} more` : '';
+  return `${headline}\n${details}${more}`;
+};
+
+const appendMissingFieldsFromFieldErrors = (
+  step: GuidedStepResponse | null,
+  message: string | undefined,
+  fieldErrors: Record<string, string>
+): GuidedStepResponse | null => {
+  if (!step || step.type !== 'form') return null;
+
+  const existing = new Set(
+    (step.fields ?? [])
+      .map((f) => String(f.name ?? '').trim())
+      .filter(Boolean)
+  );
+
+  const missingKeys = Object.keys(fieldErrors)
+    .map((k) => String(k ?? '').trim())
+    .filter((k) => k && !k.startsWith('_') && !existing.has(k));
+
+  if (missingKeys.length === 0) return null;
+
+  return {
+    ...step,
+    message: (typeof message === 'string' && message.trim()) ? message : step.message,
+    fields: [
+      ...(step.fields ?? []),
+      ...missingKeys.map((name) => ({
+        name,
+        label: titleCaseFromSnake(name) || name,
+        type: 'text',
+        required: true,
+        placeholder: '',
+      })),
+    ],
+  } as GuidedStepResponse;
+};
+
+const buildFormStepFromFieldErrors = (
   message: string | undefined,
   fieldErrors: Record<string, string>
 ): GuidedStepResponse => {
-  const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
+  const keys = Object.keys(fieldErrors)
+    .map((k) => String(k ?? '').trim())
+    .filter((k) => k && !k.startsWith('_'));
+
   return {
     type: 'form',
-    message: message ?? 'Please provide the required details to continue.',
+    message: (typeof message === 'string' && message.trim())
+      ? message
+      : 'Please provide the required details.',
     fields: keys.map((name) => ({
       name,
       label: titleCaseFromSnake(name) || name,
@@ -271,11 +326,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // --- Backend-driven Personal Accident guided flow state ---
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
   const [paStepPayload, setPaStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [paStepHistory, setPaStepHistory] = useState<GuidedStepResponse[]>([]);
   const [paLoading, setPaLoading] = useState(false);
   const [paComplete, setPaComplete] = useState(false);
   const [paFieldErrors, setPaFieldErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [paPendingAction, setPaPendingAction] = useState<string | null>(null);
+
+  const getGuidedStepKey = (step: GuidedStepResponse | null): string => {
+    if (!step) return '';
+    if (step.type === 'form') {
+      const fields = (step.fields ?? []).map((f) => `${String(f.name ?? '')}:${String(f.type ?? '')}`).join('|');
+      return `form:${fields}`;
+    }
+    return step.type;
+  };
 
   // --- Backend-driven Serenicare guided flow state ---
   // Serenicare must not depend on (or reuse) the parent chat session.
@@ -327,6 +392,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setPaComplete(false);
     setPaFieldErrors({});
     setFormData({});
+    setPaStepHistory([]);
     (async () => {
       try {
         // Try to start or resume the guided quote flow
@@ -453,14 +519,12 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
-        setSerenicareFieldErrors(validation.fieldErrors);
+        setSerenicareFieldErrors({
+          ...validation.fieldErrors,
+          _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),
+        });
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setSerenicarePendingAction(attemptedAction);
-        if (!serenicareStepPayload || serenicareStepPayload.type !== 'form') {
-          setSerenicareStepPayload(
-            buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors)
-          );
-        }
         return;
       }
 
@@ -495,7 +559,12 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setPaLoading(true);
     setPaFieldErrors({});
     try {
-      const payloadToSend = paPendingAction ? { ...payload, action: paPendingAction } : payload;
+      // Send the full accumulated payload (previous values + current normalized fields).
+      // Some backends validate the full schema on each submit and return missing-field errors
+      // for fields that weren't included in the current step payload.
+      const payloadToSend = paPendingAction
+        ? { ...formData, ...payload, action: paPendingAction }
+        : { ...formData, ...payload };
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
@@ -518,16 +587,35 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         return;
       }
 
+      // Keep a lightweight history so the user can go back
+      // (useful when backend moves from Physical Address -> NOK step).
+      setPaStepHistory((prev) => {
+        if (!paStepPayload) return prev;
+        const prevKey = getGuidedStepKey(paStepPayload);
+        const nextKey = getGuidedStepKey(resolved.step);
+        if (!prevKey || !nextKey || prevKey === nextKey) return prev;
+        return [...prev, paStepPayload];
+      });
       setPaStepPayload(resolved.step);
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
-        setPaFieldErrors(validation.fieldErrors);
+        setPaFieldErrors({
+          ...validation.fieldErrors,
+          _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),
+        });
+
+        // If the backend validates future fields (e.g. next-of-kin) before sending the next step,
+        // append the missing fields onto the current PA form so the user can complete them.
+        const augmented = appendMissingFieldsFromFieldErrors(
+          paStepPayload,
+          validation.message,
+          validation.fieldErrors
+        );
+        if (augmented) setPaStepPayload(augmented);
+
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setPaPendingAction(attemptedAction);
-        if (!paStepPayload || paStepPayload.type !== 'form') {
-          setPaStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
-        }
         return;
       }
 
@@ -538,6 +626,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     } finally {
       setPaLoading(false);
     }
+  };
+
+  const handlePaBack = () => {
+    setPaStepHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      const last = prev[prev.length - 1];
+      setPaStepPayload(last ?? null);
+      setPaFieldErrors({});
+      setPaPendingAction(null);
+      return next;
+    });
   };
 
 
@@ -640,12 +740,12 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
-        setMotorFieldErrors(validation.fieldErrors);
+        setMotorFieldErrors({
+          ...validation.fieldErrors,
+          _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),
+        });
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setMotorPendingAction(attemptedAction);
-        if (!motorStepPayload || motorStepPayload.type !== 'form') {
-          setMotorStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
-        }
         return;
       }
 
@@ -747,12 +847,12 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
-        setTravelFieldErrors(validation.fieldErrors);
+        setTravelFieldErrors({
+          ...validation.fieldErrors,
+          _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),
+        });
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setTravelPendingAction(attemptedAction);
-        if (!travelStepPayload || travelStepPayload.type !== 'form') {
-          setTravelStepPayload(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
-        }
         return;
       }
 
@@ -823,6 +923,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onSubmit={handlePaSubmit}
         loading={paLoading}
         confirmOnFormSubmit={shouldConfirmBeforeSubmit(paStepPayload)}
+        onBack={paStepHistory.length > 0 ? handlePaBack : undefined}
       />
     );
   }

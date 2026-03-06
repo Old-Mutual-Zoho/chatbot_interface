@@ -188,6 +188,28 @@ const CardForm: React.FC<CardFormProps> = ({
   const [showErrors, setShowErrors] = React.useState(false);
   const [touchedFields, setTouchedFields] = React.useState<Record<string, boolean>>({});
 
+  const formLevelError = React.useMemo(() => {
+    const raw = (externalErrors as Record<string, unknown> | undefined)?.['_error'] ??
+      (externalErrors as Record<string, unknown> | undefined)?.['_form'];
+    return typeof raw === 'string' ? raw : '';
+  }, [externalErrors]);
+
+  const showFormLevelErrorBanner = React.useMemo(() => {
+    if (!formLevelError) return false;
+    const errs = externalErrors as Record<string, unknown> | undefined;
+    if (!errs) return true;
+
+    const fieldNameSet = new Set(allVisibleFields.map((f) => f.name));
+    const hasRenderableFieldErrors = Object.keys(errs).some((key) => {
+      if (key === "_error" || key === "_form") return false;
+      if (!fieldNameSet.has(key)) return false;
+      const val = errs[key];
+      return typeof val === "string" && val.trim().length > 0;
+    });
+
+    return !hasRenderableFieldErrors;
+  }, [allVisibleFields, externalErrors, formLevelError]);
+
   const markTouched = (name: string) => {
     setTouchedFields((prev) => (prev[name] ? prev : { ...prev, [name]: true }));
   };
@@ -642,6 +664,13 @@ const CardForm: React.FC<CardFormProps> = ({
           </p>
         )}
       </div>
+
+      {showFormLevelErrorBanner ? (
+        <div className="w-full mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {formLevelError}
+        </div>
+      ) : null}
+
       <form className="w-full flex flex-col gap-5">
         <div
           className={`w-full flex flex-col gap-5 pr-1 ${openComboboxId ? "overflow-visible" : "overflow-visible"}`}

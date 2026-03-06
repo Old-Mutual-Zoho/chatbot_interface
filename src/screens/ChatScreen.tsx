@@ -693,39 +693,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [inlineGuidedLoading, setInlineGuidedLoading] = useState(false);
   const [inlineGuidedPendingAction, setInlineGuidedPendingAction] = useState<string | null>(null);
 
-  const titleCaseFromSnake = (raw: string): string => {
-    const cleaned = String(raw ?? '').trim();
-    if (!cleaned) return '';
-    return cleaned
-      .split('_')
-      .filter(Boolean)
-      .map((w) => {
-        const lower = w.toLowerCase();
-        if (lower === 'id') return 'ID';
-        if (lower === 'dob') return 'DOB';
-        if (lower === 'ugx') return 'UGX';
-        return lower.charAt(0).toUpperCase() + lower.slice(1);
-      })
-      .join(' ');
-  };
 
-  const buildFallbackFormStepFromFieldErrors = (
-    message: string | undefined,
-    fieldErrors: Record<string, string>
-  ): GuidedStepResponse => {
-    const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
-    return {
-      type: 'form',
-      message: message ?? 'Please provide the required details to continue.',
-      fields: keys.map((name) => ({
-        name,
-        label: titleCaseFromSnake(name) || name,
-        type: 'text',
-        required: true,
-        placeholder: '',
-      })),
-    } as GuidedStepResponse;
-  };
   const inlineGuidedRef = useRef<HTMLDivElement>(null);
 
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -1081,12 +1049,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
-        setInlineGuidedErrors(validation.fieldErrors);
+        const fieldErrors = validation.fieldErrors;
+        setInlineGuidedErrors(fieldErrors);
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setInlineGuidedPendingAction(attemptedAction);
-        if (!inlineGuidedStep || inlineGuidedStep.type !== 'form') {
-          setInlineGuidedStep(buildFallbackFormStepFromFieldErrors(validation.message, validation.fieldErrors));
-        }
+
+        const headline = validation.message && validation.message.trim()
+          ? validation.message.trim()
+          : 'Please correct the highlighted fields.';
+        const keys = Object.keys(fieldErrors).filter((k) => k && !k.startsWith('_'));
+        const details = keys.length
+          ? `\n${keys.slice(0, 8).map((k) => `- ${k}: ${fieldErrors[k]}`).join('\n')}${keys.length > 8 ? `\n- …and ${keys.length - 8} more` : ''}`
+          : '';
+        dispatch({ type: 'RECEIVE_BOT_REPLY', payload: `${headline}${details}`, chatMode });
         return;
       }
 
