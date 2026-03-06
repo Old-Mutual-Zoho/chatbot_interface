@@ -10,6 +10,8 @@ export interface CardFieldConfig {
   placeholder?: string;
   optionalLabel?: string;
   readOnly?: boolean;
+  // For file inputs
+  accept?: string;
   // Optional validation helpers (keeps forms declarative)
   minLength?: number;
   maxLength?: number;
@@ -55,6 +57,9 @@ export interface CardFormProps {
   nextDisabled?: boolean;
   groupSize?: number;
   autoAdvance?: boolean;
+  topContent?: React.ReactNode;
+  bottomContent?: React.ReactNode;
+  hideCompulsoryHint?: boolean;
 }
 
 
@@ -75,6 +80,9 @@ const CardForm: React.FC<CardFormProps> = ({
   nextDisabled = false,
   groupSize: groupSizeProp = 2,
   autoAdvance = false,
+  topContent,
+  bottomContent,
+  hideCompulsoryHint = false,
 }) => {
   const stepKey = React.useMemo(() => {
     const fieldKey = fields.map((f) => `${f.name}:${f.type}`).join("|");
@@ -648,18 +656,18 @@ const CardForm: React.FC<CardFormProps> = ({
 
   return (
     <div
-      className="w-full max-w-xl mx-auto mt-2 rounded-3xl p-6 sm:p-8 flex flex-col items-center overflow-visible bg-white border border-gray-200 shadow-2xl"
+      className="w-full mt-2 rounded-2xl p-6 sm:p-6 flex flex-col overflow-visible bg-white border border-gray-200"
     >
       <div key={transitionKey} className={transitionClass}>
       <div className="w-full mb-4">
         <div className="w-full px-1">
-          <h2 className="text-lg sm:text-xl font-bold text-center text-primary">
+          <h2 className="text-lg sm:text-xl font-bold text-left text-primary">
             {title}
           </h2>
-          <div aria-hidden="true" className="mx-auto mt-2 h-1 w-12 rounded-full bg-primary" />
+          <div aria-hidden="true" className="mt-2 h-1 w-12 rounded-full bg-primary" />
         </div>
         {description && (
-          <p className="mt-3 text-center text-sm text-gray-600 leading-snug">
+          <p className="mt-3 text-left text-sm text-gray-600 leading-snug">
             {description}
           </p>
         )}
@@ -670,6 +678,8 @@ const CardForm: React.FC<CardFormProps> = ({
           {formLevelError}
         </div>
       ) : null}
+
+      {topContent ? <div className="w-full mb-4">{topContent}</div> : null}
 
       <form className="w-full flex flex-col gap-5">
         <div
@@ -1058,7 +1068,28 @@ const CardForm: React.FC<CardFormProps> = ({
                 {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                 {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
               </label>
-              {field.type === "date" ? (
+              {field.type === "file" ? (
+                <div>
+                  <input
+                    id={field.name}
+                    name={field.name}
+                    type="file"
+                    accept={field.accept}
+                    onChange={(e) => {
+                      markTouched(field.name);
+                      onClearExternalError?.(field.name);
+                      const f = e.target.files?.[0];
+                      onChange(field.name, f ? String(f.name) : "");
+                    }}
+                    onBlur={() => {
+                      markTouched(field.name);
+                      handleConfirmField(field);
+                    }}
+                    className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  />
+                  {value ? <div className="mt-2 text-xs text-gray-600">Selected: {value}</div> : null}
+                </div>
+              ) : field.type === "date" ? (
                 <DatePicker
                   id={field.name}
                   name={field.name}
@@ -1134,6 +1165,8 @@ const CardForm: React.FC<CardFormProps> = ({
           })}
         </div>
       </form>
+
+      {bottomContent ? <div className="w-full mt-4">{bottomContent}</div> : null}
       <div className="flex justify-between mt-4 w-full gap-3">
         {showBackButton && (
           <button
@@ -1159,9 +1192,11 @@ const CardForm: React.FC<CardFormProps> = ({
           </button>
         )}
       </div>
-      <div className="w-full mt-3 text-xs text-gray-500 text-center">
-        Fields marked with <span className="text-accent font-semibold">*</span> are compulsory.
-      </div>
+      {!hideCompulsoryHint ? (
+        <div className="w-full mt-3 text-xs text-gray-500 text-center">
+          Fields marked with <span className="text-accent font-semibold">*</span> are compulsory.
+        </div>
+      ) : null}
       </div>
     </div>
   );

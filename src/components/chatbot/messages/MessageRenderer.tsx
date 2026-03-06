@@ -42,11 +42,27 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
 }) => { //whatsapp mode: if message is not text, render a text version of it. For all messages, render using the appropriate bubble but with whatsapp styling (no avatar, different colors, etc).
   const isWhatsApp = channel === 'whatsapp';
 
+  const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+  const isActionCard = (
+    m: MessageRendererProps["message"]
+  ): m is ActionCardMessage => m.type === 'action-card' && isRecord(m) && Array.isArray((m as Record<string, unknown>)['options']);
+
+  const isPurchaseSummary = (
+    m: MessageRendererProps["message"]
+  ): m is PurchaseSummaryMessage =>
+    m.type === 'purchase-summary' && isRecord(m) && typeof (m as Record<string, unknown>)['productName'] === 'string';
+
+  const isPaymentLoading = (
+    m: MessageRendererProps["message"]
+  ): m is PaymentLoadingScreenMessage => m.type === 'payment-loading-screen';
+
   const renderAsWhatsAppText = (text: string) => {
     const normalized: ChatMessage = {
-      id: (message as { id: string }).id || String(Date.now()),
+      // Must be stable/idempotent during render (no Date.now).
+      id: message.id,
       type: 'text',
-      sender: (message as any).sender === 'user' ? 'user' : 'bot',
+      sender: message.sender === 'user' ? 'user' : 'bot',
       text,
     };
     return normalized.sender === 'user'
@@ -62,14 +78,14 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
     if (message.type === 'custom-welcome') {
       return renderAsWhatsAppText("Hi, I'm MIA!\nHow may I help you today?");
     }
-    if (message.type === 'action-card') {
-      const options = (message as any).options as Array<{ label: string }> | undefined;
-      const optionLines = (options ?? []).map((o) => `- ${o.label}`).join('\n');
+    if (isActionCard(message)) {
+      const optionLines = (message.options ?? []).map((o) => `- ${o.label}`).join('\n');
       return renderAsWhatsAppText(optionLines ? `Options:\n${optionLines}` : 'Options available.');
     }
-    if (message.type === 'purchase-summary') {
-      const p = message as any;
-      return renderAsWhatsAppText(`Purchase summary:\n${p.productName ?? ''}\n${p.price ?? ''} ${p.duration ?? ''}`.trim());
+    if (isPurchaseSummary(message)) {
+      return renderAsWhatsAppText(
+        `Purchase summary:\n${message.productName ?? ''}\n${message.price ?? ''} ${message.duration ?? ''}`.trim()
+      );
     }
     if (message.type === 'payment-method-selector') {
       return renderAsWhatsAppText('Choose a payment method: Mobile Money, Card, FlexiPay.');
@@ -77,11 +93,11 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
     if (message.type === 'mobile-money-form') {
       return renderAsWhatsAppText('Please enter your Mobile Money phone number.');
     }
-    if (message.type === 'payment-loading-screen') {
+    if (isPaymentLoading(message)) {
       return renderAsWhatsAppText('Processing…');
     }
     // Plain text (or any remaining types)
-    if ((message as any).sender === 'user') {
+    if (message.sender === 'user') {
       return <UserBubble message={message as ChatMessage} channel="whatsapp" />;
     }
     return <BotBubble message={message as ChatMessage} channel="whatsapp" />;

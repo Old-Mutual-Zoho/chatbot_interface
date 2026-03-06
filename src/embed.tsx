@@ -14,7 +14,7 @@ const params = new URLSearchParams(window.location.search);
 // Allow disabling explicitly for special cases.
 const teaserEnabled = params.get("teaser") !== "0";
 
-function EmbedApp() {
+export function EmbedApp() {
   return (
     <ChatbotWidget teaser={teaserEnabled} />
   );

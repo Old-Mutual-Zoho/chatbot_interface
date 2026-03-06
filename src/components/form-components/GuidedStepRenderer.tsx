@@ -350,57 +350,54 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   };
 
   switch (step.type) {
-    case "form":
-    if (isPaymentLikeFormStep(step as Extract<GuidedStepResponse, { type: 'form' }>)) {
-      return (
-        <ProceedToPaymentStep
-          step={step as unknown as ProceedToPaymentLikeStep}
-          loading={loading}
-          onSubmit={onSubmit}
-        />
-      );
-    }
-		// Backend-driven form step: render fields using the existing CardForm.
-		// This is what powers the guided quote experience (PA / Motor / Travel / Serenicare etc).
-		return (
-			<CardForm
-				title={String(titleFallback ?? "Quote Details")}
-				description={step.message}
-				fields={(step.fields ?? []).map((f) =>
-					({
-						name: f.name,
-						label: f.label,
-						type: f.type,
-						required: f.required,
-						placeholder: f.placeholder,
-						minLength: f.minLength,
-						maxLength: f.maxLength,
-						options: normalizeOptions(f.options),
-						// CardForm supports these optional keys; keep them if backend provides them.
-						defaultValue: f.defaultValue,
-					}) as CardFieldConfig)
-				}
-				values={values}
-				externalErrors={errors}
-				onClearExternalError={onClearError}
-				onChange={onChange}
-				showBack={!!onBack}
-				onBack={onBack}
-				nextButtonLabel={confirmOnFormSubmit ? "Review" : "Continue"}
-				nextDisabled={loading}
-				onNext={() => {
-					const payloadToSend = buildPayloadFromValues();
-					if (confirmOnFormSubmit) {
-              // Show a full summary of all values captured so far (across steps).
-              // Keep the current-step payload inside the confirmation as well.
-            setConfirmationData(buildConfirmationSummary(values, payloadToSend));
-						setShowConfirmation(true);
-						return;
-					}
-					onSubmit(payloadToSend);
-				}}
-			/>
-		);
+      case "form":
+        if (isPaymentLikeFormStep(step as Extract<GuidedStepResponse, { type: 'form' }>)) {
+          return (
+            <ProceedToPaymentStep
+              step={step as unknown as ProceedToPaymentLikeStep}
+              loading={loading}
+              onSubmit={onSubmit}
+            />
+          );
+        }
+
+        // Backend-driven product form step: render fields using the existing CardForm.
+        return (
+          <CardForm
+            title={String(titleFallback ?? "Quote Details")}
+            description={step.message}
+            fields={(step.fields ?? []).map((f) =>
+              ({
+                name: f.name,
+                label: f.label,
+                type: f.type,
+                required: f.required,
+                placeholder: f.placeholder,
+                minLength: f.minLength,
+                maxLength: f.maxLength,
+                options: normalizeOptions(f.options),
+                defaultValue: f.defaultValue,
+              }) as CardFieldConfig
+            )}
+            values={values}
+            externalErrors={errors}
+            onClearExternalError={onClearError}
+            onChange={onChange}
+            showBack={!!onBack}
+            onBack={onBack}
+            nextButtonLabel={confirmOnFormSubmit ? "Review" : "Continue"}
+            nextDisabled={loading}
+            onNext={() => {
+              const payloadToSend = buildPayloadFromValues();
+              if (confirmOnFormSubmit) {
+                setConfirmationData(buildConfirmationSummary(values, payloadToSend));
+                setShowConfirmation(true);
+                return;
+              }
+              onSubmit(payloadToSend);
+            }}
+          />
+        );
     case "product_cards":
       return (
         <ProductCardsStep
@@ -436,20 +433,194 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         />
       );
     case "yes_no_details":
-      // A yes/no (or choice) question that may show an extra textbox.
-      return <YesNoDetailsStep step={step as Extract<GuidedStepResponse, { type: "yes_no_details" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <CardForm
+          title={String(titleFallback ?? "Quote Details")}
+          description={step.message}
+          fields={((): CardFieldConfig[] => {
+            const choiceName = String(step.question_id ?? '').trim() || '_raw';
+            const fields: CardFieldConfig[] = [
+              {
+                name: choiceName,
+                label: "Select one",
+                type: "radio",
+                required: true,
+                options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+              },
+            ];
+
+            if (step.details_field) {
+              fields.push({
+                name: step.details_field.name,
+                label: step.details_field.label,
+                type: "text",
+                required: false,
+                showIf: { field: choiceName, value: step.details_field.show_when },
+              });
+            }
+            return fields;
+          })()}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          showBack={!!onBack}
+          onBack={onBack}
+          nextButtonLabel="Continue"
+          nextDisabled={loading}
+          onNext={() => {
+            const key = String(step.question_id ?? '').trim() || '_raw';
+            const choice = String(values[key] ?? '').trim();
+            const payload: Record<string, unknown> = { [key]: choice };
+            if (step.details_field && choice === step.details_field.show_when) {
+              const extra = String(values[step.details_field.name] ?? '').trim();
+              if (extra) payload[step.details_field.name] = extra;
+            }
+            onSubmit(payload);
+          }}
+        />
+      );
     case "checkbox":
-      // A list of checkboxes (multi-select).
-      return <CheckboxStep step={step as Extract<GuidedStepResponse, { type: "checkbox" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <CardForm
+          title={String(titleFallback ?? "Quote Details")}
+          description={step.message}
+          fields={((): CardFieldConfig[] => {
+            const selectedFieldName = step.field_name && step.field_name.trim() ? step.field_name : "risky_activities";
+            const fields: CardFieldConfig[] = [
+              {
+                name: selectedFieldName,
+                label: "Select all that apply",
+                type: "checkbox-group",
+                required: false,
+                options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+              },
+            ];
+
+            if (step.other_field) {
+              fields.push({
+                name: step.other_field.name,
+                label: step.other_field.label,
+                type: "text",
+                required: false,
+              });
+            }
+            return fields;
+          })()}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          showBack={!!onBack}
+          onBack={onBack}
+          nextButtonLabel="Continue"
+          nextDisabled={loading}
+          onNext={() => {
+            const selectedFieldName = step.field_name && step.field_name.trim() ? step.field_name : "risky_activities";
+            const raw = String(values[selectedFieldName] ?? '');
+            const selected = raw
+              ? raw.split(',').map((s) => s.trim()).filter(Boolean)
+              : [];
+
+            const payload: Record<string, unknown> = { [selectedFieldName]: selected };
+
+            if (step.other_field) {
+              const other = String(values[step.other_field.name] ?? '').trim();
+              if (other) payload[step.other_field.name] = other;
+            } else {
+              const other = String(values['risky_activity_other'] ?? '').trim();
+              if (other) payload['risky_activity_other'] = other;
+            }
+
+            onSubmit(payload);
+          }}
+        />
+      );
     case "radio":
-      // A single-choice question.
-      return <RadioStep step={step as Extract<GuidedStepResponse, { type: "radio" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <CardForm
+          title={String(titleFallback ?? "Quote Details")}
+          description={step.message}
+          fields={((): CardFieldConfig[] => {
+            const key = step.question_id && step.question_id.trim() ? step.question_id : "_raw";
+            return [
+              {
+                name: key,
+                label: "Select one",
+                type: "radio",
+                required: step.required ?? true,
+                options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+              },
+            ];
+          })()}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          showBack={!!onBack}
+          onBack={onBack}
+          nextButtonLabel="Continue"
+          nextDisabled={loading}
+          onNext={() => {
+            const key = step.question_id && step.question_id.trim() ? step.question_id : "_raw";
+            onSubmit({ [key]: String(values[key] ?? '').trim() });
+          }}
+        />
+      );
     case "options":
-      // A list of selectable options (typically plan selection).
-      return <OptionsStep step={step as Extract<GuidedStepResponse, { type: "options" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <CardForm
+          title={String(titleFallback ?? "Quote Details")}
+          description={step.message ?? "Select an option"}
+          fields={[
+            {
+              name: "_raw",
+              label: "Select one",
+              type: "radio",
+              required: true,
+              options: (step.options ?? []).map((o) => ({ label: o.label, value: o.id })),
+            },
+          ]}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          showBack={!!onBack}
+          onBack={onBack}
+          nextButtonLabel="Continue"
+          nextDisabled={loading}
+          onNext={() => {
+            onSubmit({ _raw: String(values['_raw'] ?? '').trim() });
+          }}
+        />
+      );
     case "file_upload":
-      // A file picker. For now we only send the filename (no real upload yet).
-      return <FileUploadStep step={step as Extract<GuidedStepResponse, { type: "file_upload" }> } onSubmit={onSubmit} loading={loading} />;
+      return (
+        <CardForm
+          title={String(titleFallback ?? "Quote Details")}
+          description={step.message}
+          fields={[
+            {
+              name: step.field_name,
+              label: "Upload file",
+              type: "file",
+              required: true,
+              accept: step.accept ?? "application/pdf",
+            },
+          ]}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          showBack={!!onBack}
+          onBack={onBack}
+          nextButtonLabel="Continue"
+          nextDisabled={loading}
+          onNext={() => {
+            onSubmit({ [step.field_name]: String(values[step.field_name] ?? '').trim() });
+          }}
+        />
+      );
     case "final_confirmation":
       // The last step: confirm / proceed.
       return <FinalConfirmationStep step={step as Extract<GuidedStepResponse, { type: "final_confirmation" }> } onSubmit={onSubmit} onBack={onBack} loading={loading} />;
@@ -481,6 +652,43 @@ type ProceedToPaymentLikeStep = {
   message?: string;
   quote_id?: string;
   [k: string]: unknown;
+};
+
+const PremiumSummaryStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "premium_summary" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? "Your premium"}</h3>
+      <p className="text-2xl font-bold text-gray-900">UGX {Number(step.monthly_premium ?? 0).toLocaleString()} / month</p>
+      <p className="text-sm text-gray-600">UGX {Number(step.annual_premium ?? 0).toLocaleString()} / year</p>
+      <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(step.cover_limit_ugx ?? 0).toLocaleString()}</div>
+
+      {(step.benefits?.length ?? 0) > 0 && (
+        <ul className="mt-4 list-disc list-inside text-sm text-gray-700">
+          {step.benefits?.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(step.actions ?? []).map((a) => (
+          <button
+            key={a.type}
+            type="button"
+            disabled={loading}
+            onClick={() => onSubmit({ action: a.type })}
+            className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 type BackendPaymentMethodOption = {
@@ -808,43 +1016,6 @@ const ProductCardsStep: React.FC<{
 
 // CardForm and FormStep removed as card payments are no longer supported.
 
-const PremiumSummaryStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "premium_summary" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? "Your premium"}</h3>
-      <p className="text-2xl font-bold text-gray-900">UGX {Number(step.monthly_premium ?? 0).toLocaleString()} / month</p>
-      <p className="text-sm text-gray-600">UGX {Number(step.annual_premium ?? 0).toLocaleString()} / year</p>
-      <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(step.cover_limit_ugx ?? 0).toLocaleString()}</div>
-
-      {(step.benefits?.length ?? 0) > 0 && (
-        <ul className="mt-4 list-disc list-inside text-sm text-gray-700">
-          {step.benefits?.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {(step.actions ?? []).map((a) => (
-          <button
-            key={a.type}
-            type="button"
-            disabled={loading}
-            onClick={() => onSubmit({ action: a.type })}
-            className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const BackendConfirmationStep: React.FC<{
   step: Extract<GuidedStepResponse, { type: "confirmation" }>;
   onSubmit: (payload: Record<string, unknown>) => void;
@@ -922,237 +1093,6 @@ const BackendConfirmationStep: React.FC<{
           </button>
         )}
       </div>
-    </div>
-  );
-};
-
-const YesNoDetailsStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "yes_no_details" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  const [choice, setChoice] = useState<string>("");
-  const [details, setDetails] = useState<string>("");
-
-  const showDetails = useMemo(() => {
-    // Some questions need an extra textbox when a certain option is chosen.
-    if (!step.details_field) return false;
-    return choice === step.details_field.show_when;
-  }, [choice, step.details_field]);
-
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
-      <div className="flex flex-wrap gap-2 mb-3">
-        {(step.options ?? []).map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            disabled={loading}
-            onClick={() => setChoice(o.id)}
-            className={`px-4 py-2 rounded-lg border ${choice === o.id ? "bg-primary text-white border-primary" : "border-gray-300"} disabled:opacity-60`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      {showDetails && step.details_field && (
-        <input
-          type="text"
-          placeholder={step.details_field.label}
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          className="w-full px-3 py-2 border rounded-lg"
-        />
-      )}
-
-      <button
-        type="button"
-        disabled={loading || !choice}
-        onClick={() => {
-          // We send the selected option back using the question_id as the key.
-          const payload: Record<string, unknown> = { [step.question_id]: choice };
-          if (showDetails && step.details_field) {
-            // Also send the extra text if it is visible.
-            payload[step.details_field.name] = details;
-          }
-          onSubmit(payload);
-        }}
-        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-      >
-        Next
-      </button>
-    </div>
-  );
-};
-
-const CheckboxStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "checkbox" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const [other, setOther] = useState<string>("");
-
-  const toggle = (id: string) => {
-    // Add/remove this option from the selected list.
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
-      <div className="flex flex-col gap-2">
-        {(step.options ?? []).map((o) => (
-          <label key={o.id} className="flex items-center gap-2">
-            <input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} />
-            <span>{o.label}</span>
-          </label>
-        ))}
-      </div>
-
-      {step.other_field && (
-        <input
-          type="text"
-          placeholder={step.other_field.label}
-          value={other}
-          onChange={(e) => setOther(e.target.value)}
-          className="mt-3 w-full px-3 py-2 border rounded-lg"
-        />
-      )}
-
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => {
-          // The backend tells us which key name it wants for the selected list.
-          // If it’s missing, we use a safe default name.
-          const selectedFieldName = step.field_name && step.field_name.trim() ? step.field_name : "risky_activities";
-          const payload: Record<string, unknown> = { [selectedFieldName]: selected };
-          if (step.other_field) {
-            // Optional “Other (please specify)” text input.
-            payload[step.other_field.name] = other;
-          } else if (other.trim()) {
-            // Old fallback key if the backend did not provide `other_field`.
-            payload["risky_activity_other"] = other;
-          }
-          onSubmit(payload);
-        }}
-        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-      >
-        Next
-      </button>
-    </div>
-  );
-};
-
-const RadioStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "radio" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  const [choice, setChoice] = useState<string>("");
-
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
-      <div className="flex flex-wrap gap-2 mb-3">
-        {(step.options ?? []).map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            disabled={loading}
-            onClick={() => setChoice(o.id)}
-            className={`px-4 py-2 rounded-lg border ${choice === o.id ? "bg-primary text-white border-primary" : "border-gray-300"} disabled:opacity-60`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        disabled={loading || !choice}
-        onClick={() => {
-          const key = step.question_id && step.question_id.trim() ? step.question_id : "_raw";
-          onSubmit({ [key]: choice });
-        }}
-        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-      >
-        Next
-      </button>
-    </div>
-  );
-};
-
-const OptionsStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "options" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  const [selectedId, setSelectedId] = useState<string>("");
-
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <p className="font-medium text-gray-900 mb-4">{step.message ?? "Select an option"}</p>
-      <div className="flex flex-col gap-3">
-        {(step.options ?? []).map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            disabled={loading}
-            onClick={() => setSelectedId(o.id)}
-            className={`w-full text-left px-4 py-3 rounded-xl border ${selectedId === o.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-primary/40 hover:bg-primary/5"} disabled:opacity-60`}
-          >
-            <div className="font-semibold text-gray-900">{o.label}</div>
-            {o.description ? <div className="text-sm text-gray-600 mt-1">{o.description}</div> : null}
-          </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        disabled={loading || !selectedId}
-        onClick={() => onSubmit({ _raw: selectedId })}
-        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-      >
-        Next
-      </button>
-    </div>
-  );
-};
-
-const FileUploadStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "file_upload" }>;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
-  const [fileRef, setFileRef] = useState<string>("");
-
-  return (
-    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <p className="font-medium text-gray-900 mb-3">{step.message}</p>
-      <input
-        type="file"
-        accept={step.accept ?? "application/pdf"}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          // For now we only keep the filename.
-          // (A real upload can be added later when the backend provides an endpoint.)
-          setFileRef(f.name);
-        }}
-      />
-      <button
-        type="button"
-        disabled={loading || !fileRef}
-        // Send back something like { document: "myfile.pdf" }.
-        onClick={() => onSubmit({ [step.field_name]: fileRef })}
-        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
-      >
-        Next
-      </button>
     </div>
   );
 };

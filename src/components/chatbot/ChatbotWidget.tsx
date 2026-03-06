@@ -84,7 +84,7 @@ export default function ChatbotWidget({
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [teaser]);
 
   const handleClose = () => {
     setOpen(false);
