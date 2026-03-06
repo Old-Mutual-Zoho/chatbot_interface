@@ -194,6 +194,13 @@ export type GuidedStepResponse =
 			}[];
 	  }
 	| { type: 'file_upload'; message: string; field_name: string; accept?: string }
+	| {
+			type: 'confirmation';
+			message?: string;
+			summary?: Record<string, Record<string, unknown>>;
+			actions?: { type: string; label: string }[];
+			[k: string]: unknown;
+	  }
 	| { type: 'final_confirmation'; message?: string; actions?: { type: string; label: string }[] }
 	| { type: 'proceed_to_payment'; message?: string; quote_id?: string; [k: string]: unknown }
 	| { type: 'message'; message: string };

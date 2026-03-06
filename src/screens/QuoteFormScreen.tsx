@@ -91,10 +91,12 @@ const resolveNextStepWithAutoAdvance = async (
   data: Record<string, unknown>
 ): Promise<{ complete: boolean; step: GuidedStepResponse | null } | null> => {
   let res: unknown = initialRes;
-  let isComplete = extractIsComplete(res);
-  if (isComplete) return { complete: true, step: null };
-
   let nextStep: GuidedStepResponse | null = extractGuidedStep(res);
+  let isComplete = extractIsComplete(res);
+
+  // Some backends mark the quote flow as `complete: true` but still return a follow-up
+  // guided step (e.g., payment). If a step is present, keep rendering it.
+  if (isComplete && !nextStep) return { complete: true, step: null };
 
   // If backend asks again for a form we already have filled, auto-submit it.
   // Guarded to avoid infinite loops.
@@ -104,9 +106,9 @@ const resolveNextStepWithAutoAdvance = async (
     if (!autoPayload) break;
 
     res = await sendNext(autoPayload);
-    isComplete = extractIsComplete(res);
-    if (isComplete) return { complete: true, step: null };
     nextStep = extractGuidedStep(res);
+    isComplete = extractIsComplete(res);
+    if (isComplete && !nextStep) return { complete: true, step: null };
   }
 
   return { complete: false, step: nextStep };

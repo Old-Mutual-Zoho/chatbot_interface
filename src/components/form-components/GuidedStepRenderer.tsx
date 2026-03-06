@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 
 import ConfirmationCard from "../chatbot/messages/ConfirmationCard";
 import { PaymentLoadingScreen } from "../chatbot/messages/PaymentLoadingScreen";
+import { MobileMoneyForm } from "../chatbot/messages/MobileMoneyForm";
+import { PaymentMethodSelector, type PaymentMethod } from "../chatbot/messages/PaymentMethodSelector";
 
 import CardForm, { type CardFieldConfig } from "./CardForm";
 
@@ -370,6 +372,23 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           loading={loading}
         />
       );
+    case "confirmation":
+      return (
+        <BackendConfirmationStep
+          step={step as Extract<GuidedStepResponse, { type: "confirmation" }>}
+          loading={loading}
+          onSubmit={(payload) => {
+            const action = payload && typeof payload['action'] === 'string' ? String(payload['action']) : '';
+            // For "confirm" we show the thank-you/analyzing screen until backend advances.
+            if (action && action !== 'edit') {
+              setQuoteButtonDisabled(true);
+              setSubmittedStepKey(getStepKey(step));
+              setAwaitingQuoteResult(true);
+            }
+            onSubmit(payload);
+          }}
+        />
+      );
     case "yes_no_details":
       // A yes/no (or choice) question that may show an extra textbox.
       return <YesNoDetailsStep step={step as Extract<GuidedStepResponse, { type: "yes_no_details" }> } onSubmit={onSubmit} loading={loading} />;
@@ -392,11 +411,75 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
     case "proceed_to_payment":
-      // Payment is handled elsewhere; show a simple message.
-      return <MessageStep step={{ type: "message", message: step.message ?? "Proceeding to payment." }} />;
+      return (
+        <ProceedToPaymentStep
+          step={step as Extract<GuidedStepResponse, { type: "proceed_to_payment" }>}
+          loading={loading}
+          onSubmit={onSubmit}
+        />
+      );
     default:
       return null;
   }
+};
+
+const ProceedToPaymentStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "proceed_to_payment" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
+
+  const quoteId = (() => {
+    const direct = typeof step.quote_id === 'string' ? step.quote_id : null;
+    if (direct) return direct;
+    const maybeData = (step as unknown as Record<string, unknown>)['data'];
+    if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+      const q = (maybeData as Record<string, unknown>)['quote_id'];
+      if (typeof q === 'string') return q;
+    }
+    return null;
+  })();
+
+  if (loading) {
+    return <PaymentLoadingScreen variant="payment" />;
+  }
+
+  return (
+    <div className="w-full">
+      {step.message ? (
+        <div className="w-full rounded-2xl p-4 border border-gray-200 bg-white">
+          <p className="text-gray-900 text-sm">{step.message}</p>
+        </div>
+      ) : null}
+
+      {method == null ? (
+        <PaymentMethodSelector
+          onSelectMethod={(m) => {
+            setMethod(m);
+          }}
+        />
+      ) : method === 'FLEXIPAY' ? (
+        <div className="w-full rounded-2xl p-4 border border-gray-200 bg-white mt-4">
+          <p className="text-gray-900 text-sm">
+            FlexiPay is coming soon. Please use MTN or Airtel Mobile Money for now.
+          </p>
+        </div>
+      ) : (
+        <MobileMoneyForm
+          isLoading={loading}
+          onSubmitPayment={(phoneNumber) => {
+            const payload: Record<string, unknown> = {
+              payment_method: method,
+              phone_number: phoneNumber,
+            };
+            if (quoteId) payload.quote_id = quoteId;
+            onSubmit(payload);
+          }}
+        />
+      )}
+    </div>
+  );
 };
 
 const ProductCardsStep: React.FC<{
@@ -462,6 +545,87 @@ const PremiumSummaryStep: React.FC<{
             {a.label}
           </button>
         ))}
+      </div>
+    </div>
+  );
+};
+
+const BackendConfirmationStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "confirmation" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const summary = (step.summary && typeof step.summary === 'object')
+    ? (step.summary as Record<string, Record<string, unknown>>)
+    : {};
+
+  const sections = Object.entries(summary);
+  const actions = step.actions ?? [];
+
+  const formatValue = (value: unknown): string => {
+    if (value == null) return '—';
+    if (typeof value === 'string') {
+      const s = value.trim();
+      return s ? s : '—';
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    try {
+      const s = JSON.stringify(value);
+      return s && s !== '{}' ? s : '—';
+    } catch {
+      return String(value);
+    }
+  };
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <p className="font-medium text-gray-900 mb-4">{step.message ?? "Please review your details"}</p>
+
+      {sections.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          {sections.map(([sectionName, fields]) => (
+            <div key={sectionName} className="rounded-xl border border-gray-200 p-4">
+              <div className="font-semibold text-gray-900 mb-3">{sectionName}</div>
+              <div className="flex flex-col gap-2">
+                {Object.entries(fields ?? {}).map(([k, v]) => (
+                  <div key={k} className="flex items-start justify-between gap-3">
+                    <div className="text-sm text-gray-600">{k}</div>
+                    <div className="text-sm text-gray-900 text-right break-words">{formatValue(v)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex gap-2 mt-5 flex-wrap">
+        {actions.length > 0 ? (
+          actions.map((a) => (
+            <button
+              key={a.type}
+              type="button"
+              disabled={loading}
+              onClick={() => onSubmit({ action: a.type })}
+              className={
+                a.type === 'edit'
+                  ? "px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+                  : "px-4 py-2 rounded-lg bg-primary text-white hover:opacity-95 disabled:opacity-60"
+              }
+            >
+              {a.label}
+            </button>
+          ))
+        ) : (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => onSubmit({ action: 'confirm' })}
+            className="px-4 py-2 rounded-lg bg-primary text-white hover:opacity-95 disabled:opacity-60"
+          >
+            Confirm
+          </button>
+        )}
       </div>
     </div>
   );
