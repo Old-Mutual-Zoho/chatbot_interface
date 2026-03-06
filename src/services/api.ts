@@ -238,6 +238,26 @@ export async function sendChatMessage(payload: ChatMessagePayload) {
 	return data;
 }
 
+// --- Escalation (handoff to human agent) ---
+export type EscalateRequest = {
+	session_id: string;
+	reason?: string;
+	metadata?: Record<string, unknown>;
+};
+
+export type EscalateResponse = {
+	success?: boolean;
+	escalated?: boolean;
+	state?: unknown;
+	error?: string;
+	message?: string;
+};
+
+export async function escalateSession(payload: EscalateRequest) {
+	const { data } = await api.post<EscalateResponse>('/escalate', payload);
+	return data;
+}
+
 // --- Product Discovery Types ---
 export interface Category {
 	id: string;

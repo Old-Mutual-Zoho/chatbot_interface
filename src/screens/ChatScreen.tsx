@@ -8,7 +8,7 @@ const BOT_CONFIG = {
 };
 
 const HUMAN_CONFIG = {
-  name: "Joy – Customer Support",
+  name: "Customer Support",
   avatar: humanAvatar,
   status: "Online",
 };
@@ -38,7 +38,7 @@ import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
-import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote } from "../services/api";
+import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
@@ -1157,7 +1157,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     // If escalation intent and in bot mode, trigger escalation and stop further bot response
     if (wantsHuman && chatMode === "bot") {
-      handleEscalation();
+      requestEscalation({
+        reason: 'User requested a human agent',
+        metadata: { source: 'keyword' },
+      });
       return;
     }
 
@@ -1193,36 +1196,100 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }, []);
 
   // general info button for products
-  // Escalation loader logic (persistent across renders)
+  // Escalation (handoff to human agent)
+  type EscalationTrigger = {
+    reason: string;
+    metadata: Record<string, unknown>;
+  };
+
   const escalationState = React.useRef({
     inProgress: false,
     timeout: null as number | null,
+    pending: null as EscalationTrigger | null,
   });
 
-  function showEscalationLoader() {
-    if (escalationState.current.inProgress) return;
-    escalationState.current.inProgress = true;
-    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN", variant: "escalation" });
-    autoScrollToBottom();
-    escalationState.current.timeout = window.setTimeout(() => {
-      removeEscalationLoader();
-    }, 5000);
-  }
-
-  function removeEscalationLoader() {
+  function clearEscalationLoader() {
     dispatch({ type: "CLEAR_PAYMENT_LOADING_SCREEN", variant: "escalation" });
-    escalationState.current.inProgress = false;
     if (escalationState.current.timeout) {
       clearTimeout(escalationState.current.timeout);
       escalationState.current.timeout = null;
     }
+    escalationState.current.inProgress = false;
+    escalationState.current.pending = null;
     autoScrollToBottom();
-    switchToHumanAgent();
   }
 
-  function handleEscalation() {
-    showEscalationLoader();
+  function failEscalation(message: string) {
+    clearEscalationLoader();
+    dispatch({
+      type: "RECEIVE_BOT_REPLY",
+      payload: message,
+      chatMode: 'bot',
+    });
   }
+
+  async function performEscalation(activeSessionId: string, trigger: EscalationTrigger) {
+    try {
+      const timeoutMs = 15000;
+      const data = await Promise.race([
+        escalateSession({
+          session_id: activeSessionId,
+          reason: trigger.reason,
+          metadata: trigger.metadata,
+        }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error('Escalation timed out')), timeoutMs),
+        ),
+      ]);
+
+      const ok = (data?.success === true) || (data?.escalated === true);
+      if (!ok) {
+        const serverMessage = (data?.error || data?.message) ? String(data.error || data.message) : null;
+        throw new Error(serverMessage || 'Failed to escalate');
+      }
+
+      clearEscalationLoader();
+      switchToHumanAgent();
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : 'Failed to connect to an agent. Please try again.';
+      failEscalation(`Sorry — I couldn't connect you to an agent. ${msg}`);
+    }
+  }
+
+  function requestEscalation(trigger: EscalationTrigger) {
+    // Only escalate from bot mode.
+    if (chatMode !== 'bot') return;
+    if (escalationState.current.inProgress) return;
+
+    escalationState.current.inProgress = true;
+    escalationState.current.pending = null;
+    dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN", variant: "escalation" });
+    autoScrollToBottom();
+
+    // Hard stop so we never leave the loader spinning indefinitely.
+    escalationState.current.timeout = window.setTimeout(() => {
+      failEscalation('Timed out while trying to connect you to an agent. Please try again.');
+    }, 20000);
+
+    if (!sessionId) {
+      // Session still being created; run the escalation as soon as we have a sessionId.
+      escalationState.current.pending = trigger;
+      return;
+    }
+
+    void performEscalation(sessionId, trigger);
+  }
+
+  // If the user requested an agent before the session existed, continue once we have it.
+  useEffect(() => {
+    if (!sessionId) return;
+    const pending = escalationState.current.pending;
+    if (!pending) return;
+    if (!escalationState.current.inProgress) return;
+    escalationState.current.pending = null;
+    void performEscalation(sessionId, pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   // If requested by the container (e.g., user clicked "Chat with Agent" from the landing page),
   // immediately start the existing escalation flow.
@@ -1238,8 +1305,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // Mark this session as agent-first immediately.
     agentRequestedRef.current = true;
 
-    // Only escalate from bot mode.
-    if (chatMode === 'bot') handleEscalation();
+    requestEscalation({
+      reason: 'User clicked chat with agent',
+      metadata: { source: 'chat_with_agent' },
+    });
     onAutoConnectAgentHandled?.();
     // Intentionally depend only on the trigger flag to avoid re-running due to
     // internal state changes; the container clears the flag via the callback.
@@ -1259,7 +1328,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   function appendHumanMessage() {
     dispatch({
       type: "RECEIVE_BOT_REPLY",
-      payload: `Hi 👋 This is Joy from Old Mutual. How may I assist you today?`,
+      payload: `Hi 👋 You’re now connected to customer support. How may I assist you today?`,
       chatMode: 'human',
     });
   }
@@ -1272,7 +1341,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           msg.sender === 'bot' &&
           msg.type === 'text' &&
           typeof msg.text === 'string' &&
-          msg.text.startsWith('Hi 👋 This is Joy from Old Mutual')
+          msg.text.startsWith('Hi 👋 You’re now connected to customer support')
       );
       if (!hasHumanWelcome) {
         appendHumanMessage();
@@ -1292,7 +1361,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "talk-to-agent") {
-      handleEscalation();
+      requestEscalation({
+        reason: 'User clicked talk to agent',
+        metadata: { source: 'talk_to_agent' },
+      });
       return;
     }
     // ...existing General Info logic...
@@ -1444,7 +1516,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleFeedbackConnectAgent = () => {
     setShowFeedbackActions(false);
-    handleEscalation();
+    requestEscalation({
+      reason: 'User clicked connect with agent',
+      metadata: { source: 'connect_with_agent' },
+    });
   };
 
   const shouldShowFeedbackForMessage = (message: ChatMessageWithTimestamp) => {
