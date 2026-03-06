@@ -74,6 +74,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     const names = fields.map((f) => String(f.name ?? '').trim().toLowerCase()).filter(Boolean);
     const message = String(s.message ?? '').toLowerCase();
 
+    const hasPaymentKeyword = message.includes('pay') || message.includes('payment') || message.includes('checkout');
+
     const hasPaymentMethod = names.some((n) => n === 'payment_method' || n === 'paymentmethod' || n.includes('payment_method'));
     const hasPhone = names.some((n) =>
       n === 'phone_number' ||
@@ -83,9 +85,20 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       n.includes('mobile')
     );
 
-    // Very conservative: only treat as payment UI if it's clearly about payment.
+    const hasProvider = names.some((n) => n === 'provider' || n.includes('provider'));
+    const hasAmount = names.some((n) => n.includes('amount') || n.includes('premium'));
+    const hasOtpOrPin = names.some((n) => n.includes('otp') || n.includes('pin') || n.includes('verification'));
+    const hasTxnRef = names.some((n) => n.includes('transaction') || n.includes('tx') || n.includes('reference'));
+
+    // Payment steps should NEVER go through CardForm (progressive reveal),
+    // because payment UI has its own dedicated components.
+    // Be intentionally inclusive here to avoid misrouting payment fields.
     if (hasPaymentMethod) return true;
-    if (hasPhone && message.includes('pay')) return true;
+    if (hasProvider) return true;
+    if (hasOtpOrPin) return true;
+    if (hasTxnRef) return true;
+    if (hasPhone && (hasPaymentKeyword || hasAmount)) return true;
+    if (hasAmount && hasPaymentKeyword) return true;
     return false;
   };
 
