@@ -69,6 +69,26 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       .join(' ');
   };
 
+  const isPaymentLikeFormStep = (s: Extract<GuidedStepResponse, { type: 'form' }>): boolean => {
+    const fields = s.fields ?? [];
+    const names = fields.map((f) => String(f.name ?? '').trim().toLowerCase()).filter(Boolean);
+    const message = String(s.message ?? '').toLowerCase();
+
+    const hasPaymentMethod = names.some((n) => n === 'payment_method' || n === 'paymentmethod' || n.includes('payment_method'));
+    const hasPhone = names.some((n) =>
+      n === 'phone_number' ||
+      n === 'phonenumber' ||
+      n.includes('phone') ||
+      n.includes('msisdn') ||
+      n.includes('mobile')
+    );
+
+    // Very conservative: only treat as payment UI if it's clearly about payment.
+    if (hasPaymentMethod) return true;
+    if (hasPhone && message.includes('pay')) return true;
+    return false;
+  };
+
   const normalizeOptions = (opts: unknown): Array<{ label: string; value: string }> => {
     if (!Array.isArray(opts)) return [];
     return opts
@@ -117,11 +137,28 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   };
 
   const handlePremiumSummarySubmit = (payload: Record<string, unknown>) => {
+    const payloadWithPremium: Record<string, unknown> = (() => {
+      if (!step || step.type !== 'premium_summary') return payload;
+      if (payload && payload['premium_amount'] != null) return payload;
+
+      const raw = (step as unknown as Record<string, unknown>)['monthly_premium'] ?? (step as unknown as Record<string, unknown>)['annual_premium'];
+      const premiumAmount = (() => {
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        if (typeof raw === 'string') {
+          const n = Number(raw);
+          return Number.isFinite(n) ? n : null;
+        }
+        return null;
+      })();
+
+      return premiumAmount != null ? { ...payload, premium_amount: premiumAmount } : payload;
+    })();
+
     if (!confirmOnPremiumSummaryActions) {
-      onSubmit(payload);
+      onSubmit(payloadWithPremium);
       return;
     }
-    setConfirmationData(buildConfirmationSummary(values, payload));
+    setConfirmationData(buildConfirmationSummary(values, payloadWithPremium));
     setShowConfirmation(true);
   };
 
@@ -314,6 +351,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
 
   switch (step.type) {
     case "form":
+    if (isPaymentLikeFormStep(step as Extract<GuidedStepResponse, { type: 'form' }>)) {
+      return (
+        <ProceedToPaymentStep
+          step={step as unknown as ProceedToPaymentLikeStep}
+          loading={loading}
+          onSubmit={onSubmit}
+        />
+      );
+    }
 		// Backend-driven form step: render fields using the existing CardForm.
 		// This is what powers the guided quote experience (PA / Motor / Travel / Serenicare etc).
 		return (
@@ -410,10 +456,18 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "message":
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
+    case "payment_method":
+      return (
+        <BackendPaymentMethodStep
+          step={step as Extract<GuidedStepResponse, { type: "payment_method" }>}
+          loading={loading}
+          onSubmit={onSubmit}
+        />
+      );
     case "proceed_to_payment":
       return (
         <ProceedToPaymentStep
-          step={step as Extract<GuidedStepResponse, { type: "proceed_to_payment" }>}
+          step={step as unknown as ProceedToPaymentLikeStep}
           loading={loading}
           onSubmit={onSubmit}
         />
@@ -423,8 +477,222 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   }
 };
 
+type ProceedToPaymentLikeStep = {
+  message?: string;
+  quote_id?: string;
+  [k: string]: unknown;
+};
+
+type BackendPaymentMethodOption = {
+  id: string;
+  label: string;
+  providers?: string[];
+  icon?: string;
+};
+
+const BackendPaymentMethodStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: 'payment_method' }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+
+  const quoteId = (() => {
+    const direct = typeof step.quote_id === 'string' ? step.quote_id : null;
+    if (direct) return direct;
+    const maybeData = (step as unknown as Record<string, unknown>)['data'];
+    if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+      const q = (maybeData as Record<string, unknown>)['quote_id'];
+      if (typeof q === 'string') return q;
+    }
+    return null;
+  })();
+
+  const options: BackendPaymentMethodOption[] = Array.isArray(step.options)
+    ? (step.options as BackendPaymentMethodOption[])
+    : [];
+
+  const premiumAmount = (() => {
+    const candidates: unknown[] = [
+      (step as unknown as Record<string, unknown>)['premium_amount'],
+      step.amount,
+      (step as unknown as Record<string, unknown>)['amount'],
+    ];
+    const maybeData = (step as unknown as Record<string, unknown>)['data'];
+    if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+      candidates.push(
+        (maybeData as Record<string, unknown>)['premium_amount'],
+        (maybeData as Record<string, unknown>)['amount'],
+      );
+    }
+    for (const raw of candidates) {
+      if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+      if (typeof raw === 'string') {
+        const n = Number(raw);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    return null;
+  })();
+
+  const selectedOption = selectedOptionId
+    ? options.find((o) => o.id === selectedOptionId) ?? null
+    : null;
+
+  const providers = Array.isArray(selectedOption?.providers)
+    ? (selectedOption?.providers ?? []).filter((p) => typeof p === 'string' && p.trim())
+    : [];
+
+  const formatProviderId = (p: string): PaymentMethod | null => {
+    const cleaned = p.trim().toUpperCase();
+    if (cleaned === 'MTN') return 'MTN';
+    if (cleaned === 'AIRTEL') return 'AIRTEL';
+    if (cleaned === 'FLEXIPAY') return 'FLEXIPAY';
+    return null;
+  };
+
+  const renderOptionButtons = () => {
+    return (
+      <div className="space-y-3">
+        {options.map((opt) => {
+          const isSelected = selectedOptionId === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                setSelectedOptionId(opt.id);
+                setSelectedProvider(null);
+
+                // For non-mobile-money paths, submit immediately and let backend drive the next step.
+                if (opt.id !== 'mobile_money') {
+                  const payload: Record<string, unknown> = {
+                    action: opt.id,
+                    payment_method: opt.id,
+                  };
+                  if (quoteId) payload.quote_id = quoteId;
+                  if (premiumAmount != null) payload.premium_amount = premiumAmount;
+                  onSubmit(payload);
+                }
+              }}
+              className={[
+                'w-full flex items-center gap-3 p-3 border-2 rounded-xl min-h-[48px] transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-60',
+                isSelected ? 'border-primary bg-green-50' : 'border-gray-200 bg-white hover:border-primary',
+              ].join(' ')}
+            >
+              <div
+                className={[
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                  isSelected ? 'border-primary' : 'border-gray-300',
+                ].join(' ')}
+              >
+                {isSelected ? <div className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
+              </div>
+              <span className="text-gray-900 font-medium text-sm flex-1 text-left">{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return <PaymentLoadingScreen variant="payment" />;
+  }
+
+  // If the backend wants the user to pick a method, keep the same payment-card design.
+  return (
+    <div className="flex justify-start mb-4 mt-4 w-full">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 w-full">
+        <div className="px-5 py-3 bg-green-50 border-b border-green-100">
+          <p className="text-gray-700 text-sm font-medium">
+            {step.message ?? 'Choose your payment method'}
+          </p>
+          {typeof step.amount === 'number' ? (
+            <p className="text-gray-700 text-xs mt-1">Amount: UGX {Number(step.amount).toLocaleString()}</p>
+          ) : null}
+        </div>
+
+        <div className="px-5 py-4">
+          {selectedOptionId == null ? (
+            renderOptionButtons()
+          ) : selectedOptionId === 'mobile_money' && selectedProvider == null ? (
+            // Mobile money: use provider selection, then show the existing phone-number form.
+            <div className="space-y-3">
+              {(providers.length > 0 ? providers : ['MTN', 'Airtel']).map((p) => {
+                const providerId = formatProviderId(p);
+                const display = p.trim();
+                const isSelected = selectedProvider === display;
+                return (
+                  <button
+                    key={display}
+                    type="button"
+                    disabled={loading || providerId == null}
+                    onClick={() => {
+                      if (!providerId) return;
+                      setSelectedProvider(display);
+                    }}
+                    className={[
+                      'w-full flex items-center gap-3 p-3 border-2 rounded-xl min-h-[48px] transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-60',
+                      isSelected ? 'border-primary bg-green-50' : 'border-gray-200 bg-white hover:border-primary',
+                    ].join(' ')}
+                  >
+                    <div
+                      className={[
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                        isSelected ? 'border-primary' : 'border-gray-300',
+                      ].join(' ')}
+                    >
+                      {isSelected ? <div className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
+                    </div>
+                    <span className="text-gray-900 font-medium text-sm flex-1 text-left">{display}</span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setSelectedOptionId(null);
+                  setSelectedProvider(null);
+                }}
+                className="w-full text-sm text-primary underline underline-offset-2"
+              >
+                Change method
+              </button>
+            </div>
+          ) : selectedOptionId === 'mobile_money' && selectedProvider != null ? (
+            <MobileMoneyForm
+              isLoading={loading}
+              onSubmitPayment={(phoneNumber) => {
+                const providerId = formatProviderId(selectedProvider) ?? formatProviderId(selectedProvider.toUpperCase());
+                const payload: Record<string, unknown> = {
+                  action: 'mobile_money',
+                  payment_method: 'mobile_money',
+                  provider: providerId ?? selectedProvider,
+                  phone_number: phoneNumber,
+                };
+                if (quoteId) payload.quote_id = quoteId;
+                if (premiumAmount != null) payload.premium_amount = premiumAmount;
+                onSubmit(payload);
+              }}
+            />
+          ) : (
+            <div className="text-sm text-gray-700">
+              {selectedOption?.label ?? 'Proceeding...'}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ProceedToPaymentStep: React.FC<{
-  step: Extract<GuidedStepResponse, { type: "proceed_to_payment" }>;
+  step: ProceedToPaymentLikeStep;
   onSubmit: (payload: Record<string, unknown>) => void;
   loading: boolean;
 }> = ({ step, onSubmit, loading }) => {
@@ -437,6 +705,32 @@ const ProceedToPaymentStep: React.FC<{
     if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
       const q = (maybeData as Record<string, unknown>)['quote_id'];
       if (typeof q === 'string') return q;
+    }
+    return null;
+  })();
+
+  const premiumAmount = (() => {
+    const candidates: unknown[] = [
+      (step as unknown as Record<string, unknown>)['premium_amount'],
+      (step as unknown as Record<string, unknown>)['amount'],
+      (step as unknown as Record<string, unknown>)['premium'],
+      (step as unknown as Record<string, unknown>)['monthly_premium'],
+    ];
+    const maybeData = (step as unknown as Record<string, unknown>)['data'];
+    if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+      candidates.push(
+        (maybeData as Record<string, unknown>)['premium_amount'],
+        (maybeData as Record<string, unknown>)['amount'],
+        (maybeData as Record<string, unknown>)['premium'],
+        (maybeData as Record<string, unknown>)['monthly_premium'],
+      );
+    }
+    for (const raw of candidates) {
+      if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+      if (typeof raw === 'string') {
+        const n = Number(raw);
+        if (Number.isFinite(n)) return n;
+      }
     }
     return null;
   })();
@@ -474,6 +768,7 @@ const ProceedToPaymentStep: React.FC<{
               phone_number: phoneNumber,
             };
             if (quoteId) payload.quote_id = quoteId;
+            if (premiumAmount != null) payload.premium_amount = premiumAmount;
             onSubmit(payload);
           }}
         />

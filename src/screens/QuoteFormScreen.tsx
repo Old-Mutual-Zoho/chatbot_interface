@@ -98,6 +98,69 @@ const resolveNextStepWithAutoAdvance = async (
   // guided step (e.g., payment). If a step is present, keep rendering it.
   if (isComplete && !nextStep) return { complete: true, step: null };
 
+  // Payment transition: some backends return an informational `proceed_to_payment` step first,
+  // and only return the real payment UI step (`payment_method`) on the next call.
+  // Auto-advance once so the user immediately sees payment options/amount.
+  if (nextStep?.type === 'proceed_to_payment') {
+    const extractPremiumAmount = (): number | null => {
+      const candidates: unknown[] = [
+        (nextStep as unknown as Record<string, unknown>)['premium_amount'],
+        (nextStep as unknown as Record<string, unknown>)['amount'],
+        (nextStep as unknown as Record<string, unknown>)['premium'],
+        (nextStep as unknown as Record<string, unknown>)['monthly_premium'],
+      ];
+
+      // Also try the already-collected quote data from earlier steps.
+      if (data && typeof data === 'object') {
+        const d = data as Record<string, unknown>;
+        candidates.push(
+          d['premium_amount'],
+          d['amount'],
+          d['premium'],
+          d['monthly_premium'],
+          d['annual_premium'],
+        );
+      }
+      const maybeData = (nextStep as unknown as Record<string, unknown>)['data'];
+      if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+        candidates.push(
+          (maybeData as Record<string, unknown>)['premium_amount'],
+          (maybeData as Record<string, unknown>)['amount'],
+          (maybeData as Record<string, unknown>)['premium'],
+          (maybeData as Record<string, unknown>)['monthly_premium'],
+        );
+      }
+
+      for (const raw of candidates) {
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        if (typeof raw === 'string') {
+          const n = Number(raw);
+          if (Number.isFinite(n)) return n;
+        }
+      }
+      return null;
+    };
+
+    const quoteId = typeof nextStep.quote_id === 'string' && nextStep.quote_id.trim()
+      ? nextStep.quote_id.trim()
+      : undefined;
+
+    const premiumAmount = extractPremiumAmount();
+
+    const followUpPayload: Record<string, unknown> = {
+      ...(quoteId ? { quote_id: quoteId } : {}),
+      ...(premiumAmount != null ? { premium_amount: premiumAmount } : {}),
+    };
+    try {
+      res = await sendNext(followUpPayload);
+      nextStep = extractGuidedStep(res);
+      isComplete = extractIsComplete(res);
+      if (isComplete && !nextStep) return { complete: true, step: null };
+    } catch {
+      // If follow-up fails, fall back to rendering the proceed_to_payment step.
+    }
+  }
+
   // If backend asks again for a form we already have filled, auto-submit it.
   // Guarded to avoid infinite loops.
   for (let attempts = 0; attempts < 2; attempts += 1) {

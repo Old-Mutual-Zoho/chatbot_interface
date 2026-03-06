@@ -38,7 +38,7 @@ import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
-import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession } from "../services/api";
+import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession, getAgentMessages } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
@@ -696,6 +696,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const inlineGuidedRef = useRef<HTMLDivElement>(null);
 
+  // Polling for agent replies after escalation.
+  const agentPollTimerRef = useRef<number | null>(null);
+  const seenAgentKeysRef = useRef<Set<string>>(new Set());
+
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
   useEffect(() => {
@@ -1044,6 +1048,76 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       if (nextStep) {
         setInlineGuidedPendingAction(null);
+        // Payment transition: backend may return an informational `proceed_to_payment` step first,
+        // then return the actual payment options (`payment_method`) on the next call.
+        if (nextStep.type === 'proceed_to_payment') {
+          try {
+            const quoteId = typeof nextStep.quote_id === 'string' && nextStep.quote_id.trim() ? nextStep.quote_id.trim() : undefined;
+
+            const extractPremiumAmount = (): number | null => {
+              const candidates: unknown[] = [
+                (nextStep as unknown as Record<string, unknown>)['premium_amount'],
+                (nextStep as unknown as Record<string, unknown>)['amount'],
+                (nextStep as unknown as Record<string, unknown>)['premium'],
+                (nextStep as unknown as Record<string, unknown>)['monthly_premium'],
+              ];
+
+              // Also try values we've already captured from prior steps.
+              if (inlineGuidedValues && typeof inlineGuidedValues === 'object') {
+                const v = inlineGuidedValues as Record<string, unknown>;
+                candidates.push(
+                  v['premium_amount'],
+                  v['amount'],
+                  v['premium'],
+                  v['monthly_premium'],
+                  v['annual_premium'],
+                );
+              }
+              const maybeData = (nextStep as unknown as Record<string, unknown>)['data'];
+              if (maybeData && typeof maybeData === 'object' && maybeData !== null) {
+                candidates.push(
+                  (maybeData as Record<string, unknown>)['premium_amount'],
+                  (maybeData as Record<string, unknown>)['amount'],
+                  (maybeData as Record<string, unknown>)['premium'],
+                  (maybeData as Record<string, unknown>)['monthly_premium'],
+                );
+              }
+              for (const raw of candidates) {
+                if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+                if (typeof raw === 'string') {
+                  const n = Number(raw);
+                  if (Number.isFinite(n)) return n;
+                }
+              }
+              return null;
+            };
+
+            const premiumAmount = extractPremiumAmount();
+
+            const followUp = await sendChatMessage({
+              user_id: userId,
+              session_id: sessionId || '',
+              form_data: {
+                ...(quoteId ? { quote_id: quoteId } : {}),
+                ...(premiumAmount != null ? { premium_amount: premiumAmount } : {}),
+              },
+            });
+
+            const followUpSessionId = extractSessionIdFromResponse(followUp);
+            if (followUpSessionId && followUpSessionId !== sessionId) {
+              setSessionId(followUpSessionId);
+            }
+
+            const advancedStep = extractGuidedStep(followUp);
+            if (advancedStep) {
+              setInlineGuidedStep(advancedStep);
+              return;
+            }
+          } catch {
+            // Fall back to rendering the proceed_to_payment step.
+          }
+        }
+
         setInlineGuidedStep(nextStep);
       }
     } catch (err) {
@@ -1349,6 +1423,81 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatMode]);
+
+  const getAgentMessageText = (m: unknown): string | null => {
+    if (!m || typeof m !== 'object') return null;
+    const rec = m as Record<string, unknown>;
+    const text = typeof rec['text'] === 'string' ? rec['text'] : null;
+    const message = typeof rec['message'] === 'string' ? rec['message'] : null;
+    const raw = (text && text.trim()) ? text.trim() : (message && message.trim() ? message.trim() : null);
+    if (!raw) return null;
+
+    // Backend may prefix: [agent][chat_id:sess-123] Hello
+    const cleaned = raw.replace(/^\[agent\]\[chat_id:[^\]]+\]\s*/i, '').trim();
+    return cleaned || raw;
+  };
+
+  const makeAgentKey = (m: unknown, fallbackText: string): string => {
+    const rec = (m && typeof m === 'object') ? (m as Record<string, unknown>) : {};
+    const ts = typeof rec['ts'] === 'string' ? rec['ts'] : '';
+    const agentId = typeof rec['agent_id'] === 'string' ? rec['agent_id'] : '';
+    return `${ts}::${agentId}::${fallbackText}`;
+  };
+
+  useEffect(() => {
+    // New backend session => reset dedupe so we can show messages for the new chat.
+    seenAgentKeysRef.current = new Set();
+  }, [sessionId]);
+
+  useEffect(() => {
+    // Only poll when in human mode and we have a session id.
+    if (chatMode !== 'human' || !sessionId) return;
+
+    const pollOnce = async () => {
+      try {
+        const data = await getAgentMessages(sessionId);
+        if (!data?.success) return;
+        const messages = Array.isArray(data.messages) ? data.messages : [];
+        const agentMessages = messages.filter((m) => (m && typeof m === 'object') && (m as { sender?: unknown }).sender === 'agent');
+        if (agentMessages.length === 0) return;
+
+        // Sort by ts when present to keep ordering stable.
+        agentMessages.sort((a, b) => {
+          const ats = typeof a.ts === 'string' ? a.ts : '';
+          const bts = typeof b.ts === 'string' ? b.ts : '';
+          return ats.localeCompare(bts);
+        });
+
+        for (const m of agentMessages) {
+          const text = getAgentMessageText(m);
+          if (!text) continue;
+          const key = makeAgentKey(m, text);
+          if (seenAgentKeysRef.current.has(key)) continue;
+          seenAgentKeysRef.current.add(key);
+
+          dispatch({
+            type: "RECEIVE_BOT_REPLY",
+            payload: text,
+            chatMode: 'human',
+          });
+        }
+      } catch (e) {
+        // Keep polling even if one request fails.
+        console.warn('Failed to fetch agent messages', e);
+      }
+    };
+
+    // Kick off immediately, then poll.
+    void pollOnce();
+    agentPollTimerRef.current = window.setInterval(pollOnce, 2000);
+
+    return () => {
+      if (agentPollTimerRef.current) {
+        clearInterval(agentPollTimerRef.current);
+        agentPollTimerRef.current = null;
+      }
+    };
+  }, [chatMode, sessionId]);
 
   function autoScrollToBottom() {
     setTimeout(() => {

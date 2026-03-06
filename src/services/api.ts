@@ -202,7 +202,27 @@ export type GuidedStepResponse =
 			[k: string]: unknown;
 	  }
 	| { type: 'final_confirmation'; message?: string; actions?: { type: string; label: string }[] }
-	| { type: 'proceed_to_payment'; message?: string; quote_id?: string; [k: string]: unknown }
+	| {
+			type: 'proceed_to_payment';
+			message?: string;
+			quote_id?: string;
+			premium_amount?: number;
+			amount?: number;
+			[k: string]: unknown;
+	  }
+	| {
+			type: 'payment_method';
+			message?: string;
+			amount?: number;
+			options?: Array<{
+				id: string;
+				label: string;
+				providers?: string[];
+				icon?: string;
+			}>;
+			quote_id?: string;
+			[k: string]: unknown;
+	  }
 	| { type: 'message'; message: string };
 
 export interface StartGuidedResponse {
@@ -255,6 +275,33 @@ export type EscalateResponse = {
 
 export async function escalateSession(payload: EscalateRequest) {
 	const { data } = await api.post<EscalateResponse>('/escalate', payload);
+	return data;
+}
+
+// --- Agent messages (post-escalation) ---
+export type AgentMessage = {
+	chat_id: string;
+	thread_ts?: string | null;
+	ts?: string | null;
+	text?: string | null;
+	message?: string | null;
+	sender?: string | null;
+	agent_id?: string | null;
+	user?: string | null;
+	bot_id?: string | null;
+};
+
+export type AgentMessagesResponse = {
+	success: boolean;
+	messages?: AgentMessage[];
+	error?: string;
+	message?: string;
+};
+
+export async function getAgentMessages(chat_id: string) {
+	const { data } = await api.get<AgentMessagesResponse>('/agent/messages', {
+		params: { chat_id },
+	});
 	return data;
 }
 
