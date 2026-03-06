@@ -563,8 +563,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       // Some backends validate the full schema on each submit and return missing-field errors
       // for fields that weren't included in the current step payload.
       const payloadToSend = paPendingAction
-        ? { ...formData, ...payload, action: paPendingAction }
-        : { ...formData, ...payload };
+        ? { ...mergedPaData, ...payload, action: paPendingAction }
+        : { ...mergedPaData, ...payload };
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
@@ -605,6 +605,21 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),
         });
 
+        // If we're currently on a non-form step (e.g. premium summary) and the user clicked an
+        // action like "Proceed", the backend may respond with required-field errors.
+        // Switch into a simple field-entry step so those fields render.
+        if (paStepPayload && paStepPayload.type !== 'form') {
+          const nextFormStep = buildFormStepFromFieldErrors(validation.message, validation.fieldErrors);
+          setPaStepHistory((prev) => {
+            const prevKey = getGuidedStepKey(paStepPayload);
+            const last = prev.length > 0 ? prev[prev.length - 1] : null;
+            const lastKey = getGuidedStepKey(last);
+            if (!prevKey || prevKey === lastKey) return prev;
+            return [...prev, paStepPayload];
+          });
+          setPaStepPayload(nextFormStep);
+        }
+
         // If the backend validates future fields (e.g. next-of-kin) before sending the next step,
         // append the missing fields onto the current PA form so the user can complete them.
         const augmented = appendMissingFieldsFromFieldErrors(
@@ -612,7 +627,19 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
           validation.message,
           validation.fieldErrors
         );
-        if (augmented) setPaStepPayload(augmented);
+        if (augmented) {
+          // Preserve Back navigation when we append new fields (e.g., NOK fields)
+          // onto the current step.
+          setPaStepHistory((prev) => {
+            if (!paStepPayload) return prev;
+            const prevKey = getGuidedStepKey(paStepPayload);
+            const last = prev.length > 0 ? prev[prev.length - 1] : null;
+            const lastKey = getGuidedStepKey(last);
+            if (!prevKey || prevKey === lastKey) return prev;
+            return [...prev, paStepPayload];
+          });
+          setPaStepPayload(augmented);
+        }
 
         const attemptedAction = payload && typeof payload['action'] === 'string' ? (payload['action'] as string) : null;
         if (attemptedAction) setPaPendingAction(attemptedAction);
