@@ -129,6 +129,7 @@ export default function ChatbotContainer({
     setIsConversationEnded(false);
     setPendingExit(null);
     setActiveConversationId(null);
+    setChatMode('bot');
     resetChat();
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
@@ -186,6 +187,7 @@ export default function ChatbotContainer({
 
     setIsConversationEnded(false);
     setPendingExit(null);
+    setChatMode('bot');
     setActiveConversationId(conversationId);
     setSelectedProduct(convo.selectedProduct ?? null);
     setChatSessionKey((k) => k + 1);

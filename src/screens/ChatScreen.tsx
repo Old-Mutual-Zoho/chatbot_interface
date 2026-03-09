@@ -645,8 +645,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSubmitFeedback,
   autoConnectAgent,
   onAutoConnectAgentHandled,
+  agentConfig,
+  chatMode,
+  setChatMode,
+  isExpanded = false,
+  onToggleExpand,
   renderCustomContent,
-  // Removed unused agentConfig
   initialMessages,
   onMessagesChange,
   channel = 'web',
@@ -660,12 +664,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (autoConnectAgent) agentRequestedRef.current = true;
   }, [autoConnectAgent]);
 
-  // Chat mode state
-  const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot');
-  const [headerConfig, setHeaderConfig] = useState(BOT_CONFIG);
-  // Expand/collapse state for ChatHeader
-  const [isExpanded, setIsExpanded] = useState(false);
-  const handleToggleExpand = () => setIsExpanded((prev) => !prev);
+  // Expand/collapse state is managed by the container.
+  const handleToggleExpand = onToggleExpand ?? (() => undefined);
   // Robust session management: persist sessionId from backend, update on backend response, use for all requests, reset only on new conversation/session expiry
   const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
   const isGuidedFlow = !!selectedProduct;
@@ -1391,12 +1391,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   function switchToHumanAgent() {
     setChatMode('human');
-    updateHeader(HUMAN_CONFIG);
     // Do NOT call appendHumanMessage() here; let useEffect handle it after chatMode is set
-  }
-
-  function updateHeader(config: typeof BOT_CONFIG) {
-    setHeaderConfig(config);
   }
 
   function appendHumanMessage() {
@@ -1842,7 +1837,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <ChatHeader
           onBack={onBackClick}
           onClose={onCloseClick!}
-          agentConfig={headerConfig}
+          agentConfig={agentConfig}
           chatMode={chatMode}
           isExpanded={isExpanded}
           onToggleExpand={handleToggleExpand}
@@ -2164,5 +2159,4 @@ const PRODUCT_KEY_MAP: Record<string, string> = {
   travel_sure_plus: "travel",
   // Add more mappings as needed
 };
-
 

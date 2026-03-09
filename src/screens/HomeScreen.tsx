@@ -3,8 +3,6 @@ import {
   IoChevronForward,
   IoHome,
   IoChatbubbles,
-  IoHeadset,
-  IoHelpCircleOutline,
   IoCallOutline,
 } from "react-icons/io5";
 import { BsChatRightText } from "react-icons/bs";
@@ -59,7 +57,11 @@ export default function HomeScreen({
             onClick={() => setIsHelpOpen((prev) => !prev)}
             className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center border border-white/40"
           >
-            <IoHelpCircleOutline size={24} className="text-white" />
+            <span className="grid grid-cols-3 gap-[3px]">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <span key={index} className="w-[4px] h-[4px] rounded-full bg-white" />
+              ))}
+            </span>
           </button>
 
           {isHelpOpen && (
@@ -93,6 +95,18 @@ export default function HomeScreen({
                   <p className="text-sm font-medium truncate">Chat on WhatsApp</p>
                 </div>
               </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHelpOpen(false);
+                  // Explicitly route to the existing human-agent escalation flow.
+                  onChatWithAgent();
+                }}
+                className="w-full mt-1 rounded-lg bg-primary text-white text-sm font-semibold py-2 px-3 hover:bg-primary/90 transition"
+              >
+                Chat with Agent
+              </button>
             </div>
           )}
         </div>
@@ -141,7 +155,7 @@ export default function HomeScreen({
               <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 Life Insurance
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -158,7 +172,7 @@ export default function HomeScreen({
               <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 General Insurance
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -175,7 +189,7 @@ export default function HomeScreen({
               <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 Savings & Investment
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -191,15 +205,6 @@ export default function HomeScreen({
           <span className="text-sm mt-1">Home</span>
           <div className="mt-1 h-1 w-10 rounded-full bg-primary" />
         </div>
-
-        <button
-          onClick={onChatWithAgent}
-          className="flex flex-col items-center text-primary cursor-pointer"
-        >
-          <IoHeadset size={26} />
-          <span className="text-sm mt-1">Chat with Agent</span>
-          <div className="mt-1 h-1 w-10 rounded-full bg-transparent" />
-        </button>
 
         <button
           onClick={onGoToConversation}
