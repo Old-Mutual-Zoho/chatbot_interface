@@ -203,16 +203,14 @@ export default function HomeScreen({
         <div className="flex flex-col items-center text-primary cursor-pointer" aria-current="page">
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>
-          <div className="mt-1 h-1 w-10 rounded-full bg-primary" />
         </div>
 
         <button
           onClick={onGoToConversation}
-          className="flex flex-col items-center text-primary cursor-pointer"
+          className="flex flex-col items-center text-primary/45 cursor-pointer"
         >
           <IoChatbubbles size={26} />
           <span className="text-sm mt-1">Conversation</span>
-          <div className="mt-1 h-1 w-10 rounded-full bg-transparent" />
         </button>
       </div>
     </div>

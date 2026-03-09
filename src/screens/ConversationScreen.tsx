@@ -162,17 +162,15 @@ export default function ConversationScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex flex-col items-center text-primary cursor-pointer"
+          className="flex flex-col items-center text-primary/45 cursor-pointer"
         >
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>
-          <div className="mt-1 h-1 w-10 rounded-full bg-transparent" />
         </button>
 
         <div className="flex flex-col items-center text-primary" aria-current="page">
           <IoChatbubbles size={26} />
           <span className="text-sm mt-1">Conversation</span>
-          <div className="mt-1 h-1 w-10 rounded-full bg-primary" />
         </div>
       </div>
     </div>
