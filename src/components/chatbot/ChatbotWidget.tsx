@@ -12,6 +12,10 @@ export default function ChatbotWidget({
   // Floating launcher that toggles the full chatbot panel.
   const [open, setOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 800px)").matches;
+  });
 
   const debug =
     import.meta.env.DEV &&
@@ -71,6 +75,23 @@ export default function ChatbotWidget({
     }
   }, [debug, open, portalNode, showTeaser]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 800px)");
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+
+    setIsMobileViewport(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleMediaChange);
+      return () => mediaQuery.removeEventListener("change", handleMediaChange);
+    }
+
+    mediaQuery.addListener(handleMediaChange);
+    return () => mediaQuery.removeListener(handleMediaChange);
+  }, []);
+
   const openRef = useRef(open);
   useEffect(() => {
     openRef.current = open;
@@ -123,9 +144,10 @@ export default function ChatbotWidget({
 
   const panelAnchorStyle: React.CSSProperties = {
     position: "fixed",
-    top: "calc(1rem + env(safe-area-inset-top))",
-    bottom: "calc(6rem + env(safe-area-inset-bottom))",
-    right: "calc(1rem + env(safe-area-inset-right))",
+    top: isMobileViewport ? "env(safe-area-inset-top)" : "calc(1rem + env(safe-area-inset-top))",
+    bottom: isMobileViewport ? "env(safe-area-inset-bottom)" : "calc(6rem + env(safe-area-inset-bottom))",
+    left: isMobileViewport ? "0" : "auto",
+    right: isMobileViewport ? "0" : "calc(1rem + env(safe-area-inset-right))",
     zIndex: 2147483647,
     pointerEvents: "auto",
   };
@@ -213,7 +235,13 @@ export default function ChatbotWidget({
             className="fixed top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(6rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9999] om-panel-enter pointer-events-auto"
             style={panelAnchorStyle}
           >
-            <div className="w-[92vw] max-w-[480px] h-full max-h-full md:w-[500px] lg:w-[520px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white">
+            <div
+              className={
+                isMobileViewport
+                  ? "w-screen h-full max-h-full overflow-hidden rounded-none shadow-none border-0 bg-white"
+                  : "w-[92vw] max-w-[480px] h-full max-h-full md:w-[500px] lg:w-[520px] overflow-hidden rounded-3xl shadow-xl border border-primary/20 bg-white"
+              }
+            >
               <ChatbotContainer onClose={handleClose} />
             </div>
           </div>

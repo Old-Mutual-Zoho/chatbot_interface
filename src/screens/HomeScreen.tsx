@@ -46,10 +46,10 @@ export default function HomeScreen({
   }, [isHelpOpen]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-white">
+    <div className="flex flex-col h-full w-full bg-[#f6f6f8]">
       {/* Header */}
       <div
-        className="relative rounded-3xl px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
+        className="relative rounded-b-4xl px-6 pb-12 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
       >
         <div ref={helpMenuRef} className="absolute top-5 right-5 z-20">
           <button
@@ -98,50 +98,50 @@ export default function HomeScreen({
         </div>
 
         {/* Logo */}
-        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">
+        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-10">
           <img src={OMlogo} className="w-full h-full" />
         </div>
 
-        <h1 className="text-6xl mb-2">Old Mutual</h1>
-        <p className="text-xl opacity-90 mb-5">Hey! How can we help you today</p>
+        <h1 className="text-5xl leading-none mb-3">Old Mutual</h1>
+        <p className="text-xl opacity-95 mb-1">Hey! How can we help you today</p>
       </div>
 
       {/* CHAT NOW */}
-      <div className="-mt-8 px-4">
+      <div className="mt-[18px] px-4">
         <button
           onClick={onStartChat}
-          className="w-full bg-white rounded-2xl shadow-md flex justify-between items-center px-4 py-3 pt-5 pb-5 cursor-pointer hover:shadow-lg transition"
+          className="w-full bg-white rounded-[1rem] shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex justify-between items-center px-4 py-4 cursor-pointer hover:shadow-lg transition"
         >
-          <div className="flex items-center gap-5">
-            <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shrink-0">
               <BsChatRightText
                 size={22}
                 className="text-white"
               />
             </div>
-            <span className="text-black text-xl font-medium">Chat with us now</span>
+            <span className="text-black text-xl font-semibold leading-none">Chat with us now</span>
           </div>
           <IoChevronForward size={22} className="text-black" />
         </button>
       </div>
 
       {/* Cards */}
-      <div className="mt-6 px-4 pb-4">
-        <div className="rounded-2xl border mt-3 border-gray-200 p-4 shadow-lg bg-white">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="mt-5 px-4 pb-4">
+        <div className="rounded-2xl border mt-2 border-gray-200 p-3 sm:p-4 shadow-sm bg-white">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {/* Personal category */}
             <button
               onClick={() => onSelectCategory("personal")}
-              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
             >
               <img
                 src={product1}
-                className="w-13 h-13 rounded-full object-cover mb-2"
+                className="w-14 h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 Life Insurance
               </p>
-              <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
                 Chat Now
               </span>
             </button>
@@ -149,16 +149,16 @@ export default function HomeScreen({
             {/* Business category */}
             <button
               onClick={() => onSelectCategory("business")}
-              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
             >
               <img
                 src={product2}
-                className="w-13 h-13 rounded-full object-cover mb-2"
+                className="w-14 h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 General Insurance
               </p>
-              <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
                 Chat Now
               </span>
             </button>
@@ -166,16 +166,16 @@ export default function HomeScreen({
             {/* Savings & Investment category */}
             <button
               onClick={() => onSelectCategory("savings")}
-              className="flex flex-col items-center cursor-pointer bg-green-100 rounded-xl p-3 shadow-xs"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
             >
               <img
                 src={product3}
-                className="w-13 h-13 rounded-full object-cover mb-2"
+                className="w-14 h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
                 Savings & Investment
               </p>
-              <span className="mt-1 text-xs bg-primary text-white px-3 py-1 rounded-md">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1 rounded-xl leading-none">
                 Chat Now
               </span>
             </button>
