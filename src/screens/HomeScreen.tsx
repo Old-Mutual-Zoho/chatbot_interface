@@ -26,8 +26,8 @@ export default function HomeScreen({
 }) {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement>(null);
-  const callNumber = "+256700000000";
-  const whatsappNumber = "256700000000";
+  const callNumber = "+256707434218";
+  const whatsappNumber = "256707434218";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,10 +44,11 @@ export default function HomeScreen({
   }, [isHelpOpen]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f6f6f8]">
+    <div className="flex flex-col h-full w-full min-h-0 bg-[#f6f6f8] overflow-hidden">
       {/* Header */}
       <div
-        className="relative rounded-b-4xl px-6 pb-12 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
+        className="relative shrink-0 rounded-b-4xl px-5 sm:px-6 pb-7 sm:pb-9 pt-4 sm:pt-5 text-white bg-gradient-to-br from-primary to-primary/80"
+        style={{ paddingTop: "calc(1rem + env(safe-area-inset-top))" }}
       >
         <div ref={helpMenuRef} className="absolute top-5 right-5 z-20">
           <button
@@ -112,19 +113,19 @@ export default function HomeScreen({
         </div>
 
         {/* Logo */}
-        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-10">
+        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/20 rounded-full flex items-center justify-center mb-6 sm:mb-8">
           <img src={OMlogo} className="w-full h-full" />
         </div>
 
-        <h1 className="text-5xl leading-none mb-3">Old Mutual</h1>
-        <p className="text-xl opacity-95 mb-1">Hey! How can we help you today</p>
+        <h1 className="text-[clamp(2.3rem,7vw,2rem)] leading-none mb-2 mt-15">Old Mutual</h1>
+        <p className="text-[clamp(1.1rem,3.5vw,.7rem)] opacity-95">Hey! How can we help you today</p>
       </div>
 
       {/* CHAT NOW */}
-      <div className="mt-[18px] px-4">
+      <div className="shrink-0 mt-3 sm:mt-[18px] px-4">
         <button
           onClick={onStartChat}
-          className="w-full bg-white rounded-[1rem] shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex justify-between items-center px-4 py-4 cursor-pointer hover:shadow-lg transition"
+          className="w-full bg-white rounded-[1rem] shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex justify-between items-center px-4 py-3 cursor-pointer hover:shadow-lg transition"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shrink-0">
@@ -133,15 +134,15 @@ export default function HomeScreen({
                 className="text-white"
               />
             </div>
-            <span className="text-black text-xl font-semibold leading-none">Chat with us now</span>
+            <span className="text-black text-[clamp(1.2rem,4vw,1.6rem)] sm:text-xl font-semibold leading-none">Chat with us now</span>
           </div>
           <IoChevronForward size={22} className="text-black" />
         </button>
       </div>
 
       {/* Cards */}
-      <div className="mt-5 px-4 pb-4">
-        <div className="rounded-2xl border mt-2 border-gray-200 p-3 sm:p-4 shadow-sm bg-white">
+      <div className="flex-1 min-h-0 mt-3 sm:mt-4 px-4 pb-2">
+        <div className="rounded-2xl border mt-1 border-gray-200 p-2.5 sm:p-3 shadow-sm bg-white">
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {/* Personal category */}
             <button
@@ -150,12 +151,12 @@ export default function HomeScreen({
             >
               <img
                 src={product1}
-                className="w-14 h-14 rounded-full object-cover mb-2"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 sm:min-h-12 flex items-center justify-center">
                 Life Insurance
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1.5 sm:py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -167,12 +168,12 @@ export default function HomeScreen({
             >
               <img
                 src={product2}
-                className="w-14 h-14 rounded-full object-cover mb-2"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 sm:min-h-12 flex items-center justify-center">
                 General Insurance
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1.5 sm:py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -184,12 +185,12 @@ export default function HomeScreen({
             >
               <img
                 src={product3}
-                className="w-14 h-14 rounded-full object-cover mb-2"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover mb-2"
               />
-              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-12 flex items-center justify-center">
+              <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 sm:min-h-12 flex items-center justify-center">
                 Savings & Investment
               </p>
-              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-2 rounded-md leading-none">
+              <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1.5 sm:py-2 rounded-md leading-none">
                 Chat Now
               </span>
             </button>
@@ -199,7 +200,7 @@ export default function HomeScreen({
       </div>
 
       {/* Bottom Nav */}
-      <div className="mt-auto bg-gray-50 border-t border-gray-200 px-10 py-4 pl-15 pr-15 flex justify-between items-center">
+      <div className="shrink-0 mt-auto bg-gray-50 border-t border-gray-200 px-8 sm:px-10 py-3 sm:py-4 pl-12 sm:pl-15 pr-12 sm:pr-15 flex justify-between items-center">
         <div className="flex flex-col items-center text-primary cursor-pointer" aria-current="page">
           <IoHome size={26} />
           <span className="text-sm mt-1">Home</span>

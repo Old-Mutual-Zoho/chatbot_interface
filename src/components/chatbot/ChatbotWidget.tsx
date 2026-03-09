@@ -145,7 +145,7 @@ export default function ChatbotWidget({
   const panelAnchorStyle: React.CSSProperties = {
     position: "fixed",
     top: isMobileViewport ? "env(safe-area-inset-top)" : "calc(1rem + env(safe-area-inset-top))",
-    bottom: isMobileViewport ? "env(safe-area-inset-bottom)" : "calc(6rem + env(safe-area-inset-bottom))",
+    bottom: isMobileViewport ? "env(safe-area-inset-bottom)" : "calc(5.75rem + env(safe-area-inset-bottom))",
     left: isMobileViewport ? "0" : "auto",
     right: isMobileViewport ? "0" : "calc(1rem + env(safe-area-inset-right))",
     zIndex: 2147483647,
@@ -178,46 +178,46 @@ export default function ChatbotWidget({
         style={launcherStyle}
       >
         <div className={`flex items-center gap-3 ${open ? "" : "om-float"}`}>
-          {/* Teaser bubble */}
-          {teaser && showTeaser && !open && (
-            <div className="group relative max-w-xs bg-white rounded-xl shadow-lg px-4 py-3 text-xs sm:text-sm text-gray-800 leading-snug select-none cursor-pointer om-panel-enter">
-              <button
-                type="button"
-                aria-label="Close online message"
-                onClick={(e) => {
-                  // Don’t toggle the widget when dismissing the teaser.
-                  e.stopPropagation();
-                  setShowTeaser(false);
-                }}
-                className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow"
-              >
-                ×
-              </button>
-              <div className="font-semibold text-gray-900">We&apos;re Online!</div>
-              <div className="text-gray-600">How may I help you today?</div>
-              {/* Tail */}
-              <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white rotate-45 shadow-md" />
-            </div>
-          )}
-
-          <button
-            onClick={handleToggleOpen}
-            className={`cursor-pointer bg-primary text-white w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] p-0 ${
-              open ? "border-white" : "border-primary"
-            }`}
-            style={launcherButtonStyle}
-          >
-            {open ? (
-              <IoClose size={32} />
-            ) : (
-              <img
-                src={Logo}
-                alt="AI assistant"
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
+            {/* Teaser bubble */}
+            {teaser && showTeaser && !open && (
+              <div className="group relative max-w-xs bg-white rounded-xl shadow-lg px-4 py-3 text-xs sm:text-sm text-gray-800 leading-snug select-none cursor-pointer om-panel-enter">
+                <button
+                  type="button"
+                  aria-label="Close online message"
+                  onClick={(e) => {
+                    // Do not toggle the widget when dismissing the teaser.
+                    e.stopPropagation();
+                    setShowTeaser(false);
+                  }}
+                  className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow"
+                >
+                  x
+                </button>
+                <div className="font-semibold text-gray-900">We&apos;re Online!</div>
+                <div className="text-gray-600">How may I help you today?</div>
+                {/* Tail */}
+                <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white rotate-45 shadow-md" />
+              </div>
             )}
-          </button>
+
+            <button
+              onClick={handleToggleOpen}
+              className={`cursor-pointer bg-primary text-white w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden flex items-center justify-center shadow-xl border-[3px] p-0 ${
+                open ? "border-white" : "border-primary"
+              }`}
+              style={launcherButtonStyle}
+            >
+              {open ? (
+                <IoClose size={32} />
+              ) : (
+                <img
+                  src={Logo}
+                  alt="AI assistant"
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              )}
+            </button>
         </div>
       </div>
 
