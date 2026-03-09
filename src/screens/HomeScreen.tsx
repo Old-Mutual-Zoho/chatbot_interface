@@ -56,7 +56,7 @@ export default function HomeScreen({
             aria-label="Open help contacts"
             aria-expanded={isHelpOpen}
             onClick={() => setIsHelpOpen((prev) => !prev)}
-            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center border border-white/40"
+            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center border border-white/40 cursor-pointer"
           >
             <span className="grid grid-cols-3 gap-[3px]">
               {Array.from({ length: 9 }).map((_, index) => (
