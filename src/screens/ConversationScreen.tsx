@@ -158,7 +158,7 @@ export default function ConversationScreen({
       </div>
 
       {/* Bottom navigation */}
-      <div className="mt-auto bg-gray-50 border-t border-gray-200 px-10 py-4 pl-15 pr-15 flex justify-between items-center">
+      <div className="shrink-0 mt-auto bg-gray-50 border-t border-gray-200 px-8 sm:px-10 py-3 sm:py-4 pl-12 sm:pl-15 pr-12 sm:pr-15 flex justify-between items-center">
         <button
           type="button"
           onClick={onBack}
