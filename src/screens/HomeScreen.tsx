@@ -1,10 +1,14 @@
+import { useEffect, useRef, useState } from "react";
 import {
   IoChevronForward,
   IoHome,
   IoChatbubbles,
   IoHeadset,
+  IoHelpCircleOutline,
+  IoCallOutline,
 } from "react-icons/io5";
 import { BsChatRightText } from "react-icons/bs";
+import { RiWhatsappLine } from "react-icons/ri";
 import OMlogo from "../assets/OMLogo.png";
 import product1 from "../assets/product.png";
 import product2 from "../assets/product2.png";
@@ -22,12 +26,77 @@ export default function HomeScreen({
   onGoToConversation: () => void;
   onSelectCategory: (categoryId: TopCategoryId) => void;
 }) {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const helpMenuRef = useRef<HTMLDivElement>(null);
+  const callNumber = "+256700000000";
+  const whatsappNumber = "256700000000";
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (helpMenuRef.current && !helpMenuRef.current.contains(event.target as Node)) {
+        setIsHelpOpen(false);
+      }
+    };
+
+    if (isHelpOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isHelpOpen]);
+
   return (
     <div className="flex flex-col h-full w-full bg-white">
       {/* Header */}
       <div
-        className="rounded-3xl px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
+        className="relative rounded-3xl px-6 pb-10 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white bg-gradient-to-br from-primary to-primary/80"
       >
+        <div ref={helpMenuRef} className="absolute top-5 right-5 z-20">
+          <button
+            type="button"
+            aria-label="Open help contacts"
+            aria-expanded={isHelpOpen}
+            onClick={() => setIsHelpOpen((prev) => !prev)}
+            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center border border-white/40"
+          >
+            <IoHelpCircleOutline size={24} className="text-white" />
+          </button>
+
+          {isHelpOpen && (
+            <div className="absolute right-0 mt-2 w-72 max-w-[85vw] bg-white text-gray-900 rounded-xl shadow-xl border border-gray-200 p-3">
+              <p className="text-sm font-semibold mb-2">Need help?</p>
+
+              <a
+                href={`tel:${callNumber}`}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-100 transition"
+              >
+                <span className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                  <IoCallOutline size={17} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500">Call us</p>
+                  <p className="text-sm font-medium truncate">{callNumber}</p>
+                </div>
+              </a>
+
+              <a
+                href={`https://wa.me/${whatsappNumber}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-100 transition"
+              >
+                <span className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                  <RiWhatsappLine size={17} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500">WhatsApp</p>
+                  <p className="text-sm font-medium truncate">Chat on WhatsApp</p>
+                </div>
+              </a>
+            </div>
+          )}
+        </div>
+
         {/* Logo */}
         <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mb-18">
           <img src={OMlogo} className="w-full h-full" />
