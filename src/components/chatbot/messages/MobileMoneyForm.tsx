@@ -9,16 +9,43 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
   onSubmitPayment,
   isLoading = false,
 }) => {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+
+  // Backend accepts:
+  // - 07XXXXXXXX
+  // - +2567XXXXXXXX
+  // - 2567XXXXXXXX
+  // We normalize to 2567XXXXXXXX for consistency.
+  const normalizeToBackend = (raw: string): string | null => {
+    const s = String(raw ?? "")
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/-/g, "");
+
+    if (!s) return null;
+
+    // +2567XXXXXXXX or 2567XXXXXXXX
+    if (/^\+?2567\d{8}$/.test(s)) return s.replace(/^\+/, "");
+
+    // 07XXXXXXXX
+    if (/^07\d{8}$/.test(s)) return `256${s.slice(1)}`;
+
+    // 7XXXXXXXX (common when users omit leading 0 / country code)
+    if (/^7\d{8}$/.test(s)) return `256${s}`;
+
+    return null;
+  };
+
+  const normalizedPhone = normalizeToBackend(phoneInput);
 
   const handleSubmit = () => {
-    if (phoneNumber.trim() && onSubmitPayment) {
-      onSubmitPayment(`256${phoneNumber.trim()}`);
-    }
+    if (!onSubmitPayment) return;
+    if (!normalizedPhone) return;
+    onSubmitPayment(normalizedPhone);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && phoneNumber.trim() && !isLoading) {
+    if (e.key === "Enter" && normalizedPhone && !isLoading) {
       handleSubmit();
     }
   };
@@ -34,15 +61,15 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
           <div className="flex justify-center items-center gap-0 mb-4">
             {/* Airtel Logo */}
             <div
-              className="px-4 py-2 flex items-center justify-center bg-white/70 rounded-l-lg border border-gray-200"
+              className="px-4 py-2 flex items-center justify-center bg-red-600 rounded-l-lg border border-gray-200"
             >
-              <span className="font-bold text-base text-gray-900">
+              <span className="font-bold text-base text-white">
                 airtel
               </span>
             </div>
             {/* MTN Logo */}
             <div
-              className="px-4 py-2 flex items-center justify-center bg-white/70 rounded-r-lg border border-l-0 border-gray-200"
+              className="px-4 py-2 flex items-center justify-center bg-yellow-400 rounded-r-lg border border-l-0 border-gray-200"
             >
               <span className="font-bold text-base text-gray-900">
                 MTN
@@ -66,15 +93,22 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
                 Enter Phone Number
               </label>
               <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2">
-                <span className="text-gray-900 font-semibold text-sm">256</span>
                 <input
                   type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                  inputMode="tel"
+                  value={phoneInput}
+                  onChange={(e) => {
+                    // Allow digits and an optional leading '+'; strip all other characters.
+                    const raw = e.target.value;
+                    const cleaned = raw
+                      .replace(/\s+/g, "")
+                      .replace(/(?!^)\+/g, "")
+                      .replace(/[^\d+]/g, "");
+                    setPhoneInput(cleaned);
+                  }}
                   onKeyPress={handleKeyPress}
-                  placeholder=""
+                  placeholder="07XXXXXXXX, +2567XXXXXXXX, or 2567XXXXXXXX"
                   disabled={isLoading}
-                  maxLength={9}
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-gray-900 text-sm placeholder-gray-400 disabled:opacity-60"
                 />
               </div>
@@ -84,7 +118,7 @@ export const MobileMoneyForm: React.FC<MobileMoneyFormProps> = ({
           {/* Pay Now Button */}
           <button
             onClick={handleSubmit}
-            disabled={!phoneNumber.trim() || isLoading}
+            disabled={!normalizedPhone || isLoading}
             className="w-full py-3 px-4 rounded-lg font-bold text-white text-sm transition-colors bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {isLoading ? (

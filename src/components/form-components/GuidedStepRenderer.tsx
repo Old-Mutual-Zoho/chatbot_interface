@@ -89,16 +89,21 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     const hasAmount = names.some((n) => n.includes('amount') || n.includes('premium'));
     const hasOtpOrPin = names.some((n) => n.includes('otp') || n.includes('pin') || n.includes('verification'));
     const hasTxnRef = names.some((n) => n.includes('transaction') || n.includes('tx') || n.includes('reference'));
+    const hasPaymentFieldName = names.some((n) => n.includes('payment'));
 
     // Payment steps should NEVER go through CardForm (progressive reveal),
     // because payment UI has its own dedicated components.
-    // Be intentionally inclusive here to avoid misrouting payment fields.
+    // IMPORTANT: do NOT classify general quote forms as payment just because they have
+    // fields like `mobile` or `...Amount...` (e.g., cover limits).
     if (hasPaymentMethod) return true;
     if (hasProvider) return true;
     if (hasOtpOrPin) return true;
     if (hasTxnRef) return true;
-    if (hasPhone && (hasPaymentKeyword || hasAmount)) return true;
-    if (hasAmount && hasPaymentKeyword) return true;
+    if (hasPaymentFieldName) return true;
+
+    // If the backend uses generic field names, require payment-ish wording in the message.
+    if (hasPaymentKeyword && (hasPhone || hasAmount)) return true;
+
     return false;
   };
 

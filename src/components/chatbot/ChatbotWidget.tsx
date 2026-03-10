@@ -81,8 +81,6 @@ export default function ChatbotWidget({
     const handleMediaChange = (event: MediaQueryListEvent) => {
       setIsMobileViewport(event.matches);
     };
-
-    setIsMobileViewport(mediaQuery.matches);
     if (typeof mediaQuery.addEventListener === "function") {
       mediaQuery.addEventListener("change", handleMediaChange);
       return () => mediaQuery.removeEventListener("change", handleMediaChange);
