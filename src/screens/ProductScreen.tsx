@@ -25,9 +25,9 @@ interface ProductScreenProps {
 
 // Keep the display names centralized so the UI copy stays consistent.
 const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
-  personal: "Life Assurance",
-  business: "General Insurance",
-  savings: "Savings & Investment",
+  "Life Assurance": "Life Assurance",
+  "General Insurance": "General Insurance",
+  "Savings & Investment": "Savings & Investment",
 };
 
 export default function ProductScreen({ categoryId, onBack, onClose, onSendProduct }: ProductScreenProps) {
@@ -51,15 +51,15 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   const headerLabel = useMemo(() => {
-    if (categoryId === "personal" && selectedPersonalSubcategory) {
+    if (categoryId === "Life Assurance" && selectedPersonalSubcategory) {
       return PERSONAL_SUBCATEGORIES[selectedPersonalSubcategory].label;
     }
 
-    if (categoryId === "savings" && selectedSavingsSubcategory) {
+    if (categoryId === "Savings & Investment" && selectedSavingsSubcategory) {
       return SAVINGS_SUBCATEGORIES[selectedSavingsSubcategory].label;
     }
 
-    if (categoryId === "business" && selectedGeneralInsuranceSubcategory) {
+    if (categoryId === "General Insurance" && selectedGeneralInsuranceSubcategory) {
       return GENERAL_INSURANCE_SUBCATEGORIES[selectedGeneralInsuranceSubcategory].label;
     }
 
@@ -75,18 +75,18 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   ]);
 
   const items = useMemo(() => {
-    if (categoryId === "business") {
+    if (categoryId === "General Insurance") {
       if (!selectedGeneralInsuranceSubcategory) {
         return Object.keys(GENERAL_INSURANCE_SUBCATEGORIES) as GeneralInsuranceSubcategoryId[];
       }
       return GENERAL_INSURANCE_SUBCATEGORIES[selectedGeneralInsuranceSubcategory].products;
     }
 
-    if (categoryId === "savings" && selectedSavingsSubcategory) {
+    if (categoryId === "Savings & Investment" && selectedSavingsSubcategory) {
       return SAVINGS_SUBCATEGORIES[selectedSavingsSubcategory].products;
     }
 
-    if (categoryId === "personal" && selectedPersonalSubcategory) {
+    if (categoryId === "Life Assurance" && selectedPersonalSubcategory) {
       return PERSONAL_SUBCATEGORIES[selectedPersonalSubcategory].products;
     }
     return PRODUCT_CATEGORIES[categoryName];
@@ -99,7 +99,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   ]);
 
   const isGeneralInsuranceSubcategoryList =
-    categoryId === "business" && !selectedGeneralInsuranceSubcategory;
+    categoryId === "General Insurance" && !selectedGeneralInsuranceSubcategory;
 
   return (
     <div className="flex flex-col w-full h-full bg-white om-pattern-bg">
@@ -109,21 +109,21 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
         <button
           onClick={() => {
             // Inside General Insurance: back takes you up one level (products -> subcategories).
-            if (categoryId === "business" && selectedGeneralInsuranceSubcategory) {
+            if (categoryId === "General Insurance" && selectedGeneralInsuranceSubcategory) {
               setSelectedGeneralInsuranceSubcategory(null);
               setSelectedProduct(null);
               return;
             }
 
             // Inside Savings & Investment: back takes you up one level (products -> subcategory).
-            if (categoryId === "savings" && selectedSavingsSubcategory) {
+            if (categoryId === "Savings & Investment" && selectedSavingsSubcategory) {
               setSelectedSavingsSubcategory(null);
               setSelectedProduct(null);
               return;
             }
 
             // Inside Life Assurance: back takes you up one level (products -> subcategory).
-            if (categoryId === "personal" && selectedPersonalSubcategory) {
+            if (categoryId === "Life Assurance" && selectedPersonalSubcategory) {
               setSelectedPersonalSubcategory(null);
               setSelectedProduct(null);
               return;
@@ -157,7 +157,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
               : "Select a product to continue."}
           </div>
           <div className="flex flex-wrap items-start justify-start gap-x-3 gap-y-2">
-            {categoryId === "personal" && !selectedPersonalSubcategory && (
+            {categoryId === "Life Assurance" && !selectedPersonalSubcategory && (
               <button
                 key="group-benefits"
                 type="button"
@@ -172,7 +172,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
               </button>
             )}
 
-            {categoryId === "savings" && !selectedSavingsSubcategory && (
+            {categoryId === "Savings & Investment" && !selectedSavingsSubcategory && (
               <button
                 key="unit-trusts"
                 type="button"
