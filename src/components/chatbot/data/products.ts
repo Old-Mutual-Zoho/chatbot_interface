@@ -2,7 +2,8 @@ export const PRODUCT_CATEGORIES = {
   "Life Assurance": [
     // Life Assurance (non-Group Benefits)
   "SOMESA Education Plan",
-  "Sure Deal Savings Plan",    
+  "Sure Deal Savings Plan", 
+  "Family Life Protection",   
   ],
 
   // General Insurance products are displayed via GENERAL_INSURANCE_SUBCATEGORIES below.
@@ -34,8 +35,7 @@ export const GENERAL_INSURANCE_SUBCATEGORIES: Record<
     products: [
       "Personal Accident",
       "Serenicare",
-      "Travel Sure Plus",
-      "Family Life Protection",
+      "Travel Sure Plus",      
       "Domestic Package",
       "All Risks Cover",
     ],
@@ -98,8 +98,7 @@ export const PERSONAL_SUBCATEGORIES: Record<
     label: "Group Benefits",
     products: [
       "Group Life Cover",
-      "Credit Life Cover",
-      "Combined Solutions",
+      "Credit Life Cover",      
       "Group Last Expense",
       "Group Personal Accident",
       "Umbrella Pension Scheme",
