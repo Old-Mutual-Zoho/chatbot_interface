@@ -1,6 +1,6 @@
 export const PRODUCT_CATEGORIES = {
-  "Life Insurance": [
-    // Life Insurance (non-Group Benefits)
+  "Life Assurance": [
+    // Life Assurance (non-Group Benefits)
   "SOMESA Education Plan",
   "Sure Deal Savings Plan",    
   ],

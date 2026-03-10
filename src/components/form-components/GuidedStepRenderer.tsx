@@ -20,6 +20,7 @@ interface GuidedStepRendererProps {
   onChange: (name: string, value: string) => void;
   onSubmit: (payload: Record<string, unknown>) => void;
   onBack?: () => void;
+  onEditDetails?: () => void;
   loading?: boolean;
   titleFallback?: string;
   confirmOnFormSubmit?: boolean;
@@ -35,6 +36,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   onChange,
   onSubmit,
   onBack,
+  onEditDetails,
   loading = false,
   titleFallback,
   confirmOnFormSubmit = false,
@@ -438,6 +440,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         <BackendConfirmationStep
           step={step as Extract<GuidedStepResponse, { type: "confirmation" }>}
           loading={loading}
+          onEditDetails={onEditDetails ?? onBack}
           onSubmit={(payload) => {
             const action = payload && typeof payload['action'] === 'string' ? String(payload['action']) : '';
             // For "confirm" we show the thank-you/analyzing screen until backend advances.
@@ -648,6 +651,25 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "payment_method":
       return (
         <BackendPaymentMethodStep
+          key={(() => {
+            const rec = step as unknown as Record<string, unknown>;
+            const quoteId = typeof rec['quote_id'] === 'string' ? rec['quote_id'] : '';
+            const amountKey =
+              typeof rec['amount'] === 'number' || typeof rec['amount'] === 'string'
+                ? String(rec['amount'])
+                : '';
+            const optionsKey = Array.isArray(rec['options'])
+              ? rec['options']
+                  .map((o) => {
+                    if (!o || typeof o !== 'object') return '';
+                    const id = (o as Record<string, unknown>)['id'];
+                    return typeof id === 'string' ? id : '';
+                  })
+                  .filter(Boolean)
+                  .join('|')
+              : '';
+            return `payment_method::${quoteId}::${amountKey}::${optionsKey}`;
+          })()}
           step={step as Extract<GuidedStepResponse, { type: "payment_method" }>}
           loading={loading}
           onSubmit={onSubmit}
@@ -721,9 +743,6 @@ const BackendPaymentMethodStep: React.FC<{
   onSubmit: (payload: Record<string, unknown>) => void;
   loading: boolean;
 }> = ({ step, onSubmit, loading }) => {
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-
   const quoteId = (() => {
     const direct = typeof step.quote_id === 'string' ? step.quote_id : null;
     if (direct) return direct;
@@ -738,6 +757,25 @@ const BackendPaymentMethodStep: React.FC<{
   const options: BackendPaymentMethodOption[] = Array.isArray(step.options)
     ? (step.options as BackendPaymentMethodOption[])
     : [];
+
+  // Avoid “progressive reveal” in payment selection when the backend only offers
+  // one method (commonly `mobile_money`) with multiple providers. In that case,
+  // show the providers immediately.
+  const defaultOptionId: string | null = (() => {
+    if (options.length !== 1) return null;
+    const only = options[0];
+    if (!only || typeof only.id !== 'string') return null;
+    const providers = Array.isArray(only.providers)
+      ? only.providers.filter((p) => typeof p === 'string' && p.trim())
+      : [];
+    if (only.id === 'mobile_money') return only.id;
+    // If backend uses a different id but still provides provider choices, treat it as a grouped method.
+    if (providers.length > 0) return only.id;
+    return null;
+  })();
+
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(defaultOptionId);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
   const premiumAmount = (() => {
     const candidates: unknown[] = [
@@ -1038,7 +1076,8 @@ const BackendConfirmationStep: React.FC<{
   step: Extract<GuidedStepResponse, { type: "confirmation" }>;
   onSubmit: (payload: Record<string, unknown>) => void;
   loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
+  onEditDetails?: () => void;
+}> = ({ step, onSubmit, loading, onEditDetails }) => {
   const summary = (step.summary && typeof step.summary === 'object')
     ? (step.summary as Record<string, Record<string, unknown>>)
     : {};
@@ -1090,7 +1129,13 @@ const BackendConfirmationStep: React.FC<{
               key={a.type}
               type="button"
               disabled={loading}
-              onClick={() => onSubmit({ action: a.type })}
+              onClick={() => {
+                if (a.type === 'edit' && onEditDetails) {
+                  onEditDetails();
+                  return;
+                }
+                onSubmit({ action: a.type });
+              }}
               className={
                 a.type === 'edit'
                   ? "px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"

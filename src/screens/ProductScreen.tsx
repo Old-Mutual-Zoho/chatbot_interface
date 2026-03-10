@@ -25,7 +25,7 @@ interface ProductScreenProps {
 
 // Keep the display names centralized so the UI copy stays consistent.
 const CATEGORY_ID_TO_NAME: Record<TopCategoryId, CategoryName> = {
-  personal: "Life Insurance",
+  personal: "Life Assurance",
   business: "General Insurance",
   savings: "Savings & Investment",
 };
@@ -35,7 +35,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   const categoryNode = findProductNodeById(categoryId, productTree);
   const categoryName = CATEGORY_ID_TO_NAME[categoryId];
 
-  // Life Insurance has an optional drill-down (Group Benefits).
+  // Life Assurance has an optional drill-down (Group Benefits).
   const [selectedPersonalSubcategory, setSelectedPersonalSubcategory] =
     useState<PersonalSubcategoryId | null>(null);
 
@@ -122,7 +122,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
               return;
             }
 
-            // Inside Life Insurance: back takes you up one level (products -> subcategory).
+            // Inside Life Assurance: back takes you up one level (products -> subcategory).
             if (categoryId === "personal" && selectedPersonalSubcategory) {
               setSelectedPersonalSubcategory(null);
               setSelectedProduct(null);

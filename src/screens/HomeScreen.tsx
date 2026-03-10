@@ -154,7 +154,7 @@ export default function HomeScreen({
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover mb-2"
               />
               <p className="text-[11px] sm:text-sm font-bold pt-1 pb-1 text-gray-800 text-center leading-tight min-h-10 sm:min-h-12 flex items-center justify-center">
-                Life Insurance
+                Life Assurance
               </p>
               <span className="mt-1 text-[11px] sm:text-xs bg-primary text-white px-3 py-1.5 sm:py-2 rounded-md leading-none">
                 Chat Now

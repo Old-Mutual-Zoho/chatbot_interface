@@ -732,6 +732,32 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     });
   };
 
+  const handlePaEditDetails = () => {
+    // For backend-provided confirmation steps, the backend "edit" action isn't reliable.
+    // Instead, jump back to the most recent *form* step so the user can edit their inputs.
+    setPaStepHistory((prev) => {
+      for (let i = prev.length - 1; i >= 0; i -= 1) {
+        const candidate = prev[i];
+        if (candidate && typeof candidate === 'object' && (candidate as GuidedStepResponse).type === 'form') {
+          setPaStepPayload(candidate);
+          setPaFieldErrors({});
+          setPaPendingAction(null);
+          return prev.slice(0, i);
+        }
+      }
+
+      // Fallback: go back one step if no form step is found.
+      if (prev.length > 0) {
+        const last = prev[prev.length - 1];
+        setPaStepPayload(last ?? null);
+        setPaFieldErrors({});
+        setPaPendingAction(null);
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+  };
+
 
   // --- Backend-driven Motor Private guided flow state ---
   const [motorSessionId, setMotorSessionId] = useState<string | null>(sessionId ?? null);
@@ -1016,6 +1042,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         loading={paLoading}
         confirmOnFormSubmit={shouldConfirmBeforeSubmit(paStepPayload)}
         onBack={paStepHistory.length > 0 ? handlePaBack : undefined}
+        onEditDetails={paStepHistory.length > 0 ? handlePaEditDetails : undefined}
       />
     );
   }
