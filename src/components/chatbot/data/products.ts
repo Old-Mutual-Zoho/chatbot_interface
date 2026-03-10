@@ -7,7 +7,7 @@ export const PRODUCT_CATEGORIES = {
   ],
 
   // General Insurance products are displayed via GENERAL_INSURANCE_SUBCATEGORIES below.
-  "General Insurance": [],
+  "General Insurance": [],  
 
   "Savings & Investment": [
     // Investments & Savings
@@ -20,6 +20,7 @@ export type CategoryName = keyof typeof PRODUCT_CATEGORIES;
 
 export type GeneralInsuranceSubcategoryId =
   | "personal-insurance"
+  | "health-insurance"
   | "motor-insurance"
   | "sme-business-protection"
   | "liability-insurance"
@@ -33,11 +34,16 @@ export const GENERAL_INSURANCE_SUBCATEGORIES: Record<
   "personal-insurance": {
     label: "Personal/Family Insurance",
     products: [
-      "Personal Accident",
-      "Serenicare",
+      "Personal Accident",      
       "Travel Sure Plus",      
       "Domestic Package",
       "All Risks Cover",
+    ],
+  },
+  "health-insurance": {
+    label: "Health Insurance",
+    products: [
+      "Serenicare",
     ],
   },
   "motor-insurance": {

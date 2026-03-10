@@ -8,7 +8,7 @@ export interface ProductNode {
 }
 
 // Main categories shown in the product list.
-export type TopCategoryId = "personal" | "business" | "savings";
+export type TopCategoryId = "Life Assurance" | "General Insurance" | "Savings & Investment";
 
 // Find a node in the tree by id.
 export function findProductNodeById(
@@ -28,7 +28,7 @@ export function findProductNodeById(
 // The product tree used by the UI.
 export const productTree: ProductNode[] = [
   {
-    id: "personal",
+    id: "Life Assurance",
     label: "Life Assurance",
     children: [
       { id: "health", label: "Health Insurance" },
@@ -48,7 +48,7 @@ export const productTree: ProductNode[] = [
     ],
   },
   {
-    id: "business",
+    id: "General Insurance",
     label: "General Insurance",
     children: [
       {
@@ -62,7 +62,7 @@ export const productTree: ProductNode[] = [
     ],
   },
   {
-    id: "savings",
+    id: "Savings & Investment",
     label: "Savings & Investment",
     children: [
       { id: "unit-trusts", label: "Unit Trusts" },
