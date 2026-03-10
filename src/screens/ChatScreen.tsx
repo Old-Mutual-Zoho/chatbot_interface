@@ -1,17 +1,4 @@
-import Logo from "../assets/Logo.png";
-import humanAvatar from "../assets/ai-profile.jpeg";
-// Centralized agent configs
-const BOT_CONFIG = {
-  name: "Mutual Intelligence Assistant",
-  avatar: Logo,
-  status: "Online",
-};
-
-const HUMAN_CONFIG = {
-  name: "Customer Support",
-  avatar: humanAvatar,
-  status: "Online",
-};
+import { BOT_CONFIG, HUMAN_CONFIG } from "../config/chatAgentConfigs";
 import ChatHeader from "../components/chatbot/ChatHeader";
 import PostConversationFeedback from "../components/chatbot/PostConversationFeedback";
 import { GuidedStepRenderer } from "../components/form-components/GuidedStepRenderer";
@@ -699,6 +686,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Polling for agent replies after escalation.
   const agentPollTimerRef = useRef<number | null>(null);
   const seenAgentKeysRef = useRef<Set<string>>(new Set());
+  const [awaitingAgent, setAwaitingAgent] = useState(false);
+  const [agentConnected, setAgentConnected] = useState(false);
 
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
@@ -1279,21 +1268,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const escalationState = React.useRef({
     inProgress: false,
     timeout: null as number | null,
+    startedAt: null as number | null,
     pending: null as EscalationTrigger | null,
   });
 
-  function clearEscalationLoader() {
+  const autoScrollToBottom = React.useCallback(() => {
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.om-show-scrollbar');
+      if (chatContainer) {
+        (chatContainer as HTMLElement).scrollTop = (chatContainer as HTMLElement).scrollHeight;
+      }
+    }, 100);
+  }, []);
+
+  const clearEscalationLoader = React.useCallback(() => {
     dispatch({ type: "CLEAR_PAYMENT_LOADING_SCREEN", variant: "escalation" });
     if (escalationState.current.timeout) {
       clearTimeout(escalationState.current.timeout);
       escalationState.current.timeout = null;
     }
     escalationState.current.inProgress = false;
+    escalationState.current.startedAt = null;
     escalationState.current.pending = null;
     autoScrollToBottom();
-  }
+  }, [autoScrollToBottom, dispatch]);
 
   function failEscalation(message: string) {
+    setAwaitingAgent(false);
     clearEscalationLoader();
     dispatch({
       type: "RECEIVE_BOT_REPLY",
@@ -1322,8 +1323,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         throw new Error(serverMessage || 'Failed to escalate');
       }
 
-      clearEscalationLoader();
-      switchToHumanAgent();
+      // Backend is mocked: show the connecting screen for a fixed 4 seconds
+      // (minimum), then close it and show the "connected" human message.
+      const startedAt = escalationState.current.startedAt ?? Date.now();
+      const elapsedMs = Date.now() - startedAt;
+      const remainingMs = Math.max(0, 4000 - elapsedMs);
+
+      window.setTimeout(() => {
+        // If escalation was cancelled/cleared before timer fires, do nothing.
+        if (!escalationState.current.inProgress) return;
+
+        setAwaitingAgent(false);
+        setAgentConnected(true);
+        clearEscalationLoader();
+        switchToHumanAgent();
+        dispatch({
+          type: 'RECEIVE_BOT_REPLY',
+          payload: "Hi 👋 You're now connected to customer support. How may I assist you today?",
+          chatMode: 'human',
+        });
+      }, remainingMs);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : 'Failed to connect to an agent. Please try again.';
       failEscalation(`Sorry — I couldn't connect you to an agent. ${msg}`);
@@ -1335,7 +1354,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (chatMode !== 'bot') return;
     if (escalationState.current.inProgress) return;
 
+    // Mark this session as agent-first.
+    agentRequestedRef.current = true;
+    setAgentConnected(false);
+    setAwaitingAgent(false);
+
     escalationState.current.inProgress = true;
+    escalationState.current.startedAt = Date.now();
     escalationState.current.pending = null;
     dispatch({ type: "SHOW_PAYMENT_LOADING_SCREEN", variant: "escalation" });
     autoScrollToBottom();
@@ -1343,7 +1368,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // Hard stop so we never leave the loader spinning indefinitely.
     escalationState.current.timeout = window.setTimeout(() => {
       failEscalation('Timed out while trying to connect you to an agent. Please try again.');
-    }, 20000);
+    }, 60000);
 
     if (!sessionId) {
       // Session still being created; run the escalation as soon as we have a sessionId.
@@ -1389,42 +1414,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoConnectAgent]);
 
-  function switchToHumanAgent() {
+  const switchToHumanAgent = React.useCallback(() => {
     setChatMode('human');
     // Do NOT call appendHumanMessage() here; let useEffect handle it after chatMode is set
-  }
-
-  function appendHumanMessage() {
-    dispatch({
-      type: "RECEIVE_BOT_REPLY",
-      payload: `Hi 👋 You’re now connected to customer support. How may I assist you today?`,
-      chatMode: 'human',
-    });
-  }
-  // Append first human welcome message only after chatMode is set to 'human' and only if not already present
-  useEffect(() => {
-    if (chatMode === 'human' && !agentRequestedRef.current) {
-      // Check if the human welcome message is already present
-      const hasHumanWelcome = state.messages.some(
-        (msg) =>
-          msg.sender === 'bot' &&
-          msg.type === 'text' &&
-          typeof msg.text === 'string' &&
-          msg.text.startsWith('Hi 👋 You’re now connected to customer support')
-      );
-      if (!hasHumanWelcome) {
-        appendHumanMessage();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatMode]);
+  }, [setChatMode]);
 
   const getAgentMessageText = (m: unknown): string | null => {
     if (!m || typeof m !== 'object') return null;
     const rec = m as Record<string, unknown>;
     const text = typeof rec['text'] === 'string' ? rec['text'] : null;
     const message = typeof rec['message'] === 'string' ? rec['message'] : null;
-    const raw = (text && text.trim()) ? text.trim() : (message && message.trim() ? message.trim() : null);
+    const rawText = typeof rec['raw_text'] === 'string' ? rec['raw_text'] : null;
+    const raw = (text && text.trim())
+      ? text.trim()
+      : (message && message.trim()
+        ? message.trim()
+        : (rawText && rawText.trim() ? rawText.trim() : null));
     if (!raw) return null;
 
     // Backend may prefix: [agent][chat_id:sess-123] Hello
@@ -1442,18 +1447,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   useEffect(() => {
     // New backend session => reset dedupe so we can show messages for the new chat.
     seenAgentKeysRef.current = new Set();
+    setAwaitingAgent(false);
+    setAgentConnected(false);
   }, [sessionId]);
 
   useEffect(() => {
-    // Only poll when in human mode and we have a session id.
-    if (chatMode !== 'human' || !sessionId) return;
+    // Poll when awaiting an agent connection OR while in human mode.
+    if (!sessionId) return;
+    if (chatMode !== 'human' && !awaitingAgent) return;
 
     const pollOnce = async () => {
       try {
         const data = await getAgentMessages(sessionId);
         if (!data?.success) return;
         const messages = Array.isArray(data.messages) ? data.messages : [];
-        const agentMessages = messages.filter((m) => (m && typeof m === 'object') && (m as { sender?: unknown }).sender === 'agent');
+        const agentMessages = messages.filter((m) => {
+          if (!m || typeof m !== 'object') return false;
+          const sender = (m as { sender?: unknown }).sender;
+          const agentId = (m as { agent_id?: unknown }).agent_id;
+          return sender === 'agent' || (sender === 'unknown' && typeof agentId === 'string' && agentId.length > 0);
+        });
         if (agentMessages.length === 0) return;
 
         // Sort by ts when present to keep ordering stable.
@@ -1469,6 +1482,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           const key = makeAgentKey(m, text);
           if (seenAgentKeysRef.current.has(key)) continue;
           seenAgentKeysRef.current.add(key);
+
+          // First real agent message means we're connected.
+          if (!agentConnected) {
+            setAgentConnected(true);
+          }
+
+          // If we were still showing the connecting screen, close it now and switch to human.
+          if (awaitingAgent) {
+            setAwaitingAgent(false);
+            clearEscalationLoader();
+            if (chatMode !== 'human') switchToHumanAgent();
+          }
 
           dispatch({
             type: "RECEIVE_BOT_REPLY",
@@ -1492,16 +1517,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         agentPollTimerRef.current = null;
       }
     };
-  }, [chatMode, sessionId]);
-
-  function autoScrollToBottom() {
-    setTimeout(() => {
-      const chatContainer = document.querySelector('.om-show-scrollbar');
-      if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
-    }, 100);
-  }
+  }, [chatMode, sessionId, awaitingAgent, agentConnected, clearEscalationLoader, switchToHumanAgent]);
 
   const handleActionCardSelect = async (option: ActionOption) => {
     if (option.value === "talk-to-agent") {
@@ -1802,21 +1818,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [showDivider, setShowDivider] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Show divider only when chatMode switches to human and loader is not present
-    if (chatMode === 'human') {
-      // Check if divider already shown
-      if (!showDivider) {
-        // Check if loader is present
-        const hasLoader = state.messages.some((msg) => msg.type === 'loading');
-        if (!hasLoader) {
-          setShowDivider(true);
-        }
-      }
-    } else {
-      // Reset divider if switching back to bot mode
-      setShowDivider(false);
+    // Only show "Connected to live agent" once we have a real agent message.
+    if (agentConnected) {
+      if (!showDivider) setShowDivider(true);
+      return;
     }
-  }, [chatMode, state.messages, showDivider]);
+    setShowDivider(false);
+  }, [agentConnected, showDivider]);
 
   useEffect(() => {
     if (showDivider && dividerRef.current) {

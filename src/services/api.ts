@@ -285,6 +285,7 @@ export type AgentMessage = {
 	ts?: string | null;
 	text?: string | null;
 	message?: string | null;
+	raw_text?: string | null;
 	sender?: string | null;
 	agent_id?: string | null;
 	user?: string | null;
