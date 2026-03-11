@@ -278,6 +278,25 @@ export async function escalateSession(payload: EscalateRequest) {
 	return data;
 }
 
+export async function endEscalation(session_id: string) {
+	const { data } = await api.post<EscalateResponse>('/escalate/end', { session_id });
+	return data;
+}
+
+// --- POST-CONVERSATION FEEDBACK (CSAT) [NEW] ---
+export type CSATFeedbackPayload = {
+	rating: number;
+	feedback?: string;
+	session_id?: string;
+	user_id?: string;
+	metadata?: Record<string, unknown>;
+};
+
+export async function submitCSATFeedback(payload: CSATFeedbackPayload) {
+	const { data } = await api.post<{ success: boolean }>('/metrics/csat', payload);
+	return data;
+}
+
 // --- Agent messages (post-escalation) ---
 export type AgentMessage = {
 	chat_id: string;
