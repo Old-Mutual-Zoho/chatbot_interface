@@ -177,7 +177,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
       {/* Product/subcategory selection */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
-          <div className="text-sm text-gray-500 mb-3">
+          <div className="text-sm font-extrabold text-gray-700 mb-3">
             {isGeneralInsuranceSubcategoryList
               ? "Select a subcategory."
               : "Select a product to continue."}

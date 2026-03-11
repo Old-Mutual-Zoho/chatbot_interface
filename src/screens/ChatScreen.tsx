@@ -99,7 +99,7 @@ type ChatInitOptions = {
 import type { PaymentMethod } from "../components/chatbot/messages/PaymentMethodSelector";
 
 type Action =
-  { type: "RESET"; selectedProduct?: string | null }
+  { type: "RESET"; selectedProduct?: string | null; initialMessages?: ChatMessageWithTimestamp[] }
 | { type: "SET_INPUT"; payload: string }
 | { type: "SEND_MESSAGE"; chatMode?: 'bot' | 'human' }
 | { type: "CLEAR_LOADING" }
@@ -187,6 +187,7 @@ function reducer(state: State, action: Action): State {
       return initialState({
         selectedProduct: action.selectedProduct,
         isGuidedFlow: !!action.selectedProduct,
+        initialMessages: action.initialMessages,
       });
     }
     case "SET_INPUT": {
@@ -708,6 +709,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     { selectedProduct, isGuidedFlow, initialMessages },
     initialState,
   );
+
+  // Keep stable refs for values that should not trigger chat resets.
+  const initialMessagesRef = useRef(initialMessages);
+  useEffect(() => {
+    initialMessagesRef.current = initialMessages;
+  }, [initialMessages]);
+
+  const onMessagesChangeRef = useRef(onMessagesChange);
+  useEffect(() => {
+    onMessagesChangeRef.current = onMessagesChange;
+  }, [onMessagesChange]);
   // Escalation state
   // const [escalating, setEscalating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1194,10 +1206,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setInlineGuidedValues({});
     setInlineGuidedErrors({});
     setInlineGuidedLoading(false);
-    dispatch({ type: "RESET", selectedProduct });
+    const bootMessages = initialMessagesRef.current;
+    dispatch({ type: "RESET", selectedProduct, initialMessages: bootMessages });
 
     // In agent-first mode, do not show the bot's default follow-up prompt.
     if (agentRequestedRef.current) return;
+
+    // If we're hydrating an existing conversation, don't inject the default prompt.
+    if (bootMessages && bootMessages.length > 0) return;
 
     const followupTimeout = setTimeout(() => {
       const optionsForProduct = getBaseActionOptionsForProduct(selectedProduct);
@@ -1215,10 +1231,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    if (onMessagesChange) {
-      onMessagesChange(state.messages);
-    }
-  }, [state.messages, onMessagesChange]);
+    onMessagesChangeRef.current?.(state.messages);
+  }, [state.messages]);
 
   useEffect(() => {
     if (state.showQuoteForm) {

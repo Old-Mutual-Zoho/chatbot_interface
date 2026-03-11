@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession } from "../../services/api";
 import axios from "axios";
 import { type TopCategoryId } from "./productTree";
@@ -21,12 +21,21 @@ export default function ChatbotContainer({
 }) {
   // Main wrapper for the chatbot screens.
 
-  // Key used to save chats in localStorage.
+  // Key used to store conversations for the current browser session only.
+  // NOTE: We intentionally do NOT persist chats permanently.
   const STORAGE_KEY = "om_chatbot_conversations_v1";
   const loadConversations = (): ConversationSnapshot[] => {
     try {
       if (typeof window === "undefined") return [];
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+
+      // Cleanup legacy permanent storage (users should not see week-old chats).
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Ignore storage errors.
+      }
+
+      const raw = window.sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return [];
       // If the saved data is broken, just start fresh.
       const parsed = JSON.parse(raw) as unknown;
@@ -50,7 +59,6 @@ export default function ChatbotContainer({
 
   // Keep the latest messages so we can save them when leaving chat.
   const latestMessagesRef = useRef<ConversationSnapshot["messages"]>([]);
-  const [latestMessages, setLatestMessages] = useState<ConversationSnapshot["messages"]>([]);
 
   // The conversation we are viewing (if any).
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -88,10 +96,27 @@ export default function ChatbotContainer({
     return "Failed to connect";
   };
 
-  // Save conversations when they change.
+  const clearStoredConversations = () => {
+    try {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
+    // Also remove any legacy permanent storage that may still exist.
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
+    setConversations([]);
+    latestMessagesRef.current = [];
+    setActiveConversationId(null);
+  };
+
+  // Save conversations when they change (session-only).
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
     } catch {
       // Ignore storage errors.
     }
@@ -130,6 +155,7 @@ export default function ChatbotContainer({
     setPendingExit(null);
     setActiveConversationId(null);
     setChatMode('bot');
+    latestMessagesRef.current = [];
     resetChat();
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
@@ -190,9 +216,18 @@ export default function ChatbotContainer({
     setChatMode('bot');
     setActiveConversationId(conversationId);
     setSelectedProduct(convo.selectedProduct ?? null);
+
+    // Seed the current message buffer so ChatScreen mounts with the stored history.
+    // (ChatScreen reads initialMessages only on mount.)
+    latestMessagesRef.current = convo.messages;
+
     setChatSessionKey((k) => k + 1);
     setScreen("chat");
   };
+
+  const handleMessagesChange = useCallback((messages: ConversationSnapshot["messages"]) => {
+    latestMessagesRef.current = messages;
+  }, []);
 
   const performBack = () => {
     saveOrArchiveConversationIfAny();
@@ -202,12 +237,41 @@ export default function ChatbotContainer({
   };
 
   const performClose = () => {
-    saveOrArchiveConversationIfAny();
+    // Closing the widget should discard conversations (no permanent history).
+    clearStoredConversations();
     onClose();
+  };
+
+  const shouldShowPostConversationFeedback = (messages: ConversationSnapshot["messages"]) => {
+    type Msg = ConversationSnapshot["messages"][number];
+
+    const isMeaningfulUserMessage = (m: Msg) =>
+      m.sender === "user" &&
+      m.type === "text" &&
+      typeof m.text === "string" &&
+      m.text.trim() !== "";
+
+    // A bot reply must occur after a user message; ignore initial welcome/typing bubbles.
+    const isMeaningfulBotReply = (m: Msg) => {
+      if (m.sender !== "bot") return false;
+      if (m.type === "loading" || m.type === "custom-welcome") return false;
+      if (m.type !== "text") return true;
+      return typeof m.text === "string" && m.text.trim() !== "";
+    };
+
+    const firstUserIndex = messages.findIndex(isMeaningfulUserMessage);
+    if (firstUserIndex === -1) return false;
+    return messages.slice(firstUserIndex + 1).some(isMeaningfulBotReply);
   };
 
   const requestEndConversation = (exitType: "back" | "close") => {
     if (!isConversationEnded) {
+      // Only show the feedback card if the user actually had a bot conversation.
+      if (!shouldShowPostConversationFeedback(latestMessagesRef.current)) {
+        if (exitType === "back") performBack();
+        else performClose();
+        return;
+      }
       setIsConversationEnded(true);
       setPendingExit(exitType);
       return;
@@ -276,8 +340,7 @@ export default function ChatbotContainer({
             onOpenConversation={openConversation}
             onDeleteConversation={deleteConversation}
             onClose={() => {
-              saveOrArchiveConversationIfAny();
-              onClose();
+              performClose();
             }}
           />
         </FadeWrapper>
@@ -298,12 +361,9 @@ export default function ChatbotContainer({
             initialMessages={
               activeConversationId
                 ? (conversations.find((c) => c.id === activeConversationId)?.messages ?? [])
-                : (latestMessages.length > 0 ? latestMessages : undefined)
+                : undefined
             }
-            onMessagesChange={(messages) => {
-              latestMessagesRef.current = messages;
-              setLatestMessages(messages);
-            }}
+            onMessagesChange={handleMessagesChange}
             isExpanded={isExpanded}
             onToggleExpand={() => setIsExpanded((prev) => !prev)}
             agentConfig={AGENT_CONFIG}
@@ -318,8 +378,7 @@ export default function ChatbotContainer({
               categoryId={selectedCategoryId}
               onBack={() => setScreen("home")}
               onClose={() => {
-                saveOrArchiveConversationIfAny();
-                onClose();
+                performClose();
               }}
               onSendProduct={(product) => {
                 saveOrArchiveConversationIfAny();
