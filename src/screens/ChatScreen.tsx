@@ -28,6 +28,7 @@ import type { ActionOption } from "../components/chatbot/ActionCard";
 import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession, getAgentMessages } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
+import { SAVINGS_SUBCATEGORIES } from "../components/chatbot/data/products";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
 import { FeedbackActionBar } from "../components/chatbot/FeedbackActionBar";
 // Removed unused AGENT_CONFIG import
@@ -41,7 +42,44 @@ const ACTION_OPTIONS: ActionOption[] = [
   { label: "Buy Now", value: "buy" },
 ];
 
-const BASE_ACTION_OPTION_COUNT = ACTION_OPTIONS.length;
+const SIGN_UP_OPTION: ActionOption = { label: "Sign Up", value: "sign-up" };
+
+const normalizeProductName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+
+const DIGITAL_PRODUCT_NAMES = new Set(
+  [
+    "Travel",
+    "Travel Sure Plus",
+    "Motor Private",
+    "Motor Private Insurance",
+    "Motor Third Party",
+    "Motor 3rd Party",
+    "Serenicare",
+    "Personal Accident",
+    "Family Life",
+    "Family Life Protection",
+  ].map(normalizeProductName),
+);
+
+const UNIT_TRUST_PRODUCT_NAMES = new Set(
+  SAVINGS_SUBCATEGORIES["unit-trusts"].products.map((p) => normalizeProductName(String(p))),
+);
+
+const getBaseActionOptionsForProduct = (productName: string | null | undefined): ActionOption[] => {
+  // No selected product: keep current default (3 buttons + Talk to Agent injected by ActionCard).
+  if (!productName) return ACTION_OPTIONS;
+
+  const normalized = normalizeProductName(productName);
+
+  // 1) Digital products: General Info, Get My Quote, Buy Now (+ Talk to Agent).
+  if (DIGITAL_PRODUCT_NAMES.has(normalized)) return ACTION_OPTIONS;
+
+  // 2) Unit Trust products: General Info, Sign Up (+ Talk to Agent).
+  if (UNIT_TRUST_PRODUCT_NAMES.has(normalized)) return [ACTION_OPTIONS[0], SIGN_UP_OPTION];
+
+  // 3) Regular products: General Info (+ Talk to Agent).
+  return [ACTION_OPTIONS[0]];
+};
 
 const toBackendProductKey = (product: string | null | undefined): string | null => {
   if (!product) return null;
@@ -63,7 +101,7 @@ import type { PaymentMethod } from "../components/chatbot/messages/PaymentMethod
 type Action =
   { type: "RESET"; selectedProduct?: string | null }
 | { type: "SET_INPUT"; payload: string }
-| { type: "SEND_MESSAGE" }
+| { type: "SEND_MESSAGE"; chatMode?: 'bot' | 'human' }
 | { type: "CLEAR_LOADING" }
 | { type: "RECEIVE_BOT_REPLY"; payload: string; chatMode: 'bot' | 'human' }
   | { type: "SELECT_OPTION"; payload: ActionOption }
@@ -93,7 +131,7 @@ type Action =
   if (initialMessages && initialMessages.length > 0) {
     return {
       messages: initialMessages,
-      availableOptions: ACTION_OPTIONS,
+      availableOptions: getBaseActionOptionsForProduct(selectedProduct),
       showWelcomeCard: true,
       showActionCard: false,
       inputValue: "",
@@ -116,7 +154,7 @@ type Action =
     timestamp: getTimeString(),
   };
   const messages: ChatMessageWithTimestamp[] = [welcomeMsg];
-  if (isGuidedFlow && selectedProduct && !ACTION_OPTIONS.some(opt => opt.label === selectedProduct)) {
+  if (isGuidedFlow && selectedProduct && !getBaseActionOptionsForProduct(selectedProduct).some(opt => opt.label === selectedProduct)) {
     messages.push({
       id: `product-${Date.now()}`,
       type: "text",
@@ -127,7 +165,7 @@ type Action =
   }
   return {
     messages,
-    availableOptions: ACTION_OPTIONS,
+    availableOptions: getBaseActionOptionsForProduct(selectedProduct),
     showWelcomeCard: true,
     showActionCard: false,
     inputValue: "",
@@ -156,6 +194,8 @@ function reducer(state: State, action: Action): State {
     }
     case "SEND_MESSAGE": {
       if (state.inputValue.trim() === "") return state;
+
+      const mode = action.chatMode ?? 'bot';
       const userMessage: ChatMessageWithTimestamp = {
         id: Date.now().toString(),
         type: "text",
@@ -170,11 +210,18 @@ function reducer(state: State, action: Action): State {
         text: "",
         timestamp: getTimeString(),
       };
+
+      // In human mode, keep input usable (do not lock sending), but still show
+      // a typing bubble that will be replaced when the agent message arrives.
+      const baseMessages = mode === 'human'
+        ? state.messages.filter((msg) => msg.type !== 'loading')
+        : state.messages;
+
       return {
         ...state,
-        messages: [...state.messages, userMessage, loadingMessage],
+        messages: [...baseMessages, userMessage, loadingMessage],
         inputValue: "",
-        isSending: true,
+        isSending: mode !== 'human',
       };
     }
     case "CLEAR_LOADING": {
@@ -1153,12 +1200,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (agentRequestedRef.current) return;
 
     const followupTimeout = setTimeout(() => {
+      const optionsForProduct = getBaseActionOptionsForProduct(selectedProduct);
       dispatch({
         type: "RECEIVE_OPTION_RESPONSE",
         payload: {
           response: "How can I help you today?",
           option: { label: "", value: "" },
-          remainingOptions: ACTION_OPTIONS,
+          remainingOptions: optionsForProduct,
         },
       });
     }, 600);
@@ -1215,8 +1263,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     ];
     const wantsHuman = escalationKeywords.some(keyword => messageLower.includes(keyword));
 
-    // Always append user message
-    dispatch({ type: "SEND_MESSAGE" });
+    // Always append user message (and typing bubble)
+    dispatch({ type: "SEND_MESSAGE", chatMode });
 
     // If escalation intent and in bot mode, trigger escalation and stop further bot response
     if (wantsHuman && chatMode === "bot") {
@@ -1224,6 +1272,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         reason: 'User requested a human agent',
         metadata: { source: 'keyword' },
       });
+      return;
+    }
+
+    // Human agent mode: do NOT show backend ack text ("message sent...").
+    // Keep the typing bubble until the agent reply arrives via polling.
+    if (chatMode === 'human') {
+      (async () => {
+        try {
+          if (!userId) throw new Error('Missing user id');
+          await sendChatMessage({
+            user_id: userId,
+            session_id: sessionId || '',
+            message: outgoingText,
+          });
+        } catch {
+          dispatch({ type: 'CLEAR_LOADING' });
+          dispatch({
+            type: 'RECEIVE_BOT_REPLY',
+            payload: "Sorry — I couldn't send your message to the agent. Please try again.",
+            chatMode: 'human',
+          });
+        }
+      })();
       return;
     }
 
@@ -1527,6 +1598,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       });
       return;
     }
+    if (option.value === "sign-up") {
+      dispatch({ type: "SELECT_OPTION", payload: option });
+      window.open("https://selfservice.uapoldmutual.com/", "_blank");
+      return;
+    }
     // ...existing General Info logic...
     if (option.label === "General Info") {    
       // ...existing General Info logic...
@@ -1614,7 +1690,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       // Conversational flow: backend can return guided step payloads.
       dispatch({ type: "SET_INPUT", payload: option.label });
-      dispatch({ type: "SEND_MESSAGE" });
+      dispatch({ type: "SEND_MESSAGE", chatMode });
       setTimeout(async () => {
         const result = await fetchBotResponse(option.label);
         if (result.kind === 'guided') {
@@ -1946,14 +2022,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               }
 
               // ...existing code...
+              const baseActionOptionCount = getBaseActionOptionsForProduct(selectedProduct).length;
               const shouldShowActionCard =
                 isGuidedFlow &&
                 !state.showQuoteForm &&
                 state.showActionCard &&
                 state.availableOptions.length > 0 &&
                 (
-                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === BASE_ACTION_OPTION_COUNT) ||
-                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < BASE_ACTION_OPTION_COUNT)
+                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === baseActionOptionCount) ||
+                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < baseActionOptionCount)
                 );
               if (shouldShowActionCard) {
                 // The action card is effectively a continuation of the bot message.

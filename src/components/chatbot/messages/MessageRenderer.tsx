@@ -104,7 +104,8 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
   }
 
   if (message.type === "loading") {
-    return <LoadingBubble />;
+    const avatarSrc = chatMode === 'human' ? (avatar || humanAvatar) : (avatar || Logo);
+    return <LoadingBubble avatarSrc={avatarSrc} alt="Typing" />;
   }
   if (message.type === "custom-welcome") {
     return <CustomWelcomeCard />;
