@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { IoClose } from "react-icons/io5";
-import { FaCarSide, FaHospital } from "react-icons/fa";
-import { MdOutlineFamilyRestroom } from "react-icons/md";
-import { GiGoat } from "react-icons/gi";
+import { IoClose, IoSchoolSharp } from "react-icons/io5";
+import { FaCarSide, FaHospital, FaPlane, FaRegHandshake } from "react-icons/fa";
+import { GrShieldSecurity } from "react-icons/gr";
+import { MdFamilyRestroom, MdGroups2, MdOutlineFamilyRestroom } from "react-icons/md";
+import { GiFishingBoat, GiGoat } from "react-icons/gi";
 import {
   GENERAL_INSURANCE_SUBCATEGORIES,
   PERSONAL_SUBCATEGORIES,
@@ -112,6 +113,20 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
     return null;
   };
 
+  const getProductIcon = (label: string) => {
+    const normalized = label.trim().toLowerCase();
+    if (normalized === "marine cargo insurance") return <GiFishingBoat size={18} />;
+    if (normalized === "somesa education plan") return <IoSchoolSharp size={18} />;
+    if (normalized === "securities trading" || normalized === "security trading") {
+      return <GrShieldSecurity size={18} />;
+    }
+    if (normalized === "family life protection" || normalized === "family life") {
+      return <MdFamilyRestroom size={20} />;
+    }
+    if (normalized === "travel" || normalized === "travel sure plus") return <FaPlane size={16} />;
+    return null;
+  };
+
   return (
     <div className="flex flex-col w-full h-full bg-white om-pattern-bg">
 
@@ -179,7 +194,12 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                 title={PERSONAL_SUBCATEGORIES["group-benefits"].label}
                 className="inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
               >
-                {PERSONAL_SUBCATEGORIES["group-benefits"].label}
+                <span className="inline-flex items-center gap-2 max-w-full truncate">
+                  <span className="shrink-0">
+                    <MdGroups2 size={18} />
+                  </span>
+                  <span className="truncate">{PERSONAL_SUBCATEGORIES["group-benefits"].label}</span>
+                </span>
               </button>
             )}
 
@@ -194,7 +214,12 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                 title={SAVINGS_SUBCATEGORIES["unit-trusts"].label}
                 className="inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
               >
-                {SAVINGS_SUBCATEGORIES["unit-trusts"].label}
+                <span className="inline-flex items-center gap-2 max-w-full truncate">
+                  <span className="shrink-0">
+                    <FaRegHandshake size={16} />
+                  </span>
+                  <span className="truncate">{SAVINGS_SUBCATEGORIES["unit-trusts"].label}</span>
+                </span>
               </button>
             )}
             {items.map((item) => {
@@ -205,6 +230,8 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
               const subcategoryIcon = isGeneralInsuranceSubcategoryList
                 ? getGeneralInsuranceSubcategoryIcon(item as GeneralInsuranceSubcategoryId)
                 : null;
+              const productIcon = isGeneralInsuranceSubcategoryList ? null : getProductIcon(label);
+              const leadingIcon = subcategoryIcon ?? productIcon;
 
               return (
                 <button
@@ -247,9 +274,9 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                       : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
                   }
                 >
-                  {subcategoryIcon ? (
+                  {leadingIcon ? (
                     <span className="inline-flex items-center gap-2 max-w-full truncate">
-                      <span className="shrink-0">{subcategoryIcon}</span>
+                      <span className="shrink-0">{leadingIcon}</span>
                       <span className="truncate">{label}</span>
                     </span>
                   ) : (
