@@ -27,6 +27,17 @@ jobs:
             VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: npm run build
 
+      - name: Clear old files on Droplet
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            rm -rf /var/www/myapp/dist
+            mkdir -p /var/www/myapp/dist
+
       - name: Deploy to Droplet
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -36,4 +47,3 @@ jobs:
           port: ${{ secrets.PORT }}
           source: "dist/"
           target: "/var/www/myapp"
-          strip_components: 1
