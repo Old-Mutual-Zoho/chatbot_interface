@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import { IoClose } from "react-icons/io5";
+import { FaCarSide, FaHospital } from "react-icons/fa";
+import { MdOutlineFamilyRestroom } from "react-icons/md";
+import { GiGoat } from "react-icons/gi";
 import {
   GENERAL_INSURANCE_SUBCATEGORIES,
   PERSONAL_SUBCATEGORIES,
@@ -101,6 +104,14 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
   const isGeneralInsuranceSubcategoryList =
     categoryId === "General Insurance" && !selectedGeneralInsuranceSubcategory;
 
+  const getGeneralInsuranceSubcategoryIcon = (id: GeneralInsuranceSubcategoryId) => {
+    if (id === 'motor-insurance') return <FaCarSide size={16} />;
+    if (id === 'health-insurance') return <FaHospital size={16} />;
+    if (id === 'personal-insurance') return <MdOutlineFamilyRestroom size={18} />;
+    if (id === 'agriculture-insurance') return <GiGoat size={18} />;
+    return null;
+  };
+
   return (
     <div className="flex flex-col w-full h-full bg-white om-pattern-bg">
 
@@ -191,6 +202,9 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                 ? GENERAL_INSURANCE_SUBCATEGORIES[item as GeneralInsuranceSubcategoryId].label
                 : (item as string);
               const isSelected = selectedProduct === label;
+              const subcategoryIcon = isGeneralInsuranceSubcategoryList
+                ? getGeneralInsuranceSubcategoryIcon(item as GeneralInsuranceSubcategoryId)
+                : null;
 
               return (
                 <button
@@ -233,7 +247,14 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
                       : "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-white text-primary border border-primary/40 hover:bg-primary/10 hover:border-primary transition max-w-full truncate cursor-pointer"
                   }
                 >
-                  {label}
+                  {subcategoryIcon ? (
+                    <span className="inline-flex items-center gap-2 max-w-full truncate">
+                      <span className="shrink-0">{subcategoryIcon}</span>
+                      <span className="truncate">{label}</span>
+                    </span>
+                  ) : (
+                    label
+                  )}
                 </button>
               );
             })}
