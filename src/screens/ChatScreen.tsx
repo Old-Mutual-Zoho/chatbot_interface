@@ -31,6 +31,7 @@ import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { SAVINGS_SUBCATEGORIES } from "../components/chatbot/data/products";
 import { GeneralInfoCard } from "../components/chatbot/messages/GeneralInfoCard";
 import { FeedbackActionBar } from "../components/chatbot/FeedbackActionBar";
+import { FlagshipProductsQuickRow } from "../components/chatbot/FlagshipProductsQuickRow";
 // Removed unused AGENT_CONFIG import
 
 const getTimeString = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -692,6 +693,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 }) => {
   const isWhatsApp = channel === 'whatsapp';
 
+  const pendingQuickSendRef = useRef<string | null>(null);
+
   // Persist whether this chat session is "agent-first" (entered via Chat-with-Agent nav).
   // This must survive the container clearing autoConnectAgent.
   const agentRequestedRef = useRef(!!autoConnectAgent);
@@ -1323,6 +1326,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       dispatch({ type: "RECEIVE_BOT_REPLY", payload: result.text, chatMode });
     })();
   };
+
+  useEffect(() => {
+    const pending = pendingQuickSendRef.current;
+    if (!pending) return;
+    if (state.inputValue !== pending) return;
+
+    pendingQuickSendRef.current = null;
+    handleSendMessage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.inputValue]);
+
+  const handleFlagshipProductSelect = React.useCallback(
+    (productName: string) => {
+      // Route through the existing input + send handler so it behaves like typed text.
+      pendingQuickSendRef.current = productName;
+      dispatch({ type: "SET_INPUT", payload: productName });
+    },
+    [dispatch],
+  );
 
   const resizeTypingArea = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -2183,7 +2205,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </div>
             </div>
           )}
-            <div ref={messagesEndRef} />
+
+          {/* flagship products */}
+          {/* Flagship quick product buttons (free conversation only) */}
+          {!isConversationEnded && !isWhatsApp && !selectedProduct && (
+            <FlagshipProductsQuickRow
+              disabled={state.isSending || sessionLoading || !!sessionError}
+              onSelect={handleFlagshipProductSelect}
+            />
+          )}
+
+          <div ref={messagesEndRef} />
           </>
         )}
       </div>

@@ -435,6 +435,14 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           loading={loading}
         />
       );
+    case "benefits_summary":
+      return (
+        <BenefitsSummaryStep
+          step={step as Extract<GuidedStepResponse, { type: "benefits_summary" }>}
+          onSubmit={onSubmit}
+          loading={loading}
+        />
+      );
     case "confirmation":
       return (
         <BackendConfirmationStep
@@ -727,6 +735,56 @@ const PremiumSummaryStep: React.FC<{
           </button>
         ))}
       </div>
+    </div>
+  );
+};
+
+const BenefitsSummaryStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "benefits_summary" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const benefits = Array.isArray(step.benefits) ? step.benefits : [];
+  const actions = Array.isArray(step.actions) ? step.actions : [];
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? "Benefits"}</h3>
+
+      {benefits.length > 0 ? (
+        <ul className="mt-4 space-y-2 text-sm">
+          {benefits.map((b, i) => {
+            const label = typeof b?.label === 'string' ? b.label : '';
+            const value = typeof b?.value === 'string' ? b.value : '';
+            const hasValue = value.trim().length > 0;
+
+            return (
+              <li key={i} className="flex items-start justify-between gap-3">
+                <span className="text-gray-700">{label}</span>
+                {hasValue ? <span className="text-gray-900 font-medium">{value}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-gray-600">No benefits found.</p>
+      )}
+
+      {actions.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {actions.map((a) => (
+            <button
+              key={a.type}
+              type="button"
+              disabled={loading}
+              onClick={() => onSubmit({ action: a.type })}
+              className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

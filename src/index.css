@@ -217,6 +217,24 @@ body {
   animation: om-panel-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.flagship-products-scroll,
+.floating-product-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 6px 10px;
+}
+
+.floating-product-bar {
+  position: sticky;
+  bottom: 0;
+  background: transparent;
+  z-index: 5;
+}
+
 /*
   Widget overlay positioning.
   Some host sites define classes like .fixed/.inset-0 themselves; use unique classes
