@@ -2206,48 +2206,50 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           )}
 
-          {/* flagship products */}
+          <div ref={messagesEndRef} />
+          </>
+        )}
+      </div>
+
+      {/* Footer Area (flagship products + input) */}
+      {!isConversationEnded && (
+        <div className="shrink-0 bg-white border-t border-gray-200">
           {/* Flagship quick product buttons (free conversation only) */}
-          {!isConversationEnded && !isWhatsApp && !selectedProduct && (
+          {!isWhatsApp && !selectedProduct && (
             <FlagshipProductsQuickRow
               disabled={state.isSending || sessionLoading || !!sessionError}
               onSelect={handleFlagshipProductSelect}
             />
           )}
 
-          <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
-
-      {/* Input Area */}
-      {!isConversationEnded && (
-      <div className="shrink-0 bg-white p-3 border-t border-gray-200">
-        <div className="flex gap-2 items-end">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={state.inputValue}
-            onChange={(e) => {
-              // Hide contextual feedback bar as soon as the user starts typing
-              if (showFeedbackActions) setShowFeedbackActions(false);
-              dispatch({ type: "SET_INPUT", payload: e.target.value });
-              resizeTypingArea(e.currentTarget);
-            }}
-            onKeyDown={handleKeyPress}
-            placeholder={sessionError ? sessionError : (sessionLoading ? "Connecting..." : "Type a message...")}
-            disabled={state.isSending || sessionLoading || !!sessionError}
-            className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError}
-            className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
-          >
-            <IoSend size={16} className="sm:block" />
-          </button>
+          {/* Input Area */}
+          <div className="p-3">
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={state.inputValue}
+                onChange={(e) => {
+                  // Hide contextual feedback bar as soon as the user starts typing
+                  if (showFeedbackActions) setShowFeedbackActions(false);
+                  dispatch({ type: "SET_INPUT", payload: e.target.value });
+                  resizeTypingArea(e.currentTarget);
+                }}
+                onKeyDown={handleKeyPress}
+                placeholder={sessionError ? sessionError : (sessionLoading ? "Connecting..." : "Type a message...")}
+                disabled={state.isSending || sessionLoading || !!sessionError}
+                className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError}
+                className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
+              >
+                <IoSend size={16} className="sm:block" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
       )}
 
       {/* General Info Modal/Card (web only) */}

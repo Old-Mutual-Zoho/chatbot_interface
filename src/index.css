@@ -228,9 +228,17 @@ body {
   padding: 6px 10px;
 }
 
+/* Horizontal scrollbar support for the flagship products row (global CSS hides scrollbars by default). */
+.floating-product-bar.om-show-scrollbar {
+  scrollbar-width: thin;
+}
+
+.floating-product-bar.om-show-scrollbar::-webkit-scrollbar {
+  display: block;
+  height: 8px;
+}
+
 .floating-product-bar {
-  position: sticky;
-  bottom: 0;
   background: transparent;
   z-index: 5;
 }
