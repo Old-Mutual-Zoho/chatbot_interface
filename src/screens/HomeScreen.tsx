@@ -117,8 +117,8 @@ export default function HomeScreen({
           <img src={OMlogo} className="w-full h-full" />
         </div>
 
-        <h1 className="text-[clamp(2.3rem,7vw,2rem)] leading-none mb-2 mt-15">Old Mutual</h1>
-        <p className="text-[clamp(1.1rem,3.5vw,.7rem)] opacity-95">Hey! How can we help you today</p>
+        <h1 className="text-[clamp(2.3rem,7vw,2rem)] leading-none mb-2 mt-15">OM-Intelligence</h1>
+        <p className="text-[clamp(1.1rem,3.5vw,.7rem)] opacity-95">Welcome ! How may i serve you today 😊</p>
       </div>
 
       {/* CHAT NOW */}

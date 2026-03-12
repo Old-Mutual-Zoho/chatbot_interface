@@ -20,6 +20,7 @@ export type CategoryName = keyof typeof PRODUCT_CATEGORIES;
 
 export type GeneralInsuranceSubcategoryId =
   | "personal-insurance"
+  | "travel-insurance"
   | "health-insurance"
   | "motor-insurance"
   | "sme-business-protection"
@@ -32,12 +33,17 @@ export const GENERAL_INSURANCE_SUBCATEGORIES: Record<
   { label: string; products: readonly string[] }
 > = {
   "personal-insurance": {
-    label: "Personal/Family Insurance",
+    label: "Me & My Family",
     products: [
       "Personal Accident",      
-      "Travel Sure Plus",      
       "Domestic Package",
       "All Risks Cover",
+    ],
+  },
+  "travel-insurance": {
+    label: "Travel Insurance",
+    products: [
+      "Travel Sure Plus",
     ],
   },
   "health-insurance": {

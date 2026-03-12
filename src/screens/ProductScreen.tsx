@@ -109,6 +109,7 @@ export default function ProductScreen({ categoryId, onBack, onClose, onSendProdu
     if (id === 'motor-insurance') return <FaCarSide size={16} />;
     if (id === 'health-insurance') return <FaHospital size={16} />;
     if (id === 'personal-insurance') return <MdOutlineFamilyRestroom size={18} />;
+    if (id === 'travel-insurance') return <FaPlane size={16} />;
     if (id === 'agriculture-insurance') return <GiGoat size={18} />;
     return null;
   };
