@@ -38,7 +38,7 @@ export default function HomeScreen({
           <a
             href={`tel:${callNumber}`}
             aria-label="Call us"
-            className="h-11 px-3 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center gap-2 border border-white/40 cursor-pointer whitespace-nowrap"
+            className="h-11 px-3 rounded-full bg-white/15 hover:bg-white/25 transition-[box-shadow,background-color,border-color] duration-200 flex items-center justify-center gap-2 border border-white/40 hover:border-white/70 cursor-pointer whitespace-nowrap shadow-[0_0_0_rgba(255,255,255,0)] hover:shadow-[0_0_0_2px_rgba(255,255,255,0.55),0_0_22px_rgba(255,255,255,0.55),0_0_50px_rgba(255,255,255,0.30)]"
           >
             <IoCallOutline size={18} className="text-white" />
             <span className="text-white text-sm font-semibold">Call us</span>
@@ -49,7 +49,7 @@ export default function HomeScreen({
             target="_blank"
             rel="noreferrer"
             aria-label="Chat on WhatsApp"
-            className="h-11 px-3 rounded-full bg-white/15 hover:bg-white/25 transition flex items-center justify-center gap-2 border border-white/40 cursor-pointer whitespace-nowrap"
+            className="h-11 px-3 rounded-full bg-white/15 hover:bg-white/25 transition-[box-shadow,background-color,border-color] duration-200 flex items-center justify-center gap-2 border border-white/40 hover:border-white/70 cursor-pointer whitespace-nowrap shadow-[0_0_0_rgba(255,255,255,0)] hover:shadow-[0_0_0_2px_rgba(255,255,255,0.55),0_0_22px_rgba(255,255,255,0.55),0_0_50px_rgba(255,255,255,0.30)]"
           >
             <SiWhatsapp size={18} className="text-white" />
             <span className="text-white text-sm font-semibold">WhatsApp</span>
@@ -72,7 +72,7 @@ export default function HomeScreen({
       <div className="shrink-0 mt-3 sm:mt-[18px] px-4">
         <button
           onClick={onStartChat}
-          className="w-full rounded-[1rem] border-4 border-gray-100 ring-2 ring-white/80 bg-gradient-to-b from-white via-gray-50 to-white shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_120px_420px_rgba(0,0,0,0.66),0_55px_190px_rgba(0,0,0,0.46)] flex justify-between items-center px-5 py-5 cursor-pointer hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_160px_560px_rgba(0,0,0,0.72),0_70px_240px_rgba(0,0,0,0.52)] transition will-change-transform motion-safe:[animation:om-float_3.2s_ease-in-out_infinite] motion-reduce:animate-none"
+          className="w-full rounded-[1rem] border-4 border-gray-100 ring-2 ring-white/80 bg-gradient-to-b from-white via-gray-50 to-white focus:from-[color-mix(in_srgb,var(--color-primary-light)_28%,white)] focus:via-[color-mix(in_srgb,var(--color-primary-light)_28%,white)] focus:to-[color-mix(in_srgb,var(--color-primary-light)_28%,white)] active:from-[color-mix(in_srgb,var(--color-primary-light)_38%,white)] active:via-[color-mix(in_srgb,var(--color-primary-light)_38%,white)] active:to-[color-mix(in_srgb,var(--color-primary-light)_38%,white)] focus:border-primary/30 active:border-primary/45 shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_120px_420px_rgba(0,0,0,0.66),0_55px_190px_rgba(0,0,0,0.46)] flex justify-between items-center px-5 py-5 cursor-pointer hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_160px_560px_rgba(0,0,0,0.72),0_70px_240px_rgba(0,0,0,0.52),0_0_0_2px_var(--primary),0_0_26px_var(--primary),0_0_70px_var(--primary)] transition will-change-transform motion-safe:[animation:om-float_3.2s_ease-in-out_infinite] motion-reduce:animate-none outline-none focus:outline-none hover:ring-4 hover:ring-primary/35 focus:ring-4 focus:ring-primary/45 active:ring-4 active:ring-primary/60 focus:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_160px_560px_rgba(0,0,0,0.72),0_70px_240px_rgba(0,0,0,0.52),0_0_0_2px_var(--primary),0_0_26px_var(--primary),0_0_70px_var(--primary)] active:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.85),0_160px_560px_rgba(0,0,0,0.72),0_70px_240px_rgba(0,0,0,0.52),0_0_0_2px_var(--primary),0_0_32px_var(--primary),0_0_90px_var(--primary)]"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shrink-0">
@@ -97,7 +97,7 @@ export default function HomeScreen({
             {/* Life category */}
             <button
               onClick={() => onSelectCategory("Life Assurance")}
-              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3 transition-[box-shadow,transform] outline-none focus:outline-none hover:ring-4 hover:ring-primary/35 focus:ring-4 focus:ring-primary/45 active:ring-4 active:ring-primary/60 hover:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] focus:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] active:shadow-[0_0_0_2px_var(--primary),0_0_28px_var(--primary),0_0_80px_var(--primary)]"
             >
               <img
                 src={product1}
@@ -114,7 +114,7 @@ export default function HomeScreen({
             {/* GI category */}
             <button
               onClick={() => onSelectCategory("General Insurance")}
-              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3 transition-[box-shadow,transform] outline-none focus:outline-none hover:ring-4 hover:ring-primary/35 focus:ring-4 focus:ring-primary/45 active:ring-4 active:ring-primary/60 hover:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] focus:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] active:shadow-[0_0_0_2px_var(--primary),0_0_28px_var(--primary),0_0_80px_var(--primary)]"
             >
               <img
                 src={product2}
@@ -131,7 +131,7 @@ export default function HomeScreen({
             {/* Savings & Investment category */}
             <button
               onClick={() => onSelectCategory("Savings & Investment")}
-              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3"
+              className="flex flex-col items-center cursor-pointer bg-[#dff4e8] rounded-2xl px-2 py-3 sm:p-3 transition-[box-shadow,transform] outline-none focus:outline-none hover:ring-4 hover:ring-primary/35 focus:ring-4 focus:ring-primary/45 active:ring-4 active:ring-primary/60 hover:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] focus:shadow-[0_0_0_2px_var(--primary),0_0_22px_var(--primary),0_0_60px_var(--primary)] active:shadow-[0_0_0_2px_var(--primary),0_0_28px_var(--primary),0_0_80px_var(--primary)]"
             >
               <img
                 src={product3}

@@ -1805,6 +1805,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     );
   };
 
+  const shouldShowThumbsForFeedbackMessage = (message: ChatMessageWithTimestamp) => {
+    const anchorId = message?.id;
+    if (!anchorId) return false;
+
+    const anchorIndex = state.messages.findIndex((m) => m.id === anchorId);
+    if (anchorIndex <= 0) return false;
+
+    return state.messages.slice(0, anchorIndex).some((m) => m.sender === 'user');
+  };
+
   const handleSelectPaymentMethod = (method: PaymentMethod) => {
     dispatch({ type: "SELECT_PAYMENT_METHOD", payload: method });
     if (method === "MTN" || method === "AIRTEL") {
@@ -2114,6 +2124,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                           onThumbsUp={handleFeedbackThumbsUp}
                           onThumbsDown={handleFeedbackThumbsDown}
                           onConnectAgent={handleFeedbackConnectAgent}
+                          showThumbs={shouldShowThumbsForFeedbackMessage(message)}
+                          showConnect={shouldShowThumbsForFeedbackMessage(message)}
                         />
                       </div>
                     ) : null}
@@ -2157,6 +2169,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         onThumbsUp={handleFeedbackThumbsUp}
                         onThumbsDown={handleFeedbackThumbsDown}
                         onConnectAgent={handleFeedbackConnectAgent}
+                        showThumbs={shouldShowThumbsForFeedbackMessage(message)}
+                        showConnect={shouldShowThumbsForFeedbackMessage(message)}
                       />
                     </div>
                   ) : null}
