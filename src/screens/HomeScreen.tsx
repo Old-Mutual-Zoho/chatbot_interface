@@ -125,7 +125,7 @@ export default function HomeScreen({
       <div className="shrink-0 mt-3 sm:mt-[18px] px-4">
         <button
           onClick={onStartChat}
-          className="w-full bg-white rounded-[1rem] shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex justify-between items-center px-4 py-3 cursor-pointer hover:shadow-lg transition"
+          className="w-full bg-white rounded-[1rem] shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex justify-between items-center px-5 py-5 cursor-pointer hover:shadow-lg transition will-change-transform motion-safe:[animation:om-float_3.2s_ease-in-out_infinite] motion-reduce:animate-none"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shrink-0">
@@ -134,7 +134,7 @@ export default function HomeScreen({
                 className="text-white"
               />
             </div>
-            <span className="text-black text-[clamp(1.2rem,4vw,1.6rem)] sm:text-xl font-semibold leading-none">Chat with us now</span>
+            <span className="text-black text-[clamp(1.2rem,4vw,1.6rem)] sm:text-xl font-semibold leading-none">Chat with us now 😊</span>
           </div>
           <IoChevronForward size={22} className="text-black" />
         </button>
@@ -142,7 +142,7 @@ export default function HomeScreen({
 
       {/* Cards */}
       <div className="flex-1 min-h-0 mt-3 sm:mt-4 px-4 pb-2">
-        <div className="rounded-2xl border mt-1 border-gray-200 p-2.5 sm:p-3 shadow-sm bg-white">
+        <div className="rounded-2xl border mt-1 border-gray-200 p-2.5 sm:p-3 shadow-[0_50px_160px_rgba(0,0,0,0.50),0_22px_60px_rgba(0,0,0,0.30)] bg-white motion-safe:[animation:fadeIn_0.3s_ease-out,om-float_3.2s_ease-in-out_infinite] motion-reduce:animate-none">
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {/* Personal category */}
             <button
