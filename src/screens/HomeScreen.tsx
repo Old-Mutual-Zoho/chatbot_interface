@@ -44,7 +44,7 @@ export default function HomeScreen({
   }, [isHelpOpen]);
 
   return (
-    <div className="flex flex-col h-full w-full min-h-0 bg-[#f6f6f8] overflow-hidden">
+    <div className="flex flex-col h-full w-full min-h-0 bg-[var(--color-primary-light)] overflow-hidden">
       {/* Header */}
       <div
         className="relative shrink-0 rounded-b-4xl px-5 sm:px-6 pb-7 sm:pb-9 pt-4 sm:pt-5 text-white bg-gradient-to-br from-primary to-primary/80"
