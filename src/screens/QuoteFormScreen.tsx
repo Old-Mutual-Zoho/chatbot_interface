@@ -885,6 +885,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   const [travelFieldErrors, setTravelFieldErrors] = useState<Record<string, string>>({});
   const [travelFormData, setTravelFormData] = useState<Record<string, unknown>>({});
   const [travelPendingAction, setTravelPendingAction] = useState<string | null>(null);
+  const [travelConsentIds, setTravelConsentIds] = useState<string[]>([]);
 
   // If a parent sessionId arrives later, seed travelSessionId once (same pattern as ChatScreen).
   useEffect(() => {
@@ -900,6 +901,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setTravelComplete(false);
     setTravelFieldErrors({});
     setTravelFormData({});
+    setTravelConsentIds([]);
     (async () => {
       try {
         const response = await startGuidedQuote({
@@ -917,6 +919,14 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
     })();
   }, [isTravelSurePlus, userId, travelSessionId, travelLoading, travelComplete, travelStepPayload]);
+
+  useEffect(() => {
+    if (!travelStepPayload || travelStepPayload.type !== 'consent') return;
+    const ids = (travelStepPayload.consents ?? [])
+      .map((c) => String(c?.id ?? '').trim())
+      .filter(Boolean);
+    setTravelConsentIds(ids);
+  }, [travelStepPayload]);
 
   const handleTravelChange = (name: string, value: string) => {
     setTravelFormData(prev => ({ ...prev, [name]: value }));
@@ -938,7 +948,28 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setTravelLoading(true);
     setTravelFieldErrors({});
     try {
-      const payloadToSend = travelPendingAction ? { ...payload, action: travelPendingAction } : payload;
+      const coerceStoredBool = (raw: unknown): boolean => {
+        if (typeof raw === 'boolean') return raw;
+        if (typeof raw === 'number') return raw !== 0;
+        const s = raw == null ? '' : String(raw).trim().toLowerCase();
+        return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+      };
+
+      // Travel consent can be represented as a dedicated `consent` step.
+      // If validation errors occur after consent, the backend may require consent flags to be
+      // present along with subsequent personal-detail fields; carry them forward explicitly.
+      const carriedConsents: Record<string, unknown> = {};
+      for (const id of travelConsentIds) {
+        if (!id) continue;
+        if (Object.prototype.hasOwnProperty.call(payload, id)) continue;
+        carriedConsents[id] = coerceStoredBool(mergedTravelData[id]);
+      }
+
+      const basePayload = {
+        ...carriedConsents,
+        ...payload,
+      };
+      const payloadToSend = travelPendingAction ? { ...basePayload, action: travelPendingAction } : basePayload;
       const res = await sendChatMessage({
         session_id: sid,
         user_id: userId,
@@ -965,6 +996,33 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
+        const fieldErrorKeys = Object.keys(validation.fieldErrors)
+          .map((k) => String(k ?? '').trim())
+          .filter(Boolean);
+
+        const isConsentOrTermsKey = (key: string): boolean => {
+          if (!key) return false;
+          if (key === 'terms_and_conditions_agreed') return true;
+          return travelConsentIds.includes(key);
+        };
+
+        // If we're on a consent step:
+        // - keep rendering the consent card when backend only complains about consents/terms
+        // - otherwise switch to a generated form so required personal details render
+        if (travelStepPayload?.type === 'consent') {
+          const hasNonConsentErrors = fieldErrorKeys.some((k) => !isConsentOrTermsKey(k) && !k.startsWith('_'));
+          if (hasNonConsentErrors) {
+            setTravelStepPayload(buildFormStepFromFieldErrors(validation.message, validation.fieldErrors));
+          }
+        } else {
+          // Some Travel flows return validation errors for required personal details immediately
+          // after consent. Convert those field errors into a renderable form step so the user can
+          // provide the missing details.
+          const nextStep = travelStepPayload?.type === 'form'
+            ? (appendMissingFieldsFromFieldErrors(travelStepPayload, validation.message, validation.fieldErrors) ?? travelStepPayload)
+            : buildFormStepFromFieldErrors(validation.message, validation.fieldErrors);
+          setTravelStepPayload(nextStep);
+        }
         setTravelFieldErrors({
           ...validation.fieldErrors,
           _error: buildFormLevelErrorFromFieldErrors(validation.message, validation.fieldErrors),

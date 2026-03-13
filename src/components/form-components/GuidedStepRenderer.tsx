@@ -406,7 +406,26 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         continue;
       }
 
+      if (t === "checkbox" || t === "boolean") {
+        const normalized = rawStr.trim().toLowerCase();
+        payloadToSend[f.name] = normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+        continue;
+      }
+
       payloadToSend[f.name] = raw;
+    }
+
+    // Backends may validate extra fields without listing them in `fields`.
+    // Example: travel may require `terms_and_conditions_agreed`.
+    if (!Object.prototype.hasOwnProperty.call(payloadToSend, 'terms_and_conditions_agreed')) {
+      const raw = values['terms_and_conditions_agreed'];
+      const rawStr = raw == null ? '' : String(raw).trim().toLowerCase();
+      // Only send if user interacted or backend is actively validating it.
+      const backendAsksForIt = !!(errors && typeof errors === 'object' && 'terms_and_conditions_agreed' in (errors as Record<string, unknown>));
+      const userSetIt = rawStr.length > 0;
+      if (backendAsksForIt || userSetIt) {
+        payloadToSend['terms_and_conditions_agreed'] = rawStr === 'true' || rawStr === '1' || rawStr === 'yes' || rawStr === 'on';
+      }
     }
 
     return payloadToSend;
@@ -424,24 +443,85 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           );
         }
 
+        // If the backend (or our error handler) produces a single-field form step for
+        // `terms_and_conditions_agreed`, render it using the consent card UI.
+        if (
+          Array.isArray(step.fields) &&
+          step.fields.length === 1 &&
+          String(step.fields[0]?.name ?? '').trim() === 'terms_and_conditions_agreed'
+        ) {
+          const f = step.fields[0];
+          const help = typeof (f as any)?.help === 'string' ? String((f as any).help).trim() : '';
+          const link = help && /^https?:\/\//i.test(help) ? help : undefined;
+          const consentLabel = (
+            (typeof f?.placeholder === 'string' && f.placeholder.trim())
+              ? f.placeholder.trim()
+              : 'I accept the Terms and Conditions'
+          );
+
+          const synthesizedConsent: Extract<GuidedStepResponse, { type: 'consent' }> = {
+            type: 'consent',
+            // Use the card title for the header; show validation via errors banner / inline error.
+            message: undefined,
+            consents: [
+              {
+                id: 'terms_and_conditions_agreed',
+                label: consentLabel,
+                required: true,
+                ...(link ? { link } : {}),
+              },
+            ],
+          };
+
+          return (
+            <ConsentStep
+              step={synthesizedConsent}
+              values={values}
+              externalErrors={errors}
+              onClearExternalError={onClearError}
+              onChange={onChange}
+              onSubmit={onSubmit}
+              loading={loading}
+              titleFallback={String(titleFallback ?? 'Quote Details')}
+            />
+          );
+        }
+
         // Backend-driven product form step: render fields using the existing CardForm.
+        const baseFields = (step.fields ?? []).map((f) =>
+          ({
+            name: f.name,
+            label: f.label,
+            type: String(f.name ?? '') === 'terms_and_conditions_agreed' ? 'checkbox' : f.type,
+            required: f.required,
+            placeholder: f.placeholder,
+            minLength: f.minLength,
+            maxLength: f.maxLength,
+            options: normalizeOptions(f.options),
+            defaultValue: f.defaultValue,
+          }) as CardFieldConfig
+        );
+
+        const hasTerms = baseFields.some((f) => String(f.name ?? '') === 'terms_and_conditions_agreed');
+        const shouldInjectTerms = !hasTerms && !!(errors && typeof errors === 'object' && 'terms_and_conditions_agreed' in (errors as Record<string, unknown>));
+        const fieldsForCard = shouldInjectTerms
+          ? [
+              ...baseFields,
+              {
+                name: 'terms_and_conditions_agreed',
+                label: 'Terms and Conditions',
+                type: 'checkbox',
+                required: true,
+                placeholder: 'I accept the Terms and Conditions',
+              } as CardFieldConfig,
+            ]
+          : baseFields;
+
         return (
           <CardForm
             title={String(titleFallback ?? "Quote Details")}
             description={step.message}
-            fields={(step.fields ?? []).map((f) =>
-              ({
-                name: f.name,
-                label: f.label,
-                type: f.type,
-                required: f.required,
-                placeholder: f.placeholder,
-                minLength: f.minLength,
-                maxLength: f.maxLength,
-                options: normalizeOptions(f.options),
-                defaultValue: f.defaultValue,
-              }) as CardFieldConfig
-            )}
+            fields={fieldsForCard}
             values={values}
             externalErrors={errors}
             onClearExternalError={onClearError}
@@ -699,6 +779,19 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "message":
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
+    case "consent":
+      return (
+        <ConsentStep
+          step={step as Extract<GuidedStepResponse, { type: "consent" }>}
+          values={values}
+          externalErrors={errors}
+          onClearExternalError={onClearError}
+          onChange={onChange}
+          onSubmit={onSubmit}
+          loading={loading}
+          titleFallback={titleFallback}
+        />
+      );
     case "agent_required":
       return (
         <AgentRequiredStep
@@ -859,6 +952,137 @@ const AgentRequiredStep: React.FC<{
             </div>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+};
+
+const ConsentStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "consent" }>;
+  values: Record<string, string>;
+  externalErrors?: Record<string, string>;
+  onClearExternalError?: (name: string) => void;
+  onChange: (name: string, value: string) => void;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+  titleFallback?: string;
+}> = ({ step, values, externalErrors, onClearExternalError, onChange, onSubmit, loading, titleFallback }) => {
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+
+  const consents = Array.isArray(step.consents) ? step.consents : [];
+
+  const isChecked = (id: string): boolean => {
+    const raw = values[id];
+    const s = raw == null ? '' : String(raw).trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+  };
+
+  const handleContinue = () => {
+    const nextLocalErrors: Record<string, string> = {};
+    for (const c of consents) {
+      const id = String(c?.id ?? '').trim();
+      if (!id) continue;
+      if (c.required && !isChecked(id)) {
+        nextLocalErrors[id] = 'Required';
+      }
+    }
+    setLocalErrors(nextLocalErrors);
+    if (Object.keys(nextLocalErrors).length > 0) return;
+
+    const payload: Record<string, unknown> = {};
+    for (const c of consents) {
+      const id = String(c?.id ?? '').trim();
+      if (!id) continue;
+      payload[id] = isChecked(id);
+    }
+    onSubmit(payload);
+  };
+
+  const formLevelError = React.useMemo(() => {
+    const raw = (externalErrors as Record<string, unknown> | undefined)?.['_error'] ??
+      (externalErrors as Record<string, unknown> | undefined)?.['_form'];
+    return typeof raw === 'string' ? raw : '';
+  }, [externalErrors]);
+
+  return (
+    <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? titleFallback ?? 'Consent'}</h3>
+
+      {formLevelError ? (
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 whitespace-pre-line">
+          {formLevelError}
+        </div>
+      ) : null}
+
+      <div className="mt-4 space-y-3">
+        {consents.map((c) => {
+          const id = String(c?.id ?? '').trim();
+          if (!id) return null;
+          const label = String(c?.label ?? '').trim();
+          const required = Boolean(c?.required);
+          const link = typeof c?.link === 'string' && c.link.trim() ? c.link.trim() : null;
+
+          const checked = isChecked(id);
+          const externalError = externalErrors && externalErrors[id] ? externalErrors[id] : null;
+          const localError = localErrors[id] ? localErrors[id] : null;
+
+          return (
+            <div key={id} className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <label className="flex items-start gap-3 cursor-pointer select-none" htmlFor={id}>
+                <input
+                  id={id}
+                  type="checkbox"
+                  className="mt-1 w-5 h-5 accent-primary"
+                  checked={checked}
+                  disabled={loading}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    onChange(id, next ? 'true' : '');
+                    onClearExternalError?.(id);
+                    setLocalErrors((prev) => {
+                      if (!prev[id]) return prev;
+                      const copy = { ...prev };
+                      delete copy[id];
+                      return copy;
+                    });
+                  }}
+                />
+                <span className="text-sm text-gray-700 leading-relaxed">
+                  {label}
+                  {required ? <span className="text-accent font-semibold"> *</span> : null}
+                  {link ? (
+                    <>
+                      {' '}
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline underline-offset-2"
+                        onClick={(evt) => evt.stopPropagation()}
+                      >
+                        View
+                      </a>
+                    </>
+                  ) : null}
+                </span>
+              </label>
+
+              {externalError ? <div className="text-red-500 text-xs mt-2">{externalError}</div> : null}
+              {!externalError && localError ? <div className="text-red-500 text-xs mt-2">{localError}</div> : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={handleContinue}
+          className="px-5 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
+        >
+          Continue
+        </button>
       </div>
     </div>
   );

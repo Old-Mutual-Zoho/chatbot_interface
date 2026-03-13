@@ -169,6 +169,17 @@ export type GuidedStepResponse =
 			[k: string]: unknown;
 	  }
 	| {
+			type: 'consent';
+			message?: string;
+			consents: Array<{
+				id: string;
+				label: string;
+				required?: boolean;
+				link?: string;
+			}>;
+			[k: string]: unknown;
+	  }
+	| {
 			type: 'benefits_summary';
 			message?: string;
 			benefits: Array<{ label: string; value?: string }>;

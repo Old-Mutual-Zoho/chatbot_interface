@@ -1064,11 +1064,37 @@ const CardForm: React.FC<CardFormProps> = ({
           // Default field rendering
           return (
             <div key={field.name}>
-              <label htmlFor={field.name} className="block text-base font-semibold text-gray-800 mb-2">
-                {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
-                {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
-              </label>
-              {field.type === "file" ? (
+              {field.type !== 'checkbox' && field.type !== 'boolean' ? (
+                <label htmlFor={field.name} className="block text-base font-semibold text-gray-800 mb-2">
+                  {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
+                  {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
+                </label>
+              ) : null}
+              {field.type === "checkbox" || field.type === "boolean" ? (
+                <div className={`flex items-start gap-3 px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white`}>
+                  <input
+                    id={field.name}
+                    name={field.name}
+                    type="checkbox"
+                    checked={String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'on' || value === '1'}
+                    onChange={(e) => {
+                      markTouched(field.name);
+                      onClearExternalError?.(field.name);
+                      onChange(field.name, e.target.checked ? 'true' : '');
+                      handleConfirmField(field, e.target.checked ? 'true' : '');
+                    }}
+                    onBlur={() => {
+                      markTouched(field.name);
+                      handleConfirmField(field);
+                    }}
+                    className="mt-1 w-5 h-5 accent-primary"
+                  />
+                  <label htmlFor={field.name} className="text-sm text-gray-700 leading-relaxed select-none">
+                    {field.placeholder ? field.placeholder : (field.label ?? '')}
+                    {field.required ? <span className="text-accent font-semibold"> *</span> : null}
+                  </label>
+                </div>
+              ) : field.type === "file" ? (
                 <div>
                   <input
                     id={field.name}
