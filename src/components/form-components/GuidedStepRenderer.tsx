@@ -488,19 +488,198 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         }
 
         // Backend-driven product form step: render fields using the existing CardForm.
-        const baseFields = (step.fields ?? []).map((f) =>
-          ({
+        const baseFields = (step.fields ?? []).map((f) => {
+          const raw = f as unknown as Record<string, unknown>;
+          const t = String(f.type ?? '').trim().toLowerCase();
+          const nameKey = String(f.name ?? '').trim().toLowerCase();
+
+          const rawMin = raw['min'];
+          const rawMax = raw['max'];
+
+          const asNumberOrUndefined = (v: unknown): number | undefined => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string') {
+              const n = Number(v);
+              if (Number.isFinite(n)) return n;
+            }
+            return undefined;
+          };
+
+          const asStringOrUndefined = (v: unknown): string | undefined => {
+            if (typeof v !== 'string') return undefined;
+            const s = v.trim();
+            return s ? s : undefined;
+          };
+
+          const validationObj = (() => {
+            const v = raw['validation'];
+            if (!v || typeof v !== 'object') return undefined;
+            const rec = v as Record<string, unknown>;
+            const out: Record<string, string> = {};
+
+            const canonicalizeKey = (k: string) => {
+              const key = k.trim();
+              if (!key) return key;
+              // Support common backend snake_case keys.
+              const snakeToCamel: Record<string, string> = {
+                required_message: 'requiredMessage',
+                min_length_message: 'minLengthMessage',
+                max_length_message: 'maxLengthMessage',
+                pattern_message: 'patternMessage',
+                min_message: 'minMessage',
+                max_message: 'maxMessage',
+                min_date_message: 'minDateMessage',
+                max_date_message: 'maxDateMessage',
+              };
+              const lower = key.toLowerCase();
+              return snakeToCamel[lower] ?? key;
+            };
+
+            for (const [k, val] of Object.entries(rec)) {
+              if (typeof val !== 'string') continue;
+              const s = val.trim();
+              if (!s) continue;
+              out[canonicalizeKey(k)] = s;
+            }
+            return Object.keys(out).length > 0 ? out : undefined;
+          })();
+
+          const validateOn = (() => {
+            const v = raw['validateOn'] ?? raw['validate_on'];
+            if (v === 'blur' || v === 'change' || v === 'submit') return v;
+            return undefined;
+          })();
+
+          const blockNextUntilValid = (() => {
+            const v = raw['blockNextUntilValid'] ?? raw['block_next_until_valid'];
+            if (v === true) return true;
+            if (v === false) return false;
+            return undefined;
+          })();
+
+          const minLength = (() => {
+            const v = raw['minLength'] ?? raw['min_length'] ?? (f as any).minLength;
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string') {
+              const n = Number(v);
+              if (Number.isFinite(n)) return n;
+            }
+            return undefined;
+          })();
+
+          const maxLength = (() => {
+            const v = raw['maxLength'] ?? raw['max_length'] ?? (f as any).maxLength;
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string') {
+              const n = Number(v);
+              if (Number.isFinite(n)) return n;
+            }
+            return undefined;
+          })();
+
+          const pattern = (() => {
+            const v = raw['pattern'] ?? raw['regex'];
+            if (typeof v !== 'string') return undefined;
+            const s = v.trim();
+            return s ? s : undefined;
+          })();
+
+          const patternMessage = (() => {
+            const v = raw['patternMessage'] ?? raw['pattern_message'];
+            if (typeof v !== 'string') return undefined;
+            const s = v.trim();
+            return s ? s : undefined;
+          })();
+
+          const base: CardFieldConfig = {
             name: f.name,
             label: f.label,
             type: String(f.name ?? '') === 'terms_and_conditions_agreed' ? 'checkbox' : f.type,
             required: f.required,
             placeholder: f.placeholder,
-            minLength: f.minLength,
-            maxLength: f.maxLength,
+            help: typeof f.help === 'string' ? f.help : undefined,
+            minLength,
+            maxLength,
+            pattern,
+            patternMessage,
             options: normalizeOptions(f.options),
             defaultValue: f.defaultValue,
-          }) as CardFieldConfig
-        );
+            validation: validationObj,
+            validateOn,
+            blockNextUntilValid,
+          };
+
+          // Heuristics: when backend uses `text` for known field names,
+          // upgrade input types so validation/keyboard are correct across products.
+          if (String(base.type ?? '').trim().toLowerCase() === 'text') {
+            if (nameKey === 'email' || nameKey.includes('email')) {
+              base.type = 'email';
+            } else if (
+              nameKey === 'mobile' ||
+              nameKey === 'msisdn' ||
+              nameKey === 'phone_number' ||
+              nameKey === 'phonenumber' ||
+              nameKey === 'contact_number' ||
+              nameKey.includes('phone') ||
+              nameKey.includes('mobile')
+            ) {
+              base.type = 'tel';
+            }
+          }
+
+          // Some backends send explicit custom types.
+          if (t === 'email') base.type = 'email';
+          if (t === 'tel' || t === 'phone' || t === 'phonenumber' || t === 'phone_number' || t === 'mobile') base.type = 'tel';
+
+          const looksLikeISODate = (v: unknown): v is string =>
+            typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
+
+          // Date bounds: accept minDate/maxDate explicitly, or map generic min/max when they are strings.
+          if (t === 'date' || (t === 'text' && (looksLikeISODate(rawMin) || looksLikeISODate(rawMax)) && !!(validationObj?.minDateMessage || validationObj?.maxDateMessage))) {
+            // If backend typed it as text but provides date validation, treat it as a date input.
+            if (t !== 'date') base.type = 'date';
+
+            const minDate = asStringOrUndefined(raw['minDate']) ?? asStringOrUndefined(raw['min_date']) ?? asStringOrUndefined(rawMin);
+            const maxDate = asStringOrUndefined(raw['maxDate']) ?? asStringOrUndefined(raw['max_date']) ?? asStringOrUndefined(rawMax);
+            if (minDate) base.minDate = minDate;
+            if (maxDate) base.maxDate = maxDate;
+          }
+
+          // Numeric bounds.
+          if (t === 'number' || t === 'integer') {
+            const min = asNumberOrUndefined(rawMin);
+            const max = asNumberOrUndefined(rawMax);
+            if (min != null) base.min = min;
+            if (max != null) base.max = max;
+            if (t === 'integer') {
+              base.type = 'number';
+              base.integer = true;
+            }
+          }
+
+          // Some backends send min/max for text fields.
+          // If validation message keys indicate length, map to minLength/maxLength.
+          // If they indicate numeric bounds, treat it as a numeric input.
+          if (t === 'text') {
+            const min = asNumberOrUndefined(rawMin);
+            const max = asNumberOrUndefined(rawMax);
+
+            const hasLengthMessages = !!(validationObj?.minLengthMessage || validationObj?.maxLengthMessage);
+            const hasNumericMessages = !!(validationObj?.minMessage || validationObj?.maxMessage);
+
+            if (hasLengthMessages) {
+              if (min != null && base.minLength == null && min >= 0) base.minLength = Math.trunc(min);
+              if (max != null && base.maxLength == null && max >= 0) base.maxLength = Math.trunc(max);
+            } else if (hasNumericMessages) {
+              // Prefer numeric type if backend provided numeric validation intent.
+              base.type = 'number';
+              if (min != null) base.min = min;
+              if (max != null) base.max = max;
+            }
+          }
+
+          return base;
+        });
 
         const hasTerms = baseFields.some((f) => String(f.name ?? '') === 'terms_and_conditions_agreed');
         const shouldInjectTerms = !hasTerms && !!(errors && typeof errors === 'object' && 'terms_and_conditions_agreed' in (errors as Record<string, unknown>));

@@ -138,6 +138,16 @@ export interface GuidedFormField {
 	required?: boolean;
 	placeholder?: string;
 	help?: string;
+	// Generic bounds (some backends use these for numbers and/or dates)
+	min?: number | string;
+	max?: number | string;
+	// Explicit date bounds (preferred)
+	minDate?: string;
+	maxDate?: string;
+	// Validation behavior hints
+	validateOn?: 'blur' | 'change' | 'submit';
+	blockNextUntilValid?: boolean;
+	validation?: Record<string, string>;
 	minLength?: number;
 	maxLength?: number;
 	// Backends vary: some send [{value,label}], others send ["Toyota", "Nissan", ...]

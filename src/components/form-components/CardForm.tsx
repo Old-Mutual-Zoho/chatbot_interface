@@ -8,6 +8,8 @@ export interface CardFieldConfig {
   type: string;
   required?: boolean;
   placeholder?: string;
+  defaultValue?: string;
+  help?: string;
   optionalLabel?: string;
   readOnly?: boolean;
   // For file inputs
@@ -23,6 +25,9 @@ export interface CardFieldConfig {
   // ISO date (YYYY-MM-DD) or relative like "today", "today+30", "today-1"
   minDate?: string;
   maxDate?: string;
+  validation?: Record<string, string>;
+  validateOn?: "blur" | "change" | "submit";
+  blockNextUntilValid?: boolean;
   // Cross-field date constraints (compares this field's date against another field's date value)
   minDateField?: string;
   maxDateField?: string;
@@ -84,6 +89,63 @@ const CardForm: React.FC<CardFormProps> = ({
   bottomContent,
   hideCompulsoryHint = false,
 }) => {
+  const normalizeFieldKey = (raw: unknown) =>
+    String(raw ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '');
+
+  const isPhoneLikeField = (field: CardFieldConfig) => {
+    const key = normalizeFieldKey(field.name);
+    const t = normalizeFieldKey(field.type);
+    return (
+      t === 'tel' ||
+      t === 'phone' ||
+      key === 'mobile' ||
+      key === 'msisdn' ||
+      key === 'phonenumber' ||
+      key === 'phone_number' ||
+      key === 'contact_number' ||
+      key.includes('phone') ||
+      key.includes('mobile') ||
+      key.includes('msisdn')
+    );
+  };
+
+  const isEmailLikeField = (field: CardFieldConfig) => {
+    const key = normalizeFieldKey(field.name);
+    const t = normalizeFieldKey(field.type);
+    return t === 'email' || key === 'email' || key.includes('email');
+  };
+
+  const isPersonNameLikeField = (field: CardFieldConfig) => {
+    const key = normalizeFieldKey(field.name);
+    // Keep this conservative to avoid breaking things like `company_name`.
+    return (
+      key === 'firstname' ||
+      key === 'first_name' ||
+      key === 'surname' ||
+      key === 'lastname' ||
+      key === 'last_name' ||
+      key === 'middlename' ||
+      key === 'middle_name' ||
+      key === 'othernames' ||
+      key === 'other_names' ||
+      key === 'givenname' ||
+      key === 'given_name' ||
+      key === 'familyname' ||
+      key === 'family_name' ||
+      key === 'fullname' ||
+      key === 'full_name' ||
+      key.includes('beneficiary')
+    );
+  };
+
+  const getFieldLabel = (field: CardFieldConfig) => {
+    const candidate = (field.label ?? "").trim();
+    return candidate ? candidate : field.name;
+  };
+
   const stepKey = React.useMemo(() => {
     const fieldKey = fields.map((f) => `${f.name}:${f.type}`).join("|");
     return `${String(title ?? "").trim()}::${fieldKey}`;
@@ -222,6 +284,51 @@ const CardForm: React.FC<CardFormProps> = ({
     setTouchedFields((prev) => (prev[name] ? prev : { ...prev, [name]: true }));
   };
 
+  const shouldTouchOnChange = (field: CardFieldConfig): boolean => {
+    // Respect backend-driven validateOn: only mark touched on change when
+    // the backend indicates validation should occur on change (default).
+    return field.validateOn !== "blur" && field.validateOn !== "submit";
+  };
+
+  const blocksProgression = (field: CardFieldConfig) => {
+    if (field.required) return true;
+    // Default behavior (when backend doesn't specify) is to block until valid.
+    return field.blockNextUntilValid !== false;
+  };
+
+  const shouldShowLocalError = (field: CardFieldConfig, error: string) => {
+    if (!error) return false;
+    if (field.validateOn === "submit") return showErrors;
+    return showErrors || !!touchedFields[field.name];
+  };
+
+  const parseLocalDateValue = (raw: string): Date | null => {
+    const str = String(raw ?? '').trim();
+    if (!str) return null;
+    const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      const y = Number(iso[1]);
+      const m = Number(iso[2]);
+      const d = Number(iso[3]);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      const out = new Date(y, m - 1, d);
+      out.setHours(0, 0, 0, 0);
+      return out;
+    }
+    const t = Date.parse(str);
+    if (Number.isNaN(t)) return null;
+    const out = new Date(t);
+    out.setHours(0, 0, 0, 0);
+    return out;
+  };
+
+  const formatDateYYYYMMDD = (d: Date): string => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const resolveRelativeDate = (spec?: string) => {
     if (!spec) return undefined;
     const s = spec.trim().toLowerCase();
@@ -254,6 +361,7 @@ const CardForm: React.FC<CardFormProps> = ({
     const rawValue = nextValue ?? values[field.name] ?? "";
     const value = String(rawValue);
     const trimmed = value.trim();
+    const label = getFieldLabel(field);
 
     if (field.type === "repeatable-group") {
       let groupValue: Array<Record<string, unknown>> = [];
@@ -265,7 +373,7 @@ const CardForm: React.FC<CardFormProps> = ({
       }
 
       if (field.required && groupValue.length === 0) {
-        return { valid: false, error: `${field.label} is required.` };
+        return { valid: false, error: `${label} is required.` };
       }
 
       if (!Array.isArray(field.fields) || field.fields.length === 0) {
@@ -287,22 +395,36 @@ const CardForm: React.FC<CardFormProps> = ({
       return { valid: true, error: "" };
     }
 
+    const requiredMessage = field.validation?.requiredMessage;
     if (field.required && !trimmed) {
-      return { valid: false, error: `${field.label} is required.` };
+      return { valid: false, error: requiredMessage || `${label} is required.` };
     }
 
     if (trimmed) {
+      const minLengthMessage = field.validation?.minLengthMessage;
+      const maxLengthMessage = field.validation?.maxLengthMessage;
+
       if (typeof field.minLength === "number" && trimmed.length < field.minLength) {
-        return { valid: false, error: `${field.label} must be at least ${field.minLength} characters.` };
+        return {
+          valid: false,
+          error: minLengthMessage || `${label} must be at least ${field.minLength} characters.`,
+        };
       }
       if (typeof field.maxLength === "number" && trimmed.length > field.maxLength) {
-        return { valid: false, error: `${field.label} must be at most ${field.maxLength} characters.` };
+        return {
+          valid: false,
+          error: maxLengthMessage || `${label} must be at most ${field.maxLength} characters.`,
+        };
       }
       if (field.pattern) {
         try {
           const re = new RegExp(field.pattern);
           if (!re.test(trimmed)) {
-            return { valid: false, error: field.patternMessage || `Please enter a valid ${field.label}.` };
+            const patternMessage = field.validation?.patternMessage;
+            return {
+              valid: false,
+              error: patternMessage || field.patternMessage || `Please enter a valid ${label}.`,
+            };
           }
         } catch {
           // Invalid regex pattern: fail open so we don't block the form.
@@ -310,19 +432,35 @@ const CardForm: React.FC<CardFormProps> = ({
       }
     }
 
-    if (field.type === "email" && trimmed) {
+    if (isEmailLikeField(field) && trimmed) {
       const normalizedEmail = trimmed.toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
         return { valid: false, error: "Please enter a valid email address." };
       }
     }
 
-    if (field.name === "mobile" && trimmed) {
+    if (isPhoneLikeField(field) && trimmed) {
       // Accept Uganda formats (allows spaces/dashes for UX):
       // +2567XXXXXXXX, +256 7XXXXXXXX, +256 712-345-678, 07XXXXXXXX
       const normalized = trimmed.replace(/[\s-]/g, "");
       if (!/^(\+2567\d{8}|07\d{8})$/.test(normalized)) {
-        return { valid: false, error: "Wrong Phone number format" };
+        const phoneMessage = (field.validation as Record<string, unknown> | undefined)?.['phoneMessage'];
+        return {
+          valid: false,
+          error: typeof phoneMessage === 'string' && phoneMessage.trim() ? phoneMessage : "Wrong Phone number format",
+        };
+      }
+    }
+
+    if (isPersonNameLikeField(field) && trimmed) {
+      // Allow letters and common separators. Disallow digits/symbols.
+      // Examples allowed: "John", "Mary Jane", "O'Connor", "Anne-Marie".
+      if (!/^[A-Za-z][A-Za-z .'-]*$/.test(trimmed)) {
+        const nameMessage = (field.validation as Record<string, unknown> | undefined)?.['nameMessage'];
+        return {
+          valid: false,
+          error: typeof nameMessage === 'string' && nameMessage.trim() ? nameMessage : "Please enter a valid name.",
+        };
       }
     }
     if (field.name === "nin" && trimmed) {
@@ -335,21 +473,21 @@ const CardForm: React.FC<CardFormProps> = ({
     }
 
     if (field.type === "date" && trimmed) {
-      const t = Date.parse(trimmed);
-      if (Number.isNaN(t)) {
+      const d = parseLocalDateValue(trimmed);
+      if (!d) {
         return { valid: false, error: "Please enter a valid date." };
       }
-
-      const d = new Date(t);
-      d.setHours(0, 0, 0, 0);
       const minD = resolveRelativeDate(field.minDate);
       const maxD = resolveRelativeDate(field.maxDate);
 
+      const minDateMessage = field.validation?.minDateMessage;
+      const maxDateMessage = field.validation?.maxDateMessage;
+
       if (minD && d < minD) {
-        return { valid: false, error: `${field.label} cannot be before ${minD.toISOString().slice(0, 10)}.` };
+        return { valid: false, error: minDateMessage || `${field.label} cannot be before ${formatDateYYYYMMDD(minD)}.` };
       }
       if (maxD && d > maxD) {
-        return { valid: false, error: `${field.label} cannot be after ${maxD.toISOString().slice(0, 10)}.` };
+        return { valid: false, error: maxDateMessage || `${field.label} cannot be after ${formatDateYYYYMMDD(maxD)}.` };
       }
 
       if (field.minDateField) {
@@ -406,7 +544,7 @@ const CardForm: React.FC<CardFormProps> = ({
         minAgeCutoff.setFullYear(minAgeCutoff.getFullYear() - field.minAgeYears);
         minAgeCutoff.setHours(0, 0, 0, 0);
         if (d > minAgeCutoff) {
-          return { valid: false, error: `You must be at least ${field.minAgeYears} years old.` };
+          return { valid: false, error: maxDateMessage || `You must be at least ${field.minAgeYears} years old.` };
         }
       }
 
@@ -415,7 +553,7 @@ const CardForm: React.FC<CardFormProps> = ({
         maxAgeCutoff.setFullYear(maxAgeCutoff.getFullYear() - field.maxAgeYears);
         maxAgeCutoff.setHours(0, 0, 0, 0);
         if (d < maxAgeCutoff) {
-          return { valid: false, error: `Age cannot be more than ${field.maxAgeYears} years.` };
+          return { valid: false, error: minDateMessage || `Age cannot be more than ${field.maxAgeYears} years.` };
         }
       }
     }
@@ -424,16 +562,18 @@ const CardForm: React.FC<CardFormProps> = ({
       const normalizedNumber = trimmed.replace(/[,\s]/g, "");
       const n = Number(normalizedNumber);
       if (Number.isNaN(n)) {
-        return { valid: false, error: `${field.label} must be a number.` };
+        return { valid: false, error: `${label} must be a number.` };
       }
       if (field.integer && !Number.isInteger(n)) {
-        return { valid: false, error: `${field.label} must be a whole number.` };
+        return { valid: false, error: `${label} must be a whole number.` };
       }
       if (typeof field.min === "number" && n < field.min) {
-        return { valid: false, error: `${field.label} must be at least ${field.min}.` };
+        const minMessage = field.validation?.minMessage;
+        return { valid: false, error: minMessage || `${label} must be at least ${field.min}.` };
       }
       if (typeof field.max === "number" && n > field.max) {
-        return { valid: false, error: `${field.label} must be at most ${field.max}.` };
+        const maxMessage = field.validation?.maxMessage;
+        return { valid: false, error: maxMessage || `${label} must be at most ${field.max}.` };
       }
     }
 
@@ -455,6 +595,7 @@ const CardForm: React.FC<CardFormProps> = ({
     // Progressive reveal should wait until the user has interacted (touched) or provided a value,
     // even when a field is optional (optional empty values are otherwise "valid").
     if (!isFieldConfirmedForReveal(field)) return false;
+    if (!blocksProgression(field)) return true;
     return validateField(field).valid;
   };
 
@@ -489,8 +630,15 @@ const CardForm: React.FC<CardFormProps> = ({
       ]
     : displayedCurrentGroupFields;
 
-  const allCurrentGroupFilled = currentGroupFields.every(f => validateField(f).valid);
-  const allStepFieldsValid = allVisibleFields.every(f => validateField(f).valid);
+  const allCurrentGroupFilled = currentGroupFields.every((f) => {
+    if (!blocksProgression(f)) return true;
+    return validateField(f).valid;
+  });
+
+  const allStepFieldsValid = allVisibleFields.every((f) => {
+    if (!blocksProgression(f)) return true;
+    return validateField(f).valid;
+  });
 
   const handleConfirmField = (field: CardFieldConfig, nextValue?: string) => {
     if (!autoAdvance) return;
@@ -605,7 +753,7 @@ const CardForm: React.FC<CardFormProps> = ({
   };
 
   const applyInputCaps = (field: CardFieldConfig, raw: string) => {
-    if (field.name === "mobile") {
+    if (isPhoneLikeField(field)) {
       return limitUgandaMobileDigits(raw);
     }
 
@@ -695,8 +843,9 @@ const CardForm: React.FC<CardFormProps> = ({
           const value = rawValue == null ? "" : String(rawValue);
           const { error } = validateField(field);
           const externalError = externalErrors?.[field.name];
-          const shouldShowError = (showErrors || touchedFields[field.name]) && !!error;
+          const shouldShowError = shouldShowLocalError(field, error);
           const shouldShowExternalError = !!externalError;
+          const hasAnyError = shouldShowExternalError || shouldShowError;
           const effectiveMaxLen = getEffectiveMaxLength(field);
 
           // Repeatable group (e.g. Main Members)
@@ -816,7 +965,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
-                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-primary/20">
+                <div className={`flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border ${hasAnyError ? 'border-red-500' : 'border-primary/20'}`}>
                   {field.options.map((opt) => {
                     const optValue = String((opt as unknown as { value: unknown }).value);
                     return (
@@ -855,7 +1004,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.label} {field.required && <span className="text-accent font-semibold">*</span>}
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
-                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-primary/20">
+                <div className={`flex flex-col gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border ${hasAnyError ? 'border-red-500' : 'border-primary/20'}`}>
                   {field.options.map((opt) => {
                     const optValue = String((opt as unknown as { value: unknown }).value);
                     return (
@@ -977,7 +1126,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     }
                   }}
                   onBlur={() => markTouched(field.name)}
-                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                 />
 
                 {isOpen && (
@@ -1044,7 +1193,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     markTouched(field.name);
                     handleConfirmField(field);
                   }}
-                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                 >
                   <option value="" disabled>
                     {placeholderText}
@@ -1070,15 +1219,38 @@ const CardForm: React.FC<CardFormProps> = ({
                   {field.optionalLabel && <span className="text-gray-400"> ({field.optionalLabel})</span>}
                 </label>
               ) : null}
-              {field.type === "checkbox" || field.type === "boolean" ? (
-                <div className={`flex items-start gap-3 px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white`}>
+              {/* For name fields, always mark as touched on change/blur to show errors immediately */}
+              {isPersonNameLikeField(field) ? (
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type}
+                  required={field.required}
+                  value={value}
+                  readOnly={field.readOnly}
+                  maxLength={effectiveMaxLen}
+                  onChange={e => {
+                    markTouched(field.name);
+                    onClearExternalError?.(field.name);
+                    const nextRaw = e.target.value;
+                    onChange(field.name, applyInputCaps(field, nextRaw));
+                  }}
+                  onBlur={() => {
+                    markTouched(field.name);
+                    handleConfirmField(field);
+                  }}
+                  className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  placeholder={field.placeholder}
+                />
+              ) : field.type === "checkbox" || field.type === "boolean" ? (
+                <div className={`flex items-start gap-3 px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white`}>
                   <input
                     id={field.name}
                     name={field.name}
                     type="checkbox"
                     checked={String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'on' || value === '1'}
                     onChange={(e) => {
-                      markTouched(field.name);
+                      if (shouldTouchOnChange(field)) markTouched(field.name);
                       onClearExternalError?.(field.name);
                       onChange(field.name, e.target.checked ? 'true' : '');
                       handleConfirmField(field, e.target.checked ? 'true' : '');
@@ -1102,7 +1274,7 @@ const CardForm: React.FC<CardFormProps> = ({
                     type="file"
                     accept={field.accept}
                     onChange={(e) => {
-                      markTouched(field.name);
+                      if (shouldTouchOnChange(field)) markTouched(field.name);
                       onClearExternalError?.(field.name);
                       const f = e.target.files?.[0];
                       onChange(field.name, f ? String(f.name) : "");
@@ -1111,7 +1283,7 @@ const CardForm: React.FC<CardFormProps> = ({
                       markTouched(field.name);
                       handleConfirmField(field);
                     }}
-                    className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                    className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                   />
                   {value ? <div className="mt-2 text-xs text-gray-600">Selected: {value}</div> : null}
                 </div>
@@ -1119,17 +1291,11 @@ const CardForm: React.FC<CardFormProps> = ({
                 <DatePicker
                   id={field.name}
                   name={field.name}
-                  selected={value ? new Date(value) : null}
+                  selected={value ? parseLocalDateValue(value) : null}
                   onChange={(date: Date | null) => {
-                    let formattedDate = "";
-                    if (date) {
-                      const mm = String(date.getMonth() + 1).padStart(2, '0');
-                      const dd = String(date.getDate()).padStart(2, '0');
-                      const yyyy = date.getFullYear();
-                      formattedDate = `${mm}/${dd}/${yyyy}`;
-                    }
+                    const formattedDate = date ? formatDateYYYYMMDD(date) : "";
                     onChange(field.name, formattedDate);
-                    markTouched(field.name);
+                    if (shouldTouchOnChange(field)) markTouched(field.name);
                     onClearExternalError?.(field.name);
                     handleConfirmField(field, formattedDate);
                   }}
@@ -1138,9 +1304,11 @@ const CardForm: React.FC<CardFormProps> = ({
                     handleConfirmField(field);
                   }}
                   dateFormat="yyyy-MM-dd"
-                  placeholderText={field.placeholder || "mm/dd/yyyy"}
+                  placeholderText={field.placeholder || "yyyy-mm-dd"}
                   readOnly={field.readOnly}
-                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  minDate={resolveRelativeDate(field.minDate)}
+                  maxDate={resolveRelativeDate(field.maxDate)}
+                  className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                   calendarClassName="om-datepicker-popup"
                   showMonthDropdown
                   showYearDropdown
@@ -1157,7 +1325,7 @@ const CardForm: React.FC<CardFormProps> = ({
                   readOnly={field.readOnly}
                   maxLength={effectiveMaxLen}
                   onChange={e => {
-                    markTouched(field.name);
+                    if (shouldTouchOnChange(field)) markTouched(field.name);
                     onClearExternalError?.(field.name);
                     const nextRaw = e.target.value;
                     onChange(field.name, applyInputCaps(field, nextRaw));
@@ -1180,10 +1348,14 @@ const CardForm: React.FC<CardFormProps> = ({
                       (e.currentTarget as HTMLInputElement).blur();
                     }
                   }}
-                  className={`w-full px-4 py-3 border ${shouldShowError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
+                  className={`w-full px-4 py-3 border ${hasAnyError ? 'border-red-500' : 'border-gray-300'} rounded-xl bg-white transition focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/40`}
                   placeholder={field.placeholder}
                 />
               )}
+
+              {field.help ? (
+                <div className="mt-2 text-xs text-gray-500">{field.help}</div>
+              ) : null}
               {shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{externalError}</div>}
               {shouldShowError && !shouldShowExternalError && <div className="text-red-500 text-xs mt-1">{error}</div>}
             </div>
