@@ -153,6 +153,15 @@ export type GuidedStepResponse =
 			products: { id: string; label: string; description?: string; action?: string }[];
 	  }
 	| {
+			type: 'payment_initiated';
+			message?: string;
+			instructions?: string;
+			transaction_ref?: string;
+			reference?: string;
+			status?: string;
+			[k: string]: unknown;
+	  }
+	| {
 			type: 'benefits_summary';
 			message?: string;
 			benefits: Array<{ label: string; value?: string }>;

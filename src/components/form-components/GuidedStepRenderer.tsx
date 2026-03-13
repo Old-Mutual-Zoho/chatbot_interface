@@ -656,6 +656,8 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "message":
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
+    case "payment_initiated":
+      return <PaymentInitiatedStep step={step as Extract<GuidedStepResponse, { type: "payment_initiated" }> } />;
     case "payment_method":
       return (
         <BackendPaymentMethodStep
@@ -694,6 +696,45 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     default:
       return null;
   }
+};
+
+const PaymentInitiatedStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "payment_initiated" }>;
+}> = ({ step }) => {
+  const message = typeof step.message === 'string' && step.message.trim()
+    ? step.message.trim()
+    : 'Payment request sent to your phone.';
+
+  const instructions = typeof step.instructions === 'string' && step.instructions.trim()
+    ? step.instructions.trim()
+    : null;
+
+  const status = typeof step.status === 'string' && step.status.trim() ? step.status.trim() : null;
+  const reference = typeof step.reference === 'string' && step.reference.trim() ? step.reference.trim() : null;
+
+  return (
+    <div className="flex justify-start mb-4 mt-4 w-full">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 w-full">
+        <div className="px-5 py-3 bg-green-50 border-b border-green-100">
+          <p className="text-gray-700 text-sm font-medium">{message}</p>
+          {status ? (
+            <p className="text-gray-600 text-xs mt-1">Status: {status}</p>
+          ) : null}
+        </div>
+
+        {(instructions || reference) ? (
+          <div className="px-5 py-4 space-y-2">
+            {instructions ? (
+              <p className="text-gray-700 text-sm">{instructions}</p>
+            ) : null}
+            {reference ? (
+              <p className="text-gray-500 text-xs">Reference: {reference}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 type ProceedToPaymentLikeStep = {
