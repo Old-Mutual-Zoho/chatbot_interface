@@ -161,7 +161,15 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
       if (!step || step.type !== 'premium_summary') return payload;
       if (payload && payload['premium_amount'] != null) return payload;
 
-      const raw = (step as unknown as Record<string, unknown>)['monthly_premium'] ?? (step as unknown as Record<string, unknown>)['annual_premium'];
+      const rec = step as unknown as Record<string, unknown>;
+      const quoteSummary = (rec['quote_summary'] && typeof rec['quote_summary'] === 'object' && rec['quote_summary'] !== null)
+        ? (rec['quote_summary'] as Record<string, unknown>)
+        : null;
+      const raw =
+        rec['monthly_premium'] ??
+        rec['annual_premium'] ??
+        rec['total'] ??
+        (quoteSummary ? quoteSummary['total'] : undefined);
       const premiumAmount = (() => {
         if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
         if (typeof raw === 'string') {
@@ -264,6 +272,41 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
         }
 
         payloadToSend[f.name] = rawFromReview;
+      }
+    } else if (step && step.type === 'checkbox') {
+      const rec = step as unknown as Record<string, unknown>;
+      const selectedFieldName =
+        (typeof rec['field_name'] === 'string' && (rec['field_name'] as string).trim())
+          ? String(rec['field_name']).trim()
+          : ((typeof rec['name'] === 'string' && (rec['name'] as string).trim())
+              ? String(rec['name']).trim()
+              : 'risky_activities');
+
+      const rawFromReview =
+        (confirmationData as Record<string, unknown>)[selectedFieldName] ??
+        (values as Record<string, unknown>)[selectedFieldName] ??
+        '';
+
+      const selected = Array.isArray(rawFromReview)
+        ? rawFromReview.map((v) => (v == null ? '' : String(v)).trim()).filter(Boolean)
+        : String(rawFromReview)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+      payloadToSend[selectedFieldName] = selected;
+
+      const otherField = rec['other_field'];
+      if (otherField && typeof otherField === 'object' && otherField !== null) {
+        const otherName = (otherField as Record<string, unknown>)['name'];
+        if (typeof otherName === 'string' && otherName.trim()) {
+          const otherValue =
+            (confirmationData as Record<string, unknown>)[otherName] ??
+            (values as Record<string, unknown>)[otherName] ??
+            '';
+          const trimmed = String(otherValue ?? '').trim();
+          if (trimmed) payloadToSend[otherName] = trimmed;
+        }
       }
     }
 
@@ -656,6 +699,14 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
     case "message":
       // Just show a message.
       return <MessageStep step={step as Extract<GuidedStepResponse, { type: "message" }> } />;
+    case "agent_required":
+      return (
+        <AgentRequiredStep
+          step={step as Extract<GuidedStepResponse, { type: "agent_required" }>}
+          onSubmit={onSubmit}
+          loading={loading}
+        />
+      );
     case "payment_initiated":
       return <PaymentInitiatedStep step={step as Extract<GuidedStepResponse, { type: "payment_initiated" }> } />;
     case "payment_method":
@@ -737,6 +788,82 @@ const PaymentInitiatedStep: React.FC<{
   );
 };
 
+const AgentRequiredStep: React.FC<{
+  step: Extract<GuidedStepResponse, { type: "agent_required" }>;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  loading: boolean;
+}> = ({ step, onSubmit, loading }) => {
+  const agentInfoRaw = (step as unknown as Record<string, unknown>)['agent_info'];
+  const agentInfo = (agentInfoRaw && typeof agentInfoRaw === 'object' && agentInfoRaw !== null)
+    ? (agentInfoRaw as Record<string, unknown>)
+    : null;
+
+  const name = agentInfo && typeof agentInfo['name'] === 'string' ? agentInfo['name'] : null;
+  const phone = agentInfo && typeof agentInfo['phone'] === 'string' ? agentInfo['phone'] : null;
+  const email = agentInfo && typeof agentInfo['email'] === 'string' ? agentInfo['email'] : null;
+
+  const actions = Array.isArray(step.actions) ? step.actions : [];
+
+  const telHref = phone ? `tel:${phone.replace(/\s+/g, '')}` : null;
+  const mailHref = email ? `mailto:${email}` : null;
+
+  return (
+    <div className="flex justify-start mb-4 mt-4 w-full">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 w-full">
+        <div className="px-5 py-3 bg-green-50 border-b border-green-100">
+          <p className="text-gray-700 text-sm font-medium">{step.message}</p>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {(name || phone || email) ? (
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <p className="text-sm font-medium text-gray-900">Agent details</p>
+              {name ? <p className="text-sm text-gray-700 mt-1">{name}</p> : null}
+              {phone ? (
+                <p className="text-sm text-gray-700 mt-1">
+                  Phone: {telHref ? <a className="text-primary underline" href={telHref}>{phone}</a> : phone}
+                </p>
+              ) : null}
+              {email ? (
+                <p className="text-sm text-gray-700 mt-1">
+                  Email: {mailHref ? <a className="text-primary underline" href={mailHref}>{email}</a> : email}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {actions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {actions.map((a) => (
+                <button
+                  key={a.type}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    // If backend says call/schedule, prefer local action; otherwise, notify backend.
+                    if (a.type === 'call_agent' && telHref) {
+                      window.location.href = telHref;
+                      return;
+                    }
+                    if (a.type === 'schedule_callback' && mailHref) {
+                      window.location.href = mailHref;
+                      return;
+                    }
+                    onSubmit({ action: a.type });
+                  }}
+                  className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 type ProceedToPaymentLikeStep = {
   message?: string;
   quote_id?: string;
@@ -748,12 +875,109 @@ const PremiumSummaryStep: React.FC<{
   onSubmit: (payload: Record<string, unknown>) => void;
   loading: boolean;
 }> = ({ step, onSubmit, loading }) => {
+  const humanizeLabel = (key: string): string => {
+    const s = String(key ?? '').trim();
+    if (!s) return '';
+    return s
+      .split('_')
+      .filter(Boolean)
+      .map((w) => {
+        const lower = w.toLowerCase();
+        if (lower === 'id') return 'ID';
+        if (lower === 'dob') return 'DOB';
+        if (lower === 'ugx') return 'UGX';
+        if (lower === 'vat') return 'VAT';
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+  };
+
+  const rec = step as unknown as Record<string, unknown>;
+  const quoteSummaryRaw = rec['quote_summary'];
+  const quoteSummary = (quoteSummaryRaw && typeof quoteSummaryRaw === 'object' && !Array.isArray(quoteSummaryRaw))
+    ? (quoteSummaryRaw as Record<string, unknown>)
+    : null;
+
+  const toNumberOrNull = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+
+  const monthlyPremium = toNumberOrNull(rec['monthly_premium']);
+  const annualPremium = toNumberOrNull(rec['annual_premium']);
+  const coverLimit = toNumberOrNull(rec['cover_limit_ugx']);
+
+  const explicitTotal = (() => {
+    const direct = toNumberOrNull(rec['total']);
+    if (direct != null) return direct;
+    if (quoteSummary) {
+      const nested = toNumberOrNull(quoteSummary['total']);
+      if (nested != null) return nested;
+    }
+    return null;
+  })();
+
+  const total = explicitTotal;
+
+  const shouldShowTotal = (() => {
+    if (explicitTotal == null) return false;
+    // Preserve old UX: if monthly/annual are present, avoid duplicating with a “total”.
+    if (monthlyPremium != null || annualPremium != null) return false;
+    return true;
+  })();
+
+  const breakdownEntries = (() => {
+    if (!quoteSummary) return [] as Array<{ key: string; value: number }>;
+    const entries: Array<{ key: string; value: number }> = [];
+    for (const [k, v] of Object.entries(quoteSummary)) {
+      if (!k || k === 'total') continue;
+      const n = toNumberOrNull(v);
+      if (n == null) continue;
+      entries.push({ key: k, value: n });
+    }
+    return entries;
+  })();
+
   return (
     <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
-      <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? "Your premium"}</h3>
-      <p className="text-2xl font-bold text-gray-900">UGX {Number(step.monthly_premium ?? 0).toLocaleString()} / month</p>
-      <p className="text-sm text-gray-600">UGX {Number(step.annual_premium ?? 0).toLocaleString()} / year</p>
-      <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(step.cover_limit_ugx ?? 0).toLocaleString()}</div>
+      <h3 className="text-lg font-semibold text-primary mb-2">
+        {step.message ?? (typeof rec['product_name'] === 'string' && rec['product_name'].trim() ? `${rec['product_name']} Premium` : 'Premium Summary')}
+      </h3>
+
+      {shouldShowTotal && total != null ? (
+        <p className="text-2xl font-bold text-gray-900">UGX {Number(total).toLocaleString()}</p>
+      ) : null}
+
+      {monthlyPremium != null ? (
+        <p className="text-sm text-gray-600">UGX {Number(monthlyPremium).toLocaleString()} / month</p>
+      ) : null}
+      {annualPremium != null ? (
+        <p className="text-sm text-gray-600">UGX {Number(annualPremium).toLocaleString()} / year</p>
+      ) : null}
+
+      {coverLimit != null ? (
+        <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(coverLimit).toLocaleString()}</div>
+      ) : null}
+
+      {breakdownEntries.length > 0 ? (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white">
+          <div className="px-4 py-2 border-b border-gray-200">
+            <p className="text-sm font-medium text-gray-900">Breakdown</p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {breakdownEntries.map((e) => (
+              <div key={e.key} className="flex items-start justify-between gap-4">
+                <span className="text-sm text-gray-600">{humanizeLabel(e.key) || e.key}</span>
+                <span className="text-sm font-medium text-gray-900">UGX {Number(e.value).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {(step.benefits?.length ?? 0) > 0 && (
         <ul className="mt-4 list-disc list-inside text-sm text-gray-700">

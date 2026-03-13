@@ -162,6 +162,13 @@ export type GuidedStepResponse =
 			[k: string]: unknown;
 	  }
 	| {
+			type: 'agent_required';
+			message: string;
+			agent_info?: { name?: string; phone?: string; email?: string };
+			actions?: { type: string; label: string }[];
+			[k: string]: unknown;
+	  }
+	| {
 			type: 'benefits_summary';
 			message?: string;
 			benefits: Array<{ label: string; value?: string }>;
@@ -171,8 +178,15 @@ export type GuidedStepResponse =
 	| {
 			type: 'premium_summary';
 			message?: string;
-			monthly_premium: number;
-			annual_premium: number;
+			// Some backends provide monthly/annual premiums.
+			monthly_premium?: number;
+			annual_premium?: number;
+			// Others provide a detailed quote breakdown and a total.
+			product_name?: string;
+			quote_summary?: Record<string, number>;
+			total?: number;
+			download_option?: boolean;
+			download_label?: string;
 			cover_limit_ugx?: number;
 			benefits?: string[];
 			actions?: { type: string; label: string }[];
@@ -188,8 +202,11 @@ export type GuidedStepResponse =
 	| {
 			type: 'checkbox';
 			message: string;
+			// Some backends use `name` as the field key for this step.
+			name?: string;
 			options: { id: string; label: string; description?: string }[];
 			field_name?: string;
+			defaultValue?: string[];
 			other_field?: { name: string; label: string };
 	  }
 	| {
