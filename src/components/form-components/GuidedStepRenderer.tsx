@@ -451,7 +451,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           String(step.fields[0]?.name ?? '').trim() === 'terms_and_conditions_agreed'
         ) {
           const f = step.fields[0];
-          const help = typeof (f as any)?.help === 'string' ? String((f as any).help).trim() : '';
+          const help = typeof (f as unknown)?.help === 'string' ? String((f as unknown).help).trim() : '';
           const link = help && /^https?:\/\//i.test(help) ? help : undefined;
           const consentLabel = (
             (typeof f?.placeholder === 'string' && f.placeholder.trim())
@@ -558,7 +558,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           })();
 
           const minLength = (() => {
-            const v = raw['minLength'] ?? raw['min_length'] ?? (f as any).minLength;
+            const v = raw['minLength'] ?? raw['min_length'] ?? (f as unknown as { minLength?: unknown }).minLength;
             if (typeof v === 'number' && Number.isFinite(v)) return v;
             if (typeof v === 'string') {
               const n = Number(v);
@@ -568,7 +568,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           })();
 
           const maxLength = (() => {
-            const v = raw['maxLength'] ?? raw['max_length'] ?? (f as any).maxLength;
+            const v = raw['maxLength'] ?? raw['max_length'] ?? (f as unknown as { maxLength?: unknown }).maxLength;
             if (typeof v === 'number' && Number.isFinite(v)) return v;
             if (typeof v === 'string') {
               const n = Number(v);
@@ -692,7 +692,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
                 type: 'checkbox',
                 required: true,
                 placeholder: 'I accept the Terms and Conditions',
-              } as CardFieldConfig,
+              } as unknown as CardFieldConfig,
             ]
           : baseFields;
 

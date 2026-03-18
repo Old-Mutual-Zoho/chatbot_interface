@@ -25,7 +25,7 @@ import QuoteFormScreen from "./QuoteFormScreen";
 import type { ExtendedChatMessage } from "../components/chatbot/messages/actionCardTypes";
 import type { PaymentLoadingScreenVariant } from "../components/chatbot/messages/actionCardTypes";
 import type { ActionOption } from "../components/chatbot/ActionCard";
-import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession, getAgentMessages } from "../services/api";
+import { extractBackendValidationError, sendChatMessage, initiatePurchase, startGuidedQuote, escalateSession, getSessionHistory } from "../services/api";
 import type { GuidedStepResponse } from "../services/api";
 import { useGeneralInformation } from "../hooks/useGeneralInformation";
 import { SAVINGS_SUBCATEGORIES } from "../components/chatbot/data/products";
@@ -1429,24 +1429,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         const serverMessage = (data?.error || data?.message) ? String(data.error || data.message) : null;
         throw new Error(serverMessage || 'Failed to escalate');
       }
-
-      // Backend is mocked: show the connecting screen for a fixed 4 seconds
-      // (minimum), then close it and show the "connected" human message.
+      // Switch the customer UI into human-chat mode quickly after escalation
+      // succeeds, then wait for real agent replies from conversation history.
       const startedAt = escalationState.current.startedAt ?? Date.now();
       const elapsedMs = Date.now() - startedAt;
-      const remainingMs = Math.max(0, 4000 - elapsedMs);
+      const remainingMs = Math.max(0, 800 - elapsedMs);
 
       window.setTimeout(() => {
         // If escalation was cancelled/cleared before timer fires, do nothing.
         if (!escalationState.current.inProgress) return;
 
-        setAwaitingAgent(false);
-        setAgentConnected(true);
+        setAwaitingAgent(true);
+        setAgentConnected(false);
         clearEscalationLoader();
         switchToHumanAgent();
         dispatch({
           type: 'RECEIVE_BOT_REPLY',
-          payload: "Hi 👋 You're now connected to customer support. How may I assist you today?",
+          payload: "You're now in the customer support chat. Send your message and an agent will reply here shortly.",
           chatMode: 'human',
         });
       }, remainingMs);
@@ -1532,23 +1531,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const text = typeof rec['text'] === 'string' ? rec['text'] : null;
     const message = typeof rec['message'] === 'string' ? rec['message'] : null;
     const rawText = typeof rec['raw_text'] === 'string' ? rec['raw_text'] : null;
+    const content = typeof rec['content'] === 'string' ? rec['content'] : null;
     const raw = (text && text.trim())
       ? text.trim()
       : (message && message.trim()
         ? message.trim()
-        : (rawText && rawText.trim() ? rawText.trim() : null));
+        : (rawText && rawText.trim()
+          ? rawText.trim()
+          : (content && content.trim() ? content.trim() : null)));
     if (!raw) return null;
 
-    // Backend may prefix: [agent][chat_id:sess-123] Hello
     const cleaned = raw.replace(/^\[agent\]\[chat_id:[^\]]+\]\s*/i, '').trim();
     return cleaned || raw;
   };
 
   const makeAgentKey = (m: unknown, fallbackText: string): string => {
     const rec = (m && typeof m === 'object') ? (m as Record<string, unknown>) : {};
-    const ts = typeof rec['ts'] === 'string' ? rec['ts'] : '';
-    const agentId = typeof rec['agent_id'] === 'string' ? rec['agent_id'] : '';
-    return `${ts}::${agentId}::${fallbackText}`;
+    const ts =
+      typeof rec['timestamp'] === 'string'
+        ? rec['timestamp']
+        : typeof rec['ts'] === 'string'
+          ? rec['ts']
+          : '';
+    const role = typeof rec['role'] === 'string' ? rec['role'] : '';
+    return `${ts}::${role}::${fallbackText}`;
   };
 
   useEffect(() => {
@@ -1565,21 +1571,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     const pollOnce = async () => {
       try {
-        const data = await getAgentMessages(sessionId);
-        if (!data?.success) return;
-        const messages = Array.isArray(data.messages) ? data.messages : [];
-        const agentMessages = messages.filter((m) => {
-          if (!m || typeof m !== 'object') return false;
-          const sender = (m as { sender?: unknown }).sender;
-          const agentId = (m as { agent_id?: unknown }).agent_id;
-          return sender === 'agent' || (sender === 'unknown' && typeof agentId === 'string' && agentId.length > 0);
-        });
+        const data = await getSessionHistory(sessionId);
+        const historyMessages = Array.isArray(data?.messages) ? data.messages : [];
+        const agentMessages = historyMessages.filter((m) => m && typeof m === 'object' && m.role === 'agent');
         if (agentMessages.length === 0) return;
 
-        // Sort by ts when present to keep ordering stable.
         agentMessages.sort((a, b) => {
-          const ats = typeof a.ts === 'string' ? a.ts : '';
-          const bts = typeof b.ts === 'string' ? b.ts : '';
+          const ats = typeof a.timestamp === 'string' ? a.timestamp : '';
+          const bts = typeof b.timestamp === 'string' ? b.timestamp : '';
           return ats.localeCompare(bts);
         });
 
@@ -1590,12 +1589,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           if (seenAgentKeysRef.current.has(key)) continue;
           seenAgentKeysRef.current.add(key);
 
-          // First real agent message means we're connected.
           if (!agentConnected) {
             setAgentConnected(true);
           }
 
-          // If we were still showing the connecting screen, close it now and switch to human.
           if (awaitingAgent) {
             setAwaitingAgent(false);
             clearEscalationLoader();
@@ -1609,12 +1606,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           });
         }
       } catch (e) {
-        // Keep polling even if one request fails.
-        console.warn('Failed to fetch agent messages', e);
+        console.warn('Failed to fetch escalated conversation history', e);
       }
     };
 
-    // Kick off immediately, then poll.
     void pollOnce();
     agentPollTimerRef.current = window.setInterval(pollOnce, 2000);
 
@@ -2039,7 +2034,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               }
               // ...existing code...
               const filteredMessages = state.isPaymentMode
-                ? state.messages.filter((msg) => 
+                ? state.messages.filter((msg) =>
                     msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
                     msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
                     msg.type === "payment-method-selector" ||
@@ -2250,7 +2245,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   resizeTypingArea(e.currentTarget);
                 }}
                 onKeyDown={handleKeyPress}
-                placeholder={sessionError ? sessionError : (sessionLoading ? "Connecting..." : "Type a message...")}
+                placeholder={
+                  sessionError
+                    ? sessionError
+                    : sessionLoading
+                      ? "Connecting..."
+                      : chatMode === 'human'
+                        ? (awaitingAgent ? "Send your message to customer support..." : "Chat with customer support...")
+                        : "Type a message..."
+                }
                 disabled={state.isSending || sessionLoading || !!sessionError}
                 className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
               />
@@ -2306,4 +2309,3 @@ const PRODUCT_KEY_MAP: Record<string, string> = {
   travel_sure_plus: "travel",
   // Add more mappings as needed
 };
-
