@@ -450,8 +450,12 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           step.fields.length === 1 &&
           String(step.fields[0]?.name ?? '').trim() === 'terms_and_conditions_agreed'
         ) {
+          /* eslint-disable no-case-declarations */
           const f = step.fields[0];
-          const help = typeof (f as unknown)?.help === 'string' ? String((f as unknown).help).trim() : '';
+          function hasHelp(obj: any): obj is { help: string } {
+            return obj && typeof obj.help === 'string';
+          }
+          const help = hasHelp(f) ? f.help.trim() : '';
           const link = help && /^https?:\/\//i.test(help) ? help : undefined;
           const consentLabel = (
             (typeof f?.placeholder === 'string' && f.placeholder.trim())
