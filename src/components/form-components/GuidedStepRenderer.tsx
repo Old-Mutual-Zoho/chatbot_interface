@@ -1395,17 +1395,68 @@ const PremiumSummaryStep: React.FC<{
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {(step.actions ?? []).map((a) => (
-          <button
-            key={a.type}
-            type="button"
-            disabled={loading}
-            onClick={() => onSubmit({ action: a.type })}
-            className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
-          >
-            {a.label}
-          </button>
-        ))}
+          {(step.actions ?? []).map((a) => {
+            const downloadUrl = typeof step.download_url === "string" ? step.download_url : "";
+            if (a.type === "download_quote" && downloadUrl) {
+              let fullUrl = downloadUrl;
+              // If downloadUrl starts with /api/v1, only prepend the host, not the full base path
+              if (fullUrl.startsWith("/api/v1")) {
+                try {
+                  const base = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
+                  fullUrl = base.origin + fullUrl;
+                } catch {
+                  fullUrl = fullUrl; // fallback
+                }
+              } else if (fullUrl.startsWith("/")) {
+                fullUrl = (import.meta.env.VITE_API_BASE_URL || "") + fullUrl;
+              }
+              const handleDownload = async () => {
+                try {
+                  const res = await fetch(fullUrl, {
+                    headers: {
+                      ...(import.meta.env.VITE_API_KEY ? { 'x-api-key': import.meta.env.VITE_API_KEY } : {})
+                    }
+                  });
+                  if (!res.ok) throw new Error('Failed to download file');
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `quote.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  }, 100);
+                } catch (err) {
+                  alert('Failed to download quote. Please try again.');
+                }
+              };
+              return (
+                <button
+                  key={a.type}
+                  type="button"
+                  disabled={loading}
+                  onClick={handleDownload}
+                  className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+                >
+                  {a.label}
+                </button>
+              );
+            }
+            return (
+              <button
+                key={a.type}
+                type="button"
+                disabled={loading}
+                onClick={() => onSubmit({ action: a.type })}
+                className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+              >
+                {a.label}
+              </button>
+            );
+          })}
       </div>
     </div>
   );
