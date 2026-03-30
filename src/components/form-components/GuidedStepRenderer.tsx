@@ -26,6 +26,7 @@ interface GuidedStepRendererProps {
   confirmOnFormSubmit?: boolean;
   confirmationFieldTypeHints?: Record<string, ConfirmationFieldConfig>;
   confirmOnPremiumSummaryActions?: boolean;
+  onFormStepActive?: (active: boolean) => void;
 }
 
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
@@ -42,7 +43,20 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
   confirmOnFormSubmit = false,
   confirmationFieldTypeHints,
   confirmOnPremiumSummaryActions = false,
+  onFormStepActive,
 }) => {
+    // Notify parent as soon as a form step is rendered
+    React.useEffect(() => {
+      if (!step) {
+        onFormStepActive?.(false);
+        return;
+      }
+      if (step.type === 'form') {
+        onFormStepActive?.(true);
+      } else if (step.type === 'premium_summary') {
+        onFormStepActive?.(false);
+      }
+    }, [step, onFormStepActive]);
   // Confirmation summary state
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<Record<string, unknown> | null>(null);

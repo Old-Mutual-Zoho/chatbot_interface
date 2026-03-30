@@ -1949,6 +1949,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
   }, [showDivider]);
 
+  // Track if a guided form is active to disable input
+  const [isGuidedFormActive, setIsGuidedFormActive] = useState(false);
+
   return (
     <div
       className={
@@ -2185,6 +2188,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   userId={userId}
                   sessionId={sessionId}
                   onFormSubmitted={() => dispatch({ type: "QUOTE_FORM_SUBMITTED" })}
+                  onFormStepActive={setIsGuidedFormActive}
                 />
               </div>
             </div>
@@ -2210,6 +2214,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   onSubmit={submitInlineGuided}
                   loading={inlineGuidedLoading}
                   titleFallback="Quote Details"
+                  onFormStepActive={setIsGuidedFormActive}
                 />
               </div>
             </div>
@@ -2254,12 +2259,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         ? (awaitingAgent ? "Send your message to customer support..." : "Chat with customer support...")
                         : "Type a message..."
                 }
-                disabled={state.isSending || sessionLoading || !!sessionError}
+                disabled={state.isSending || sessionLoading || !!sessionError || isGuidedFormActive}
                 className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
               />
               <button
                 onClick={handleSendMessage}
-                disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError}
+                disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError || isGuidedFormActive}
                 className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
               >
                 <IoSend size={16} className="sm:block" />

@@ -364,7 +364,16 @@ interface QuoteFormScreenProps {
   embedded?: boolean;
 }
 
-const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, sessionId, onFormSubmitted, embedded = false }) => {
+interface QuoteFormScreenProps {
+  selectedProduct?: string | null;
+  userId?: string | null;
+  sessionId?: string | null;
+  onFormSubmitted?: () => void;
+  embedded?: boolean;
+  onFormStepActive?: (active: boolean) => void;
+}
+
+const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, userId, sessionId, onFormSubmitted, embedded = false, onFormStepActive }) => {
   // Normalize product name for Motor Private
   const isMotorPrivate =
     selectedProduct === 'Motor Private Insurance' ||
@@ -1236,12 +1245,19 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // Render logic for TravelPlus only (backend-driven)
   if (isTravelSurePlus) {
     if (travelComplete) {
+      if (onFormStepActive) onFormStepActive(false);
       return null;
     }
     if (travelLoading && !travelStepPayload) {
+      if (onFormStepActive) onFormStepActive(false);
       return <LoadingBubble />;
     }
-    if (!travelStepPayload) return <LoadingBubble />;
+    if (!travelStepPayload) {
+      if (onFormStepActive) onFormStepActive(false);
+      return <LoadingBubble />;
+    }
+    // If the current step is a form, notify parent to disable input
+    if (onFormStepActive) onFormStepActive(travelStepPayload.type === 'form');
     return (
       <GuidedStepRenderer
         step={travelStepPayload}
