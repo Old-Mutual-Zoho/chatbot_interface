@@ -1110,6 +1110,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         confirmOnFormSubmit={shouldConfirmBeforeSubmit(paStepPayload)}
         onBack={paStepHistory.length > 0 ? handlePaBack : undefined}
         onEditDetails={paStepHistory.length > 0 ? handlePaEditDetails : undefined}
+        onFormStepActive={onFormStepActive}
       />
     );
   }
@@ -1174,6 +1175,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onSubmit={handleSerenicareSubmit}
         loading={serenicareLoading}
         confirmOnFormSubmit={shouldConfirmBeforeSubmit(serenicareStepPayload)}
+        onFormStepActive={onFormStepActive}
       />
     );
   }
@@ -1238,6 +1240,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         // Motor final form step contains "car usage"; show Review -> confirmation card there.
         confirmOnFormSubmit={shouldConfirmMotorBeforeSubmit(motorStepPayload)}
         confirmOnPremiumSummaryActions={false}
+        onFormStepActive={onFormStepActive}
       />
     );
   }
