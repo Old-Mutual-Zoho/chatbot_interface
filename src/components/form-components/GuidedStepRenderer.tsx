@@ -916,7 +916,71 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           }}
         />
       );
-    case "options":
+    case "options": {
+      // Special rendering for Serenicare plan selection
+      // Robust check for Serenicare: check message or options labels for 'serenicare'
+      const isSerenicare = (typeof step.message === 'string' && step.message.toLowerCase().includes('serenicare')) ||
+        (Array.isArray(step.options) && step.options.some(o => typeof o.label === 'string' && o.label.toLowerCase().includes('serenicare')));
+      if (isSerenicare) {
+        const selected = values['_raw'];
+        return (
+          <div>
+            <h3 className="text-lg font-semibold text-primary mb-2">{step.message ?? 'Choose a plan'}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(step.options ?? []).map((opt) => {
+                const isSelected = selected === opt.id;
+                return (
+                  <label
+                    key={opt.id}
+                    className={`block border rounded-xl p-4 cursor-pointer transition-all ${isSelected ? 'border-primary bg-green-50 shadow' : 'border-gray-200 bg-white'}`}
+                    style={{ minWidth: 0 }}
+                  >
+                    <div className="flex items-center mb-2">
+                      <input
+                        type="radio"
+                        name="_raw"
+                        value={opt.id}
+                        checked={isSelected}
+                        onChange={() => onChange('_raw', opt.id)}
+                        className="accent-primary mr-2"
+                      />
+                      <span className="text-lg font-bold text-gray-900 truncate">{opt.label}</span>
+                    </div>
+                    <div className="text-gray-700 mb-2 break-words">{opt.description}</div>
+                    {opt.benefits && typeof opt.benefits === 'object' && (
+                      <table className="w-full text-sm mt-2 table-fixed">
+                        <colgroup>
+                          <col style={{ width: '60%' }} />
+                          <col style={{ width: '40%' }} />
+                        </colgroup>
+                        <tbody>
+                          {Object.entries(opt.benefits).map(([k, v]) => (
+                            <tr key={k}>
+                              <td className="pr-2 text-gray-600 align-top break-words whitespace-normal">{k}</td>
+                              <td className="font-medium text-gray-900 text-right align-top break-words whitespace-normal">{v}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="px-6 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
+                disabled={loading || !selected}
+                onClick={() => onSubmit({ _raw: selected })}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        );
+      }
+      // fallback to default radio rendering
       return (
         <CardForm
           title={String(titleFallback ?? "Quote Details")}
@@ -943,6 +1007,7 @@ export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
           }}
         />
       );
+    }
     case "file_upload":
       return (
         <CardForm
@@ -1405,10 +1470,10 @@ const PremiumSummaryStep: React.FC<{
           {step.benefits?.map((b, i) => {
             if (typeof b === 'string') {
               return <li key={i}>{b}</li>;
-            } else if (b && typeof b === 'object' && ('benefit' in b || 'amount' in b)) {
-              // Render benefit objects as formatted text
-              const benefit = b.benefit || '';
-              const amount = b.amount || '';
+            } else if (b && typeof b === 'object') {
+              // Render benefit objects as formatted text (for travel, etc.)
+              const benefit = (b as any).benefit || '';
+              const amount = (b as any).amount || '';
               return <li key={i}><span className="font-medium">{benefit}</span>{amount ? `: ${amount}` : ''}</li>;
             } else {
               return null;
