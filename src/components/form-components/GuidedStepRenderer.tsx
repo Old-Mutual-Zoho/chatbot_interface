@@ -1402,9 +1402,18 @@ const PremiumSummaryStep: React.FC<{
 
       {(step.benefits?.length ?? 0) > 0 && (
         <ul className="mt-4 list-disc list-inside text-sm text-gray-700">
-          {step.benefits?.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
+          {step.benefits?.map((b, i) => {
+            if (typeof b === 'string') {
+              return <li key={i}>{b}</li>;
+            } else if (b && typeof b === 'object' && ('benefit' in b || 'amount' in b)) {
+              // Render benefit objects as formatted text
+              const benefit = b.benefit || '';
+              const amount = b.amount || '';
+              return <li key={i}><span className="font-medium">{benefit}</span>{amount ? `: ${amount}` : ''}</li>;
+            } else {
+              return null;
+            }
+          })}
         </ul>
       )}
 

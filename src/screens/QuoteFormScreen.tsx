@@ -846,6 +846,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         user_id: userId,
         form_data: payloadToSend
       });
+      // LOG: Inspect backend response
+      // eslint-disable-next-line no-console
+      console.log('[MotorPrivate] Backend response:', res);
       if (res?.session_id && res.session_id !== sid) setMotorSessionId(res.session_id);
 
       setMotorPendingAction(null);
@@ -855,6 +858,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
         mergedMotorData
       );
+      // LOG: Inspect resolved step
+      // eslint-disable-next-line no-console
+      console.log('[MotorPrivate] Resolved step:', resolved);
 
       if (!resolved || resolved.complete || !resolved.step) {
         setMotorComplete(true);
@@ -956,6 +962,9 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
     setTravelLoading(true);
     setTravelFieldErrors({});
+    // LOG: Start travel submit
+    // eslint-disable-next-line no-console
+    console.log('[Travel] handleTravelSubmit called', { payload });
     try {
       const coerceStoredBool = (raw: unknown): boolean => {
         if (typeof raw === 'boolean') return raw;
@@ -985,21 +994,54 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         form_data: payloadToSend,
       });
 
+      // LOG: Backend response
+      // eslint-disable-next-line no-console
+      console.log('[Travel] Backend response:', res);
+
       if (res?.session_id && res.session_id !== sid) setTravelSessionId(res.session_id);
 
-      const resolved = await resolveNextStepWithAutoAdvance(
-        res,
-        (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
-        mergedTravelData
-      );
+      // --- FIX: Unwrap nested response for premium_summary ---
+      let resolved = null;
+      if (res && res.response && res.response.response && typeof res.response.response === 'object') {
+        // If backend nests the step inside response.response
+        resolved = {
+          ...res.response,
+          step: res.response.response,
+        };
+      } else {
+        // Fallback to normal auto-advance logic
+        resolved = await resolveNextStepWithAutoAdvance(
+          res,
+          (formData) => sendChatMessage({ session_id: sid, user_id: userId, form_data: formData }),
+          mergedTravelData
+        );
+      }
 
-      if (!resolved || resolved.complete || !resolved.step) {
+      // LOG: Resolved step
+      // eslint-disable-next-line no-console
+      console.log('[Travel] Resolved:', resolved);
+
+      if (!resolved || !resolved.step) {
+        // eslint-disable-next-line no-console
+        console.log('[Travel] No resolved step, marking complete and clearing step payload');
         setTravelComplete(true);
         setTravelStepPayload(null);
         onFormSubmitted?.();
         return;
       }
 
+      // Only mark as complete if resolved.complete is true
+      if (resolved.complete) {
+        // eslint-disable-next-line no-console
+        console.log('[Travel] Resolved is complete, setting travelComplete and step payload', { step: resolved.step });
+        setTravelComplete(true);
+        setTravelStepPayload(resolved.step); // still show the last step (e.g. premium summary)
+        onFormSubmitted?.();
+        return;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log('[Travel] Setting travelStepPayload', { step: resolved.step });
       setTravelPendingAction(null);
       setTravelStepPayload(resolved.step);
     } catch (err) {
@@ -1248,6 +1290,24 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // Render logic for TravelPlus only (backend-driven)
   if (isTravelSurePlus) {
     if (travelComplete) {
+      // LOG: travelComplete state
+      // eslint-disable-next-line no-console
+      console.log('[Travel] travelComplete:', { travelStepPayload });
+      // If there is a step (e.g. premium summary), render it even if travelComplete is true
+      if (travelStepPayload) {
+        if (onFormStepActive) onFormStepActive(travelStepPayload.type === 'form');
+        return (
+          <GuidedStepRenderer
+            step={travelStepPayload}
+            values={travelFormData as Record<string, string>}
+            errors={travelFieldErrors}
+            onChange={handleTravelChange}
+            onSubmit={handleTravelSubmit}
+            loading={travelLoading}
+            confirmOnFormSubmit={shouldConfirmBeforeSubmit(travelStepPayload)}
+          />
+        );
+      }
       if (onFormStepActive) onFormStepActive(false);
       return null;
     }
