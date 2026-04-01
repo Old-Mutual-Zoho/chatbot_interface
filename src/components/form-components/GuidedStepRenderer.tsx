@@ -1384,6 +1384,9 @@ const PremiumSummaryStep: React.FC<{
     ? (quoteSummaryRaw as Record<string, unknown>)
     : null;
 
+  // For motor_private, render all quote_summary fields in a breakdown section
+  const isMotorPrivate = (typeof rec['flow'] === 'string' && rec['flow'] === 'motor_private') || (typeof rec['product_name'] === 'string' && rec['product_name'].toLowerCase().includes('motor private'));
+
   const toNumberOrNull = (v: unknown): number | null => {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v === 'string') {
@@ -1426,7 +1429,6 @@ const PremiumSummaryStep: React.FC<{
       </h3>
 
       {/* Plan */}
-
       {rec['plan'] ? (
         <div className="mb-2 text-base font-medium text-primary">Plan: <span className="text-gray-900">{String(rec['plan'])}</span></div>
       ) : null}
@@ -1446,8 +1448,30 @@ const PremiumSummaryStep: React.FC<{
         <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(coverLimit).toLocaleString()}</div>
       ) : null}
 
-      {/* Render breakdown sections if present */}
-      {rec['breakdown'] && typeof rec['breakdown'] === 'object' && rec['breakdown'] !== null ? (
+      {/* Motor Private: Render all quote_summary fields */}
+      {isMotorPrivate && quoteSummary ? (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white">
+          <div className="px-4 py-2 border-b border-gray-200">
+            <p className="text-sm font-medium text-gray-900">Breakdown</p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {Object.entries(quoteSummary).map(([k, v]) => {
+              if (typeof v !== 'number' && typeof v !== 'string') return null;
+              // Hide premiumString (stringified duplicate of premium/total)
+              if (k === 'premiumString') return null;
+              return (
+                <div key={k} className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-gray-600">{humanizeLabel(k) || k}</span>
+                  <span className="text-sm font-medium text-gray-900">{typeof v === 'number' ? `UGX ${Number(v).toLocaleString()}` : v}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Render breakdown sections for other products if present */}
+      {!isMotorPrivate && rec['breakdown'] && typeof rec['breakdown'] === 'object' && rec['breakdown'] !== null ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white">
           <div className="px-4 py-2 border-b border-gray-200">
             <p className="text-sm font-medium text-gray-900">Breakdown</p>
