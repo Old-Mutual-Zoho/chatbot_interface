@@ -1416,23 +1416,20 @@ const PremiumSummaryStep: React.FC<{
     return true;
   })();
 
-  const breakdownEntries = (() => {
-    if (!quoteSummary) return [] as Array<{ key: string; value: number }>;
-    const entries: Array<{ key: string; value: number }> = [];
-    for (const [k, v] of Object.entries(quoteSummary)) {
-      if (!k || k === 'total') continue;
-      const n = toNumberOrNull(v);
-      if (n == null) continue;
-      entries.push({ key: k, value: n });
-    }
-    return entries;
-  })();
+
+
 
   return (
     <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
       <h3 className="text-lg font-semibold text-primary mb-2">
         {step.message ?? (typeof rec['product_name'] === 'string' && rec['product_name'].trim() ? `${rec['product_name']} Premium` : 'Premium Summary')}
       </h3>
+
+      {/* Plan */}
+
+      {rec['plan'] ? (
+        <div className="mb-2 text-base font-medium text-primary">Plan: <span className="text-gray-900">{String(rec['plan'])}</span></div>
+      ) : null}
 
       {shouldShowTotal && total != null ? (
         <p className="text-2xl font-bold text-gray-900">UGX {Number(total).toLocaleString()}</p>
@@ -1449,18 +1446,60 @@ const PremiumSummaryStep: React.FC<{
         <div className="mt-3 text-sm text-gray-700">Cover limit: UGX {Number(coverLimit).toLocaleString()}</div>
       ) : null}
 
-      {breakdownEntries.length > 0 ? (
+      {/* Render breakdown sections if present */}
+      {rec['breakdown'] && typeof rec['breakdown'] === 'object' && rec['breakdown'] !== null ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white">
           <div className="px-4 py-2 border-b border-gray-200">
             <p className="text-sm font-medium text-gray-900">Breakdown</p>
           </div>
           <div className="px-4 py-3 space-y-2">
-            {breakdownEntries.map((e) => (
-              <div key={e.key} className="flex items-start justify-between gap-4">
-                <span className="text-sm text-gray-600">{humanizeLabel(e.key) || e.key}</span>
-                <span className="text-sm font-medium text-gray-900">UGX {Number(e.value).toLocaleString()}</span>
+            {/* Member breakdown */}
+            {'member_breakdown' in rec['breakdown'] && rec['breakdown'].member_breakdown && typeof rec['breakdown'].member_breakdown === 'object' ? (
+              <div className="mb-2">
+                <div className="font-semibold text-sm text-gray-700 mb-1">Members:</div>
+                {Object.entries(rec['breakdown'].member_breakdown).map(([member, value]) => (
+                  <div key={member} className="flex items-start justify-between gap-4 pl-2">
+                    <span className="text-sm text-gray-600">{member}</span>
+                    <span className="text-sm font-medium text-gray-900">UGX {Number(value).toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
+            {/* Benefit breakdown */}
+            {'benefit_breakdown' in rec['breakdown'] && rec['breakdown'].benefit_breakdown && typeof rec['breakdown'].benefit_breakdown === 'object' && Object.keys(rec['breakdown'].benefit_breakdown).length > 0 ? (
+              <div className="mb-2">
+                <div className="font-semibold text-sm text-gray-700 mb-1">Benefits:</div>
+                {Object.entries(rec['breakdown'].benefit_breakdown).map(([benefit, value]) => (
+                  <div key={benefit} className="flex items-start justify-between gap-4 pl-2">
+                    <span className="text-sm text-gray-600">{benefit}</span>
+                    <span className="text-sm font-medium text-gray-900">UGX {Number(value).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {/* Loadings */}
+            {'loadings' in rec['breakdown'] && rec['breakdown'].loadings && typeof rec['breakdown'].loadings === 'object' && Object.keys(rec['breakdown'].loadings).length > 0 ? (
+              <div className="mb-2">
+                <div className="font-semibold text-sm text-gray-700 mb-1">Loadings:</div>
+                {Object.entries(rec['breakdown'].loadings).map(([loading, value]) => (
+                  <div key={loading} className="flex items-start justify-between gap-4 pl-2">
+                    <span className="text-sm text-gray-600">{loading}</span>
+                    <span className="text-sm font-medium text-gray-900">UGX {Number(value).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {/* Training levy, stamp duty, and other direct fields */}
+            {Object.entries(rec['breakdown']).map(([k, v]) => {
+              if (['member_breakdown', 'benefit_breakdown', 'loadings'].includes(k)) return null;
+              if (typeof v !== 'number') return null;
+              return (
+                <div key={k} className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-gray-600">{humanizeLabel(k) || k}</span>
+                  <span className="text-sm font-medium text-gray-900">UGX {Number(v).toLocaleString()}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -1483,68 +1522,69 @@ const PremiumSummaryStep: React.FC<{
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-          {(step.actions ?? []).map((a) => {
-            const downloadUrl = typeof step.download_url === "string" ? step.download_url : "";
-            if (a.type === "download_quote" && downloadUrl) {
-              let fullUrl = downloadUrl;
-              // If downloadUrl starts with /api/v1, only prepend the host, not the full base path
-              if (fullUrl.startsWith("/api/v1")) {
-                try {
-                  const base = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
-                  fullUrl = base.origin + fullUrl;
-                } catch {
-                  fullUrl = fullUrl; // fallback
-                }
-              } else if (fullUrl.startsWith("/")) {
-                fullUrl = (import.meta.env.VITE_API_BASE_URL || "") + fullUrl;
+        {(step.actions ?? []).map((a) => {
+          const downloadUrl = typeof step.download_url === "string" ? step.download_url : "";
+          const downloadLabel = typeof rec['download_label'] === 'string' && rec['download_label'].trim() ? rec['download_label'] : a.label;
+          if (a.type === "download_quote" && downloadUrl) {
+            let fullUrl = downloadUrl;
+            // If downloadUrl starts with /api/v1, only prepend the host, not the full base path
+            if (fullUrl.startsWith("/api/v1")) {
+              try {
+                const base = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
+                fullUrl = base.origin + fullUrl;
+              } catch {
+                fullUrl = fullUrl; // fallback
               }
-              const handleDownload = async () => {
-                try {
-                  const res = await fetch(fullUrl, {
-                    headers: {
-                      ...(import.meta.env.VITE_API_KEY ? { 'x-api-key': import.meta.env.VITE_API_KEY } : {})
-                    }
-                  });
-                  if (!res.ok) throw new Error('Failed to download file');
-                  const blob = await res.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `quote.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  setTimeout(() => {
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                  }, 100);
-                } catch (err) {
-                  alert('Failed to download quote. Please try again.');
-                }
-              };
-              return (
-                <button
-                  key={a.type}
-                  type="button"
-                  disabled={loading}
-                  onClick={handleDownload}
-                  className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
-                >
-                  {a.label}
-                </button>
-              );
+            } else if (fullUrl.startsWith("/")) {
+              fullUrl = (import.meta.env.VITE_API_BASE_URL || "") + fullUrl;
             }
+            const handleDownload = async () => {
+              try {
+                const res = await fetch(fullUrl, {
+                  headers: {
+                    ...(import.meta.env.VITE_API_KEY ? { 'x-api-key': import.meta.env.VITE_API_KEY } : {})
+                  }
+                });
+                if (!res.ok) throw new Error('Failed to download file');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `quote.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                }, 100);
+              } catch (err) {
+                alert('Failed to download quote. Please try again.');
+              }
+            };
             return (
               <button
                 key={a.type}
                 type="button"
                 disabled={loading}
-                onClick={() => onSubmit({ action: a.type })}
+                onClick={handleDownload}
                 className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
               >
-                {a.label}
+                {downloadLabel}
               </button>
             );
-          })}
+          }
+          return (
+            <button
+              key={a.type}
+              type="button"
+              disabled={loading}
+              onClick={() => onSubmit({ action: a.type })}
+              className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-green-50 disabled:opacity-60"
+            >
+              {a.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1790,14 +1790,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   const shouldShowFeedbackForMessage = (message: ChatMessageWithTimestamp) => {
-    return (
-      !isWhatsApp &&
-      chatMode === 'bot' &&
-      showFeedbackActions &&
-      feedbackAnchorMessageId === message?.id &&
-      message?.sender === 'bot' &&
-      message?.type === 'text'
-    );
+    // Only show feedback for bot messages that follow at least one user message
+    if (
+      isWhatsApp ||
+      chatMode !== 'bot' ||
+      !showFeedbackActions ||
+      feedbackAnchorMessageId !== message?.id ||
+      message?.sender !== 'bot' ||
+      message?.type !== 'text'
+    ) {
+      return false;
+    }
+    // Find the index of this message
+    const anchorIndex = state.messages.findIndex((m) => m.id === message?.id);
+    // There must be a user message before this bot message
+    if (anchorIndex <= 0) return false;
+    return state.messages.slice(0, anchorIndex).some((m) => m.sender === 'user');
   };
 
   const shouldShowThumbsForFeedbackMessage = (message: ChatMessageWithTimestamp) => {
@@ -2194,31 +2202,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           )}
 
-          {!isWhatsApp && !selectedProduct && inlineGuidedStep && (
-            <div ref={inlineGuidedRef} className="flex justify-start animate-fade-in mb-4">
-              <div className="w-full">
-                <GuidedStepRenderer
-                  step={inlineGuidedStep}
-                  values={inlineGuidedValues}
-                  errors={inlineGuidedErrors}
-                  onClearError={(name) => {
-                    setInlineGuidedErrors((prev) => {
-                      const next = { ...prev };
-                      delete next[name];
-                      return next;
-                    });
-                  }}
-                  onChange={(name, value) => {
-                    setInlineGuidedValues((prev) => ({ ...prev, [name]: value }));
-                  }}
-                  onSubmit={submitInlineGuided}
-                  loading={inlineGuidedLoading}
-                  titleFallback="Quote Details"
-                  onFormStepActive={setIsGuidedFormActive}
-                />
-              </div>
-            </div>
-          )}
+          {/* Render GuidedStepRenderer as part of the message flow so user messages appear below it */}
+          {state.messages.map((message, idx) => {
+            // ...existing message rendering logic...
+            // After rendering the last message, if inlineGuidedStep is active, render it here
+            const isLastMessage = idx === state.messages.length - 1;
+            // Reference message to avoid unused variable error
+            void message;
+            return [
+              // ...existing message rendering code for each message...
+              (isLastMessage && !isWhatsApp && !selectedProduct && inlineGuidedStep) ? (
+                <div key="inline-guided-step" ref={inlineGuidedRef} className="flex justify-start animate-fade-in mb-4">
+                  <div className="w-full">
+                    <GuidedStepRenderer
+                      step={inlineGuidedStep}
+                      values={inlineGuidedValues}
+                      errors={inlineGuidedErrors}
+                      onClearError={(name) => {
+                        setInlineGuidedErrors((prev) => {
+                          const next = { ...prev };
+                          delete next[name];
+                          return next;
+                        });
+                      }}
+                      onChange={(name, value) => {
+                        setInlineGuidedValues((prev) => ({ ...prev, [name]: value }));
+                      }}
+                      onSubmit={submitInlineGuided}
+                      loading={inlineGuidedLoading}
+                      titleFallback="Quote Details"
+                      onFormStepActive={setIsGuidedFormActive}
+                    />
+                  </div>
+                </div>
+              ) : null
+            ];
+          })}
 
           <div ref={messagesEndRef} />
           </>
