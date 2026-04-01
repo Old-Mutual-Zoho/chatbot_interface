@@ -756,13 +756,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   useEffect(() => {
     if (isWhatsApp) return;
 
-    // Find the latest bot text message id
+    // Find the latest bot text message that follows a real user message (not just product selection)
     const lastBotText = [...state.messages]
       .reverse()
       .find((m) => {
         if (m.sender !== 'bot' || m.type !== 'text') return false;
         const textValue = (m as unknown as { text?: unknown }).text;
-        return typeof textValue === 'string';
+        if (typeof textValue !== 'string') return false;
+        const msgIdx = state.messages.findIndex((msg) => msg.id === m.id);
+        if (msgIdx <= 0) return false;
+        const userMessages = state.messages.slice(0, msgIdx).filter((msg) => msg.sender === 'user');
+        // Robust guided flow suppression: if only one user message and it matches selectedProduct, skip feedback for initial prompt
+        if (
+          userMessages.length === 1 &&
+          isGuidedFlow &&
+          typeof selectedProduct === 'string' &&
+          typeof (userMessages[0] as any).text === 'string' &&
+          ((userMessages[0] as any).text).trim().toLowerCase() === selectedProduct.trim().toLowerCase()
+        ) {
+          if (textValue.trim() === 'How can I help you today?') return false;
+        }
+        // Only show feedback if there is a user message before this bot message that is NOT just the product selection
+        return userMessages.length > (isGuidedFlow ? 1 : 0);
       });
     const nextId = (() => {
       const idValue = (lastBotText as unknown as { id?: unknown } | undefined)?.id;
