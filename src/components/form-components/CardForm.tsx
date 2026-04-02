@@ -2,6 +2,14 @@ import React from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+import MoneyInput from "./MoneyInput";
+
+
+  // ...existing code...
+
+
+
+
 export interface CardFieldConfig {
   name: string;
   label?: string;
@@ -89,6 +97,15 @@ const CardForm: React.FC<CardFormProps> = ({
   bottomContent,
   hideCompulsoryHint = false,
 }) => {
+  // Money field detection: name or label contains "value" and type is number
+  const isMoneyField = (field: CardFieldConfig) => {
+    const key = normalizeFieldKey(field.name);
+    const label = normalizeFieldKey(field.label ?? "");
+    return (
+      field.type === "number" &&
+      (key.includes("value") || label.includes("value"))
+    );
+  };
   const normalizeFieldKey = (raw: unknown) =>
     String(raw ?? '')
       .trim()
@@ -1314,6 +1331,20 @@ const CardForm: React.FC<CardFormProps> = ({
                   showYearDropdown
                   dropdownMode="select"
                   popperPlacement="bottom"
+                />
+              ) : isMoneyField(field) ? (
+                <MoneyInput
+                  value={value}
+                  onChange={(val) => {
+                    if (shouldTouchOnChange(field)) markTouched(field.name);
+                    onClearExternalError?.(field.name);
+                    onChange(field.name, val);
+                  }}
+                  name={field.name}
+                  placeholder={field.placeholder}
+                  min={field.min}
+                  max={field.max}
+                  className={`w-full ${hasAnyError ? 'border-red-500' : 'border-gray-300'}`}
                 />
               ) : (
                 <input
