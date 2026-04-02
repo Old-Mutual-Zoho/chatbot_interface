@@ -1,3 +1,58 @@
+/*
+  Custom Markdown styling for chat bubbles (bot only, not WhatsApp).
+  - Headings, lists, code, bold, italics, strikethrough, and spacing are styled for clarity.
+  - Inline code uses Old Mutual green for brand consistency.
+  - All Markdown is scoped to .chatbot-markdown for safety.
+*/
+.chatbot-markdown h1,
+.chatbot-markdown h2,
+.chatbot-markdown h3 {
+  font-weight: 700;
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+}
+.chatbot-markdown h1 { font-size: 1.35rem; }
+.chatbot-markdown h2 { font-size: 1.15rem; }
+.chatbot-markdown h3 { font-size: 1.05rem; }
+.chatbot-markdown ul,
+.chatbot-markdown ol {
+  margin-left: 1.25em;
+  margin-bottom: 0.2em;
+}
+.chatbot-markdown li {
+  margin-bottom: 0.08em;
+}
+.chatbot-markdown p {
+  margin-top: 0.12em;
+  margin-bottom: 0.12em;
+}
+.chatbot-markdown strong {
+  font-weight: 700;
+}
+.chatbot-markdown em {
+  font-style: italic;
+}
+.chatbot-markdown del {
+  text-decoration: line-through;
+}
+.chatbot-markdown code {
+  background: #f4f4f4;
+  color: #00A651;
+  font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.95em;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+.chatbot-markdown pre {
+  background: #f4f4f4;
+  color: #222;
+  font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.97em;
+  padding: 0.7em 1em;
+  border-radius: 6px;
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
 @import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
 @import "tailwindcss";
 
