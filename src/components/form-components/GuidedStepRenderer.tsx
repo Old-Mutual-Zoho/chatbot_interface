@@ -1939,8 +1939,17 @@ const ProceedToPaymentStep: React.FC<{
   return (
     <div className="w-full">
       {step.message ? (
-        <div className="w-full rounded-2xl p-4 border border-gray-200 bg-white">
+        <div className="w-full rounded-2xl p-4 border border-gray-200 bg-white mb-4">
           <p className="text-gray-900 text-sm">{step.message}</p>
+        </div>
+      ) : null}
+
+      {/* Show the amount/total due if available */}
+      {premiumAmount != null ? (
+        <div className="w-full rounded-2xl p-4 border border-yellow-100 bg-yellow-50 mb-4">
+          <p className="text-gray-900 text-base font-semibold">
+            Total Due: <span className="text-green-700">UGX {Number(premiumAmount).toLocaleString()}</span>
+          </p>
         </div>
       ) : null}
 

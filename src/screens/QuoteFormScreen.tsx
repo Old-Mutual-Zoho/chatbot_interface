@@ -893,6 +893,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
   // --- Travel Insurance guided flow state (same architecture as Motor/PA) ---
   const [travelSessionId, setTravelSessionId] = useState<string | null>(sessionId ?? null);
   const [travelStepPayload, setTravelStepPayload] = useState<GuidedStepResponse | null>(null);
+  const [travelStepHistory, setTravelStepHistory] = useState<GuidedStepResponse[]>([]);
   const [travelLoading, setTravelLoading] = useState(false);
   const [travelComplete, setTravelComplete] = useState(false);
   const [travelFieldErrors, setTravelFieldErrors] = useState<Record<string, string>>({});
@@ -951,6 +952,18 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     });
   };
 
+  const handleTravelBack = () => {
+    setTravelStepHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      const last = prev[prev.length - 1];
+      setTravelStepPayload(last ?? null);
+      setTravelFieldErrors({});
+      setTravelPendingAction(null);
+      return next;
+    });
+  };
+
   const handleTravelSubmit = async (payload: Record<string, unknown>) => {
     const sid = travelSessionId ?? sessionId;
     if (!sid || !userId) return;
@@ -961,6 +974,8 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     setTravelLoading(true);
     setTravelFieldErrors({});
     try {
+      // Save current step to history before advancing
+      setTravelStepHistory((prev) => travelStepPayload ? [...prev, travelStepPayload] : prev);
       const coerceStoredBool = (raw: unknown): boolean => {
         if (typeof raw === 'boolean') return raw;
         if (typeof raw === 'number') return raw !== 0;
@@ -1010,23 +1025,19 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
 
 
-      if (!resolved || !resolved.step) {
+      // Render the step if present, even if complete is true
+      if (!resolved || (!resolved.step && resolved.complete)) {
         setTravelComplete(true);
         setTravelStepPayload(null);
         onFormSubmitted?.();
         return;
       }
-
-      // Only mark as complete if resolved.complete is true
-      if (resolved.complete) {
-        setTravelComplete(true);
-        setTravelStepPayload(resolved.step); // still show the last step (e.g. premium summary)
-        onFormSubmitted?.();
+      if (resolved.step) {
+        setTravelStepPayload(resolved.step);
+        setTravelPendingAction(null);
+        if (resolved.complete) setTravelComplete(true);
         return;
       }
-
-      setTravelPendingAction(null);
-      setTravelStepPayload(resolved.step);
     } catch (err) {
       const validation = extractBackendValidationError(err);
       if (validation?.fieldErrors) {
@@ -1310,6 +1321,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         onSubmit={handleTravelSubmit}
         loading={travelLoading}
         confirmOnFormSubmit={shouldConfirmBeforeSubmit(travelStepPayload)}
+        onBack={travelStepHistory.length > 0 ? handleTravelBack : undefined}
       />
     );
   }
