@@ -82,8 +82,7 @@ export default function HomeScreen({
               />
             </div>
             <span className="text-black text-[clamp(1.2rem,4vw,1.6rem)] sm:text-xl font-semibold leading-none">
-              Chat with us now{" "}
-              <span className="inline-block text-[1.7em] leading-none align-[-0.12em]">😁</span>
+              Chat with us now            
             </span>
           </div>
           <IoChevronForward size={22} className="text-black" />

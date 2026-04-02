@@ -219,14 +219,35 @@ function reducer(state: State, action: Action): State {
         ? state.messages.filter((msg) => msg.type !== 'loading')
         : state.messages;
 
+      // --- Ensure user message is always after the last premium summary, but loading is always last ---
+      const lastPremiumIdx = baseMessages.map(m => m.type).lastIndexOf("purchase-summary");
+      let newMessages;
+      if (lastPremiumIdx >= 0 && lastPremiumIdx === baseMessages.length - 1) {
+        // Premium summary is last, just append user message
+        newMessages = [...baseMessages, userMessage];
+      } else if (lastPremiumIdx >= 0) {
+        // Insert user message after the last premium summary
+        newMessages = [
+          ...baseMessages.slice(0, lastPremiumIdx + 1),
+          userMessage,
+          ...baseMessages.slice(lastPremiumIdx + 1)
+        ];
+      } else {
+        // No premium summary, normal append
+        newMessages = [...baseMessages, userMessage];
+      }
+      // Always append loading message at the end
+      newMessages = [...newMessages.filter(m => m.type !== 'loading'), loadingMessage];
+
       return {
         ...state,
-        messages: [...baseMessages, userMessage, loadingMessage],
+        messages: newMessages,
         inputValue: "",
         isSending: mode !== 'human',
       };
     }
     case "CLEAR_LOADING": {
+      // Only remove loading messages, never remove purchase-summary
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       return {
         ...state,
@@ -237,6 +258,7 @@ function reducer(state: State, action: Action): State {
       };
     }
     case "RECEIVE_BOT_REPLY": {
+      // Only remove loading messages, never remove purchase-summary
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
       // Use sender 'agent' for human agent, 'bot' otherwise
       const isAgent = action.chatMode === "human";
@@ -772,8 +794,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           userMessages.length === 1 &&
           isGuidedFlow &&
           typeof selectedProduct === 'string' &&
-          typeof (userMessages[0] as any).text === 'string' &&
-          ((userMessages[0] as any).text).trim().toLowerCase() === selectedProduct.trim().toLowerCase()
+          typeof (userMessages[0] as { text?: string }).text === 'string' &&
+          ((userMessages[0] as { text?: string }).text ?? '').trim().toLowerCase() === (selectedProduct?.trim().toLowerCase() ?? '')
         ) {
           if (textValue.trim() === 'How can I help you today?') return false;
         }
@@ -798,7 +820,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     // Only show the action bar for bot-mode conversations
     setShowFeedbackActions(chatMode === 'bot');
-  }, [state.messages, isWhatsApp, chatMode]);
+  }, [state.messages, isWhatsApp, chatMode, isGuidedFlow, selectedProduct]);
 
   const getMessageAvatar = (msg: ChatMessageWithTimestamp): string | undefined => {
     const avatarValue = (msg as unknown as { avatar?: unknown }).avatar;
@@ -2021,6 +2043,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </div>
             )}
 
+
             {state.messages
               .filter((msg) => {
                 // ...existing code...
@@ -2040,97 +2063,146 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               })
               .map((message, idx) => {
                 // ...existing code...
-              if (message.type === "custom-welcome" && !state.showWelcomeCard) {
-                return null;
-              }
-              if (!isWhatsApp && message.type === "custom-welcome" && state.showWelcomeCard) {
-                return (
-                  <div key={"welcome-" + message.id} className="flex w-full justify-center animate-fade-in mb-4">
-                    <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden w-full max-w-sm sm:max-w-md md:max-w-lg">
-                      <img src={WelcomeImage} alt="Welcome" className="w-full object-cover rounded-t-xl" />
-                      <div className="px-4 pt-3 pb-2">
-                        <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
-                        <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
-                        <div className="flex justify-end">
-                          <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+                if (message.type === "custom-welcome" && !state.showWelcomeCard) {
+                  return null;
+                }
+                if (!isWhatsApp && message.type === "custom-welcome" && state.showWelcomeCard) {
+                  return (
+                    <div key={"welcome-" + message.id} className="flex w-full justify-center animate-fade-in mb-4">
+                      <div className="bg-white rounded-xl shadow-md p-0 overflow-hidden w-full max-w-sm sm:max-w-md md:max-w-lg">
+                        <img src={WelcomeImage} alt="Welcome" className="w-full object-cover rounded-t-xl" />
+                        <div className="px-4 pt-3 pb-2">
+                          <p className="font-semibold text-gray-900 text-base mb-1">Hi, I'm MIA! 👋</p>
+                          <p className="text-gray-700 text-sm mb-1">I'm here to make your journey smooth and enjoyable.</p>
+                          <div className="flex justify-end">
+                            <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              }
-              // ...existing code...
-              const filteredMessages = state.isPaymentMode
-                ? state.messages.filter((msg) =>
-                    msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
-                    msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
-                    msg.type === "payment-method-selector" ||
-                    msg.type === "mobile-money-form" ||
-                    msg.type === "payment-loading-screen" ||
-                    msg.type === "loading" ||
-                    (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
-                    (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
-                  )
-                : state.messages;
-              const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
-              let spacingClass = "";
-              if (prevMsg) {
-                // ...existing code...
-                const prevSender = isGuidedFlow
-                  ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
-                  : prevMsg.sender;
-                const currSender = isGuidedFlow
-                  ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
-                  : message.sender;
-                if (prevSender !== currSender) {
-                  spacingClass = "mb-4";
-                } else if (idx !== filteredMessages.length - 1) {
-                  spacingClass = "mb-0.5";
+                  );
                 }
-              }
+                // ...existing code...
+                const filteredMessages = state.isPaymentMode
+                  ? state.messages.filter((msg) =>
+                      msg.type === "text" && msg.text === "Great choice 👍 I'll help you complete your purchase." ||
+                      msg.type === "text" && msg.text === "Perfect! let's complete your purchase" ||
+                      msg.type === "payment-method-selector" ||
+                      msg.type === "mobile-money-form" ||
+                      msg.type === "payment-loading-screen" ||
+                      msg.type === "loading" ||
+                      (msg.type === "text" && msg.text?.includes("Great! I'll process your payment")) ||
+                      (msg.type === "text" && msg.text?.includes("Great! I'm confirming your payment"))
+                    )
+                  : state.messages;
+                const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+                let spacingClass = "";
+                // --- Add extra space if this is the first user message after a premium summary ---
+                const isUser = message.sender === "user";
+                const prevIsPremium = prevMsg && prevMsg.type === "purchase-summary";
+                if (isUser && prevIsPremium) {
+                  spacingClass = "mt-8 mb-4";
+                } else if (prevMsg) {
+                  const prevSender = isGuidedFlow
+                    ? (prevMsg.sender === "bot" || prevMsg.type === "action-card" ? "bot" : prevMsg.sender)
+                    : prevMsg.sender;
+                  const currSender = isGuidedFlow
+                    ? (message.sender === "bot" || message.type === "action-card" ? "bot" : message.sender)
+                    : message.sender;
+                  if (prevSender !== currSender) {
+                    spacingClass = "mb-4";
+                  } else if (idx !== filteredMessages.length - 1) {
+                    spacingClass = "mb-0.5";
+                  }
+                }
 
-              // ...existing code...
-              const baseActionOptionCount = getBaseActionOptionsForProduct(selectedProduct).length;
-              const shouldShowActionCard =
-                isGuidedFlow &&
-                !state.showQuoteForm &&
-                state.showActionCard &&
-                state.availableOptions.length > 0 &&
-                (
-                  (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === baseActionOptionCount) ||
-                  (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < baseActionOptionCount)
-                );
-              if (shouldShowActionCard) {
-                // The action card is effectively a continuation of the bot message.
-                // Keep the gap between the bot prompt and its action buttons tight.
-                const msgSpacing = "mb-1";
-                if (isWhatsApp) {
-                  const optionLines = state.availableOptions.map((o) => `- ${o.label}`).join('\n');
+                // ...existing code...
+                const baseActionOptionCount = getBaseActionOptionsForProduct(selectedProduct).length;
+                const shouldShowActionCard =
+                  isGuidedFlow &&
+                  !state.showQuoteForm &&
+                  state.showActionCard &&
+                  state.availableOptions.length > 0 &&
+                  (
+                    (message.type === "text" && message.text === "How can I help you today?" && state.availableOptions.length === baseActionOptionCount) ||
+                    (message.type === "text" && message.text === "Would you like to continue with another option?" && state.availableOptions.length < baseActionOptionCount)
+                  );
+                if (shouldShowActionCard) {
+                  // The action card is effectively a continuation of the bot message.
+                  // Keep the gap between the bot prompt and its action buttons tight.
+                  const msgSpacing = "mb-1";
+                  if (isWhatsApp) {
+                    const optionLines = state.availableOptions.map((o) => `- ${o.label}`).join('\n');
+                    return [
+                      <div key={message.id + "-msg"} className={msgSpacing}>
+                        <MessageRenderer
+                          message={message}
+                          avatar={getMessageAvatar(message)}
+                          chatMode={chatMode}
+                          channel="whatsapp"
+                        />
+                      </div>,
+                      <div key={"whatsapp-options-" + message.id} className="mb-1">
+                        <MessageRenderer
+                          message={{
+                            id: `whatsapp-options-${message.id}`,
+                            sender: 'bot',
+                            type: 'text',
+                            text: optionLines ? `Options:\n${optionLines}` : 'Options available.',
+                          }}
+                          chatMode={chatMode}
+                          channel="whatsapp"
+                        />
+                      </div>,
+                    ];
+                  }
                   return [
                     <div key={message.id + "-msg"} className={msgSpacing}>
                       <MessageRenderer
                         message={message}
+                        onConfirmPayment={handleConfirmPayment}
+                        onSelectPaymentMethod={handleSelectPaymentMethod}
+                        onSubmitMobilePayment={handleSubmitMobilePayment}
                         avatar={getMessageAvatar(message)}
                         chatMode={chatMode}
-                        channel="whatsapp"
+                        channel="web"
                       />
+                      {shouldShowFeedbackForMessage(message) ? (
+                        <div className="flex w-full justify-start mt-2 pl-7 sm:pl-8">
+                          <FeedbackActionBar
+                            onThumbsUp={handleFeedbackThumbsUp}
+                            onThumbsDown={handleFeedbackThumbsDown}
+                            onConnectAgent={handleFeedbackConnectAgent}
+                            showThumbs={shouldShowThumbsForFeedbackMessage(message)}
+                            showConnect={shouldShowThumbsForFeedbackMessage(message)}
+                          />
+                        </div>
+                      ) : null}
                     </div>,
-                    <div key={"whatsapp-options-" + message.id} className="mb-1">
+                    <div key={"action-card-" + message.id} className="flex w-full justify-center mt-0">
                       <MessageRenderer
                         message={{
-                          id: `whatsapp-options-${message.id}`,
-                          sender: 'bot',
-                          type: 'text',
-                          text: optionLines ? `Options:\n${optionLines}` : 'Options available.',
+                          id: "dynamic-action-card",
+                          sender: "bot",
+                          type: "action-card",
+                          options: state.availableOptions,
                         }}
-                        chatMode={chatMode}
-                        channel="whatsapp"
+                        onActionCardSelect={handleActionCardSelect}
+                        onConfirmPayment={handleConfirmPayment}
+                        onSelectPaymentMethod={handleSelectPaymentMethod}
+                        onSubmitMobilePayment={handleSubmitMobilePayment}
+                        loading={state.loading || !!sessionLoading || !!sessionError}
+                        lastSelected={state.lastSelected}
+                        channel="web"
                       />
                     </div>,
                   ];
                 }
-                return [
-                  <div key={message.id + "-msg"} className={msgSpacing}>
+                if (message.type === "action-card") {
+                  return null;
+                }
+                return (
+                  <div key={message.id} className={spacingClass}>
                     <MessageRenderer
                       message={message}
                       onConfirmPayment={handleConfirmPayment}
@@ -2138,7 +2210,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onSubmitMobilePayment={handleSubmitMobilePayment}
                       avatar={getMessageAvatar(message)}
                       chatMode={chatMode}
-                      channel="web"
+                      channel={isWhatsApp ? 'whatsapp' : 'web'}
                     />
                     {shouldShowFeedbackForMessage(message) ? (
                       <div className="flex w-full justify-start mt-2 pl-7 sm:pl-8">
@@ -2151,54 +2223,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         />
                       </div>
                     ) : null}
-                  </div>,
-                  <div key={"action-card-" + message.id} className="flex w-full justify-center mt-0">
-                    <MessageRenderer
-                      message={{
-                        id: "dynamic-action-card",
-                        sender: "bot",
-                        type: "action-card",
-                        options: state.availableOptions,
-                      }}
-                      onActionCardSelect={handleActionCardSelect}
-                      onConfirmPayment={handleConfirmPayment}
-                      onSelectPaymentMethod={handleSelectPaymentMethod}
-                      onSubmitMobilePayment={handleSubmitMobilePayment}
-                      loading={state.loading || !!sessionLoading || !!sessionError}
-                      lastSelected={state.lastSelected}
-                      channel="web"
-                    />
-                  </div>,
-                ];
-              }
-              if (message.type === "action-card") {
-                return null;
-              }
-              return (
-                <div key={message.id} className={spacingClass}>
-                  <MessageRenderer
-                    message={message}
-                    onConfirmPayment={handleConfirmPayment}
-                    onSelectPaymentMethod={handleSelectPaymentMethod}
-                    onSubmitMobilePayment={handleSubmitMobilePayment}
-                    avatar={getMessageAvatar(message)}
-                    chatMode={chatMode}
-                    channel={isWhatsApp ? 'whatsapp' : 'web'}
-                  />
-                  {shouldShowFeedbackForMessage(message) ? (
-                    <div className="flex w-full justify-start mt-2 pl-7 sm:pl-8">
-                      <FeedbackActionBar
-                        onThumbsUp={handleFeedbackThumbsUp}
-                        onThumbsDown={handleFeedbackThumbsDown}
-                        onConnectAgent={handleFeedbackConnectAgent}
-                        showThumbs={shouldShowThumbsForFeedbackMessage(message)}
-                        showConnect={shouldShowThumbsForFeedbackMessage(message)}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
 
           {renderCustomContent?.({ selectedProduct, userId })}
 
@@ -2294,12 +2321,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         ? (awaitingAgent ? "Send your message to customer support..." : "Chat with customer support...")
                         : "Type a message..."
                 }
-                disabled={state.isSending || sessionLoading || !!sessionError || isGuidedFormActive}
+                disabled={
+                  state.isSending ||
+                  sessionLoading ||
+                  !!sessionError ||
+                  isGuidedFormActive ||
+                  state.isPurchasing ||
+                  state.showQuoteForm ||
+                  state.messages.some(m => m.type === 'purchase-summary')
+                }
                 className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base leading-relaxed resize-none overflow-y-auto disabled:bg-gray-50 disabled:cursor-not-allowed transition"
               />
               <button
                 onClick={handleSendMessage}
-                disabled={state.inputValue.trim() === "" || state.isSending || sessionLoading || !!sessionError || isGuidedFormActive}
+                disabled={
+                  state.inputValue.trim() === "" ||
+                  state.isSending ||
+                  sessionLoading ||
+                  !!sessionError ||
+                  isGuidedFormActive ||
+                  state.isPurchasing ||
+                  state.showQuoteForm ||
+                  state.messages.some(m => m.type === 'purchase-summary')
+                }
                 className="bg-primary hover:bg-primary/90 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full font-medium transition text-sm flex items-center justify-center w-10 h-10 cursor-pointer shrink-0"
               >
                 <IoSend size={16} className="sm:block" />
