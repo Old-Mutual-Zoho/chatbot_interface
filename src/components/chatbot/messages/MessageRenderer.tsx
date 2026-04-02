@@ -151,13 +151,15 @@ export const MessageRenderer: React.FC<MessageRendererProps & { avatar?: string 
   if (message.sender === "user") {
     return <UserBubble message={message as ChatMessage} channel="web" />;
   }
-  // For new incoming bot messages, use avatar from message if present, else fallback
   if (message.sender === "bot") {
-    const avatarSrc = avatar || (chatMode === "human" ? humanAvatar : Logo);
-    return chatMode === "human"
-      ? <AgentBubble message={message as ChatMessage} avatar={avatarSrc} />
-      : <BotBubble message={message as ChatMessage} avatar={avatarSrc} channel="web" />;
+    const avatarSrc = avatar || Logo;
+    return <BotBubble message={message as ChatMessage} avatar={avatarSrc} channel="web" />;
   }
+  if (message.sender === "agent") {
+    const avatarSrc = avatar || humanAvatar;
+    return <AgentBubble message={message as ChatMessage} avatar={avatarSrc} />;
+  }
+  // fallback: treat as bot
   return <BotBubble message={message as ChatMessage} avatar={Logo} channel="web" />;
 };
 

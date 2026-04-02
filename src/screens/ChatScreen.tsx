@@ -238,11 +238,12 @@ function reducer(state: State, action: Action): State {
     }
     case "RECEIVE_BOT_REPLY": {
       const filtered = state.messages.filter((msg) => msg.type !== "loading");
-      // Determine avatar for this message based on chatMode at dispatch time
-      const avatar = action.chatMode === "human" ? HUMAN_CONFIG.avatar : BOT_CONFIG.avatar;
+      // Use sender 'agent' for human agent, 'bot' otherwise
+      const isAgent = action.chatMode === "human";
+      const avatar = isAgent ? HUMAN_CONFIG.avatar : BOT_CONFIG.avatar;
       const botReply: ChatMessageWithTimestamp & { avatar?: string } = {
-        id: `${Date.now()}-bot`,
-        sender: "bot",
+        id: `${Date.now()}-${isAgent ? 'agent' : 'bot'}`,
+        sender: isAgent ? "agent" : "bot",
         type: "text",
         text: action.payload,
         timestamp: getTimeString(),
