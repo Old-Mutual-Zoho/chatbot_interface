@@ -27,6 +27,7 @@ interface GuidedStepRendererProps {
   confirmationFieldTypeHints?: Record<string, ConfirmationFieldConfig>;
   confirmOnPremiumSummaryActions?: boolean;
   onFormStepActive?: (active: boolean) => void;
+  onConnectAgent?: () => void;
 }
 
 export const GuidedStepRenderer: React.FC<GuidedStepRendererProps> = ({
@@ -1147,7 +1148,8 @@ const AgentRequiredStep: React.FC<{
   step: Extract<GuidedStepResponse, { type: "agent_required" }>;
   onSubmit: (payload: Record<string, unknown>) => void;
   loading: boolean;
-}> = ({ step, onSubmit, loading }) => {
+  onConnectAgent?: () => void;
+}> = ({ step, onSubmit, loading, onConnectAgent }) => {
   const agentInfoRaw = (step as unknown as Record<string, unknown>)['agent_info'];
   const agentInfo = (agentInfoRaw && typeof agentInfoRaw === 'object' && agentInfoRaw !== null)
     ? (agentInfoRaw as Record<string, unknown>)
@@ -1195,13 +1197,16 @@ const AgentRequiredStep: React.FC<{
                   type="button"
                   disabled={loading}
                   onClick={() => {
-                    // If backend says call/schedule, prefer local action; otherwise, notify backend.
                     if (a.type === 'call_agent' && telHref) {
                       window.location.href = telHref;
                       return;
                     }
                     if (a.type === 'schedule_callback' && mailHref) {
                       window.location.href = mailHref;
+                      return;
+                    }
+                    if (a.type === 'connect_agent' && onConnectAgent) {
+                      onConnectAgent();
                       return;
                     }
                     onSubmit({ action: a.type });

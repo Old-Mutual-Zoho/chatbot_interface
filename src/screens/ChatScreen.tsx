@@ -2275,6 +2275,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       loading={inlineGuidedLoading}
                       titleFallback="Quote Details"
                       onFormStepActive={setIsGuidedFormActive}
+                      onConnectAgent={() => requestEscalation({ reason: 'User clicked connect with agent', metadata: { source: 'agent_required_card' } })}
                     />
                   </div>
                 </div>
