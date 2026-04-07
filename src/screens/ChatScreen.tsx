@@ -990,6 +990,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       const response = await sendChatMessage({ user_id: userId, session_id: sessionId || '', message: messageForBackend });
 
+      // --- Escalation/Agent Connected Handling ---
+      // If backend signals escalation or agent connection, switch to human mode
+      if (
+        (typeof response === 'object' && response !== null && (
+          response['mode'] === 'escalated' ||
+          (response['response'] && typeof response['response'] === 'object' && (
+            response['response']['type'] === 'agent_connected' || response['response']['mode'] === 'escalated'
+          ))
+        ))
+      ) {
+        setChatMode('human');
+        setAwaitingAgent?.(true);
+        // Optionally, show the agent connecting message
+        const agentMsg =
+          (response['response'] && typeof response['response'] === 'object' && typeof response['response']['message'] === 'string')
+            ? response['response']['message']
+            : "I'm connecting you with one of our support agents. An agent will join this chat momentarily. Please standby...";
+        return { kind: 'text', text: agentMsg };
+      }
+
       // Update sessionId if backend returns a new one
       const nextSessionId = extractSessionIdFromResponse(response);
       if (nextSessionId && nextSessionId !== sessionId) {

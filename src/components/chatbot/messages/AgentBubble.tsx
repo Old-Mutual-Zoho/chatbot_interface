@@ -18,15 +18,15 @@ export const AgentBubble: React.FC<AgentBubbleProps> = ({ message, avatar, chann
       ) : null}
       <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[80%] break-words">
         <div className={isShort && message.timestamp ? "flex items-center justify-between gap-2" : undefined}>
-          <div className="break-words whitespace-pre-wrap leading-relaxed text-base flex-1">
+          <div className="break-words whitespace-pre-wrap leading-relaxed om-chatbot-message-text flex-1">
             <ReactMarkdown>{message.text || ""}</ReactMarkdown>
           </div>
           {!isWhatsApp && isShort && message.timestamp && (
-            <span className="text-xs text-gray-600 ml-2 whitespace-nowrap">{message.timestamp}</span>
+            <span className="om-chatbot-meta ml-2 whitespace-nowrap">{message.timestamp}</span>
           )}
         </div>
         {!isWhatsApp && !isShort && message.timestamp && (
-          <p className="text-xs text-gray-600 mt-1 text-right">{message.timestamp}</p>
+          <p className="om-chatbot-meta mt-1 text-right">{message.timestamp}</p>
         )}
       </div>
     </div>

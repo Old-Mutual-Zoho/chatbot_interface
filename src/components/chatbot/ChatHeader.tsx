@@ -43,8 +43,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onBack, onClose, agentConfig, c
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full" title="Online"></span>
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="font-semibold text-white text-sm sm:text-base leading-tight truncate">{displayName}</span>
-          <span className="text-[11px] sm:text-xs text-white/80 leading-tight">{status}</span>
+          <span className="font-semibold text-white text-sm sm:text-base leading-tight truncate om-chatbot-message-text">{displayName}</span>
+          <span className="om-chatbot-meta text-white/80 leading-tight">{status}</span>
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">

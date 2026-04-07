@@ -305,11 +305,10 @@ export default function ChatbotContainer({
 
   return (
     <div
-      className={
-        [
-          'flex flex-col w-full h-full bg-white overflow-visible min-h-0',
-        ].join(' ')
-      }
+      className={[
+        'om-chatbot-container',
+        'flex flex-col w-full h-full bg-white overflow-visible min-h-0',
+      ].join(' ')}
     >
       {/* Screens */}
       <div className="flex-1 relative">

@@ -67,15 +67,15 @@ export const BotBubble: React.FC<BotBubbleProps> = ({ message, avatar, channel =
         }
       >
         <div className={isShort && message.timestamp ? "flex items-center justify-between gap-2" : undefined}>
-          <div className="break-words whitespace-pre-wrap leading-relaxed text-base flex-1">
+          <div className="break-words whitespace-pre-wrap leading-relaxed om-chatbot-message-text flex-1">
             <ReactMarkdown>{autoConvertToMarkdown(message.text || "")}</ReactMarkdown>
           </div>
           {!isWhatsApp && isShort && message.timestamp && (
-            <span className="text-xs text-gray-600 ml-2 whitespace-nowrap">{message.timestamp}</span>
+            <span className="om-chatbot-meta ml-2 whitespace-nowrap">{message.timestamp}</span>
           )}
         </div>
         {!isWhatsApp && !isShort && message.timestamp && (
-          <p className="text-xs text-gray-600 mt-1 text-right">{message.timestamp}</p>
+          <p className="om-chatbot-meta mt-1 text-right">{message.timestamp}</p>
         )}
       </div>
     </div>
