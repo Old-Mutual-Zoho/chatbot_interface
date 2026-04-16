@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import type { GuidedStepResponse } from '../services/api';
 import { GuidedStepRenderer } from '../components/form-components/GuidedStepRenderer';
 import { LoadingBubble } from "../components/chatbot/messages/LoadingBubble";
+import { PolicyGuideModal } from '../components/consent/PolicyGuideModal';
 import type { CardFieldConfig as ConfirmationFieldConfig } from '../components/chatbot/messages/ConfirmationCard';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -395,7 +396,19 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
     normalizedSelectedProduct === 'travelinsurance' ||
     // Some UIs send a generic "Travel" label/key.
     normalizedSelectedProduct === 'travel';
-    
+
+  const isSupportedGuidedProduct = isPersonalAccident || isSerenicare || isMotorPrivate || isTravelSurePlus;
+
+  const [hasConsentedToForm, setHasConsentedToForm] = useState(false);
+  const [consentChoice, setConsentChoice] = useState<'agree' | 'decline' | ''>('');
+  const [showPolicyGuide, setShowPolicyGuide] = useState(false);
+  const [policyGuideTab, setPolicyGuideTab] = useState<'policy' | 'guide'>('policy');
+
+  useEffect(() => {
+    if (!isSupportedGuidedProduct) return;
+    if (hasConsentedToForm) return;
+    onFormStepActive?.(false);
+  }, [hasConsentedToForm, isSupportedGuidedProduct, onFormStepActive]);
 
   // --- Backend-driven Personal Accident guided flow state ---
   const [paSessionId, setPaSessionId] = useState<string | null>(sessionId ?? null);
@@ -461,7 +474,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Start or resume backend-driven PA flow
   useEffect(() => {
-    if (!isPersonalAccident || !userId) return;
+    if (!isPersonalAccident || !userId || !hasConsentedToForm) return;
     setPaLoading(true);
     setPaComplete(false);
     setPaFieldErrors({});
@@ -485,11 +498,11 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, userId]);
+  }, [selectedProduct, userId, hasConsentedToForm]);
 
   // Start or resume backend-driven Serenicare flow
   useEffect(() => {
-    if (!isSerenicare || !userId) return;
+    if (!isSerenicare || !userId || !hasConsentedToForm) return;
     setSerenicareLoading(true);
     setSerenicareComplete(false);
     setSerenicareFieldErrors({});
@@ -518,7 +531,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, userId]);
+  }, [selectedProduct, userId, hasConsentedToForm]);
 
   const handleSerenicareChange = (name: string, value: string) => {
     setSerenicareFormData((prev) => ({ ...prev, [name]: value }));
@@ -780,7 +793,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Start or resume backend-driven Motor Private flow
   useEffect(() => {
-    if (!isMotorPrivate || !userId) return;
+    if (!isMotorPrivate || !userId || !hasConsentedToForm) return;
     setMotorLoading(true);
     setMotorComplete(false);
     setMotorFieldErrors({});
@@ -809,7 +822,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProduct, userId]);
+  }, [selectedProduct, userId, hasConsentedToForm]);
 
   // Input change handler for GuidedStepRenderer (Motor Private)
   const handleMotorChange = (name: string, value: string) => {
@@ -909,7 +922,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
 
   // Start or resume Travel flow via /chat/start-guided (backend returns step payload)
   useEffect(() => {
-    if (!isTravelSurePlus || !userId) return;
+    if (!isTravelSurePlus || !userId || !hasConsentedToForm) return;
     if (travelLoading || travelComplete || travelStepPayload) return;
     setTravelLoading(true);
     setTravelComplete(false);
@@ -932,7 +945,7 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
         setTravelLoading(false);
       }
     })();
-  }, [isTravelSurePlus, userId, travelSessionId, travelLoading, travelComplete, travelStepPayload]);
+  }, [isTravelSurePlus, userId, travelSessionId, travelLoading, travelComplete, travelStepPayload, hasConsentedToForm]);
 
   useEffect(() => {
     if (!travelStepPayload || travelStepPayload.type !== 'consent') return;
@@ -1085,6 +1098,87 @@ const QuoteFormScreen: React.FC<QuoteFormScreenProps> = ({ selectedProduct, user
       setTravelLoading(false);
     }
   };
+
+  if (isSupportedGuidedProduct && !hasConsentedToForm) {
+    const canContinue = consentChoice === 'agree';
+
+    return (
+      <div className={embedded ? "w-full" : "flex flex-col h-full bg-white"}>
+        <div className="w-full rounded-2xl p-6 border border-gray-200 bg-white">
+          <h3 className="text-lg font-semibold text-primary">Before we continue</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Please review the Policy and Guide, then confirm your consent to proceed to the quote form.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <input
+                type="radio"
+                name="form_consent"
+                className="mt-1 w-5 h-5 accent-primary"
+                checked={consentChoice === 'agree'}
+                onChange={() => setConsentChoice('agree')}
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">
+                I agree to the Policy and confirm I have reviewed the Guide.
+                {' '}
+                <button
+                  type="button"
+                  className="text-primary underline underline-offset-2"
+                  onClick={(evt) => {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    setPolicyGuideTab('policy');
+                    setShowPolicyGuide(true);
+                  }}
+                >
+                  View
+                </button>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <input
+                type="radio"
+                name="form_consent"
+                className="mt-1 w-5 h-5 accent-primary"
+                checked={consentChoice === 'decline'}
+                onChange={() => setConsentChoice('decline')}
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">I do not agree.</span>
+            </label>
+          </div>
+
+          {consentChoice === 'decline' ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              You can’t continue to the quote form without consent.
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              disabled={!canContinue}
+              onClick={() => {
+                if (!canContinue) return;
+                setHasConsentedToForm(true);
+                setShowPolicyGuide(false);
+              }}
+              className="px-5 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+
+        <PolicyGuideModal
+          open={showPolicyGuide}
+          onClose={() => setShowPolicyGuide(false)}
+          initialTab={policyGuideTab}
+        />
+      </div>
+    );
+  }
 
   // Render logic for Personal Accident only (backend-driven)
   if (isPersonalAccident) {
